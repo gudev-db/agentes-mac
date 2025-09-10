@@ -63,11 +63,11 @@ def check_password():
         return True
 
 # --- Funções CRUD para Agentes ---
-def criar_agente(nome, prompt_sistema, base_conhecimento):
+def criar_agente(nome, system_prompt, base_conhecimento):
     """Cria um novo agente no MongoDB"""
     agente = {
         "nome": nome,
-        "system_prompt": prompt_sistema,
+        "system_prompt": system_prompt,
         "base_conhecimento": base_conhecimento,
         "data_criacao": datetime.datetime.now(),
         "ativo": True
@@ -171,15 +171,15 @@ with tab_gerenciamento:
             
             with st.form("form_criar_agente"):
                 nome_agente = st.text_input("Nome do Agente:")
-                prompt_sistema = st.text_area("Prompt de Sistema:", height=150, 
+                system_prompt = st.text_area("Prompt de Sistema:", height=150, 
                                             placeholder="Ex: Você é um assistente especializado em...")
                 base_conhecimento = st.text_area("Base de Conhecimento:", height=200,
                                                placeholder="Cole aqui informações, diretrizes, dados...")
                 
                 submitted = st.form_submit_button("Criar Agente")
                 if submitted:
-                    if nome_agente and prompt_sistema:
-                        agente_id = criar_agente(nome_agente, prompt_sistema, base_conhecimento)
+                    if nome_agente and system_prompt:
+                        agente_id = criar_agente(nome_agente, system_prompt, base_conhecimento)
                         st.success(f"Agente '{nome_agente}' criado com sucesso!")
                     else:
                         st.error("Nome e Prompt de Sistema são obrigatórios!")
@@ -219,7 +219,7 @@ with tab_gerenciamento:
             if agentes:
                 for agente in agentes:
                     with st.expander(f"{agente['nome']} - Criado em {agente['data_criacao'].strftime('%d/%m/%Y')}"):
-                        st.write(f"**Prompt de Sistema:** {agente['prompt_sistema']}")
+                        st.write(f"**Prompt de Sistema:** {agente['system_prompt']}")
                         if agente.get('base_conhecimento'):
                             st.write(f"**Base de Conhecimento:** {agente['base_conhecimento'][:200]}...")
                         
@@ -278,7 +278,7 @@ with tab_chat:
             
             # Preparar contexto com prompt do sistema e base de conhecimento
             contexto = f"""
-            {agente['prompt_sistema']}
+            {agente['system_prompt']}
             
             Base de conhecimento:
             {agente.get('base_conhecimento', '')}
@@ -331,7 +331,7 @@ with tab_aprovacao:
                             image.save(img_bytes, format=image.format)
                             
                             prompt_analise = f"""
-                            {agente['prompt_sistema']}
+                            {agente['system_prompt']}
                             
                             Base de conhecimento:
                             {agente.get('base_conhecimento', '')}
@@ -357,7 +357,7 @@ with tab_aprovacao:
             if st.button("Validar Texto", key="validate_text"):
                 with st.spinner('Analisando texto...'):
                     prompt_analise = f"""
-                    {agente['prompt_sistema']}
+                    {agente['system_prompt']}
                     
                     Base de conhecimento:
                     {agente.get('base_conhecimento', '')}
@@ -406,7 +406,7 @@ with tab_geracao:
             if st.button("Gerar Especificações Visuais", key="gen_visual"):
                 with st.spinner('Criando guia de estilo...'):
                     prompt = f"""
-                    {agente['prompt_sistema']}
+                    {agente['system_prompt']}
                     
                     Base de conhecimento:
                     {agente.get('base_conhecimento', '')}
@@ -430,7 +430,7 @@ with tab_geracao:
             if st.button("Gerar Textos", key="gen_copy"):
                 with st.spinner('Desenvolvendo conteúdo textual...'):
                     prompt = f"""
-                    {agente['prompt_sistema']}
+                    {agente['system_prompt']}
                     
                     Base de conhecimento:
                     {agente.get('base_conhecimento', '')}
@@ -500,7 +500,7 @@ with tab_resumo:
                             }[nivel_resumo]
                             
                             prompt = f"""
-                            {agente['prompt_sistema']}
+                            {agente['system_prompt']}
                             
                             Base de conhecimento:
                             {agente.get('base_conhecimento', '')}
