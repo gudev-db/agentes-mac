@@ -198,7 +198,7 @@ with tab_gerenciamento:
                     
                     with st.form("form_editar_agente"):
                         novo_nome = st.text_input("Nome do Agente:", value=agente['nome'])
-                        novo_prompt = st.text_area("Prompt de Sistema:", value=agente['prompt_sistema'], height=150)
+                        novo_prompt = st.text_area("Prompt de Sistema:", value=agente['system_prompt'], height=150)
                         nova_base = st.text_area("Base de Conhecimento:", value=agente.get('base_conhecimento', ''), height=200)
                         
                         submitted = st.form_submit_button("Atualizar Agente")
