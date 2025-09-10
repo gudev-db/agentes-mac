@@ -6,6 +6,7 @@ import requests
 import datetime
 import os
 from pymongo import MongoClient
+from bson import ObjectId
 import json
 
 # Configuração inicial
@@ -17,7 +18,7 @@ st.set_page_config(
 
 # Conexão com MongoDB
 client = MongoClient("mongodb+srv://gustavoromao3345:RqWFPNOJQfInAW1N@cluster0.5iilj.mongodb.net/auto_doc?retryWrites=true&w=majority&ssl=true&ssl_cert_reqs=CERT_NONE&tlsAllowInvalidCertificates=true")
-db = client['agentes_generativos']
+db = client['agentes_personalizados']
 collection_agentes = db['agentes']
 collection_conversas = db['conversas']
 
@@ -80,10 +81,14 @@ def listar_agentes():
 
 def obter_agente(agente_id):
     """Obtém um agente específico pelo ID"""
+    if isinstance(agente_id, str):
+        agente_id = ObjectId(agente_id)
     return collection_agentes.find_one({"_id": agente_id})
 
 def atualizar_agente(agente_id, nome, prompt_sistema, base_conhecimento):
     """Atualiza um agente existente"""
+    if isinstance(agente_id, str):
+        agente_id = ObjectId(agente_id)
     return collection_agentes.update_one(
         {"_id": agente_id},
         {
@@ -98,6 +103,8 @@ def atualizar_agente(agente_id, nome, prompt_sistema, base_conhecimento):
 
 def desativar_agente(agente_id):
     """Desativa um agente (soft delete)"""
+    if isinstance(agente_id, str):
+        agente_id = ObjectId(agente_id)
     return collection_agentes.update_one(
         {"_id": agente_id},
         {"$set": {"ativo": False, "data_desativacao": datetime.datetime.now()}}
@@ -105,6 +112,8 @@ def desativar_agente(agente_id):
 
 def salvar_conversa(agente_id, mensagens):
     """Salva uma conversa no histórico"""
+    if isinstance(agente_id, str):
+        agente_id = ObjectId(agente_id)
     conversa = {
         "agente_id": agente_id,
         "mensagens": mensagens,
@@ -114,6 +123,8 @@ def salvar_conversa(agente_id, mensagens):
 
 def obter_conversas(agente_id, limite=10):
     """Obtém o histórico de conversas de um agente"""
+    if isinstance(agente_id, str):
+        agente_id = ObjectId(agente_id)
     return list(collection_conversas.find(
         {"agente_id": agente_id}
     ).sort("data_criacao", -1).limit(limite))
