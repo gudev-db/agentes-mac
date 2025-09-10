@@ -67,7 +67,7 @@ def criar_agente(nome, prompt_sistema, base_conhecimento):
     """Cria um novo agente no MongoDB"""
     agente = {
         "nome": nome,
-        "prompt_sistema": prompt_sistema,
+        "system_prompt": prompt_sistema,
         "base_conhecimento": base_conhecimento,
         "data_criacao": datetime.datetime.now(),
         "ativo": True
