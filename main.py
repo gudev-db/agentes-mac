@@ -85,7 +85,7 @@ def obter_agente(agente_id):
         agente_id = ObjectId(agente_id)
     return collection_agentes.find_one({"_id": agente_id})
 
-def atualizar_agente(agente_id, nome, prompt_sistema, base_conhecimento):
+def atualizar_agente(agente_id, nome, system_prompt, base_conhecimento):
     """Atualiza um agente existente"""
     if isinstance(agente_id, str):
         agente_id = ObjectId(agente_id)
@@ -94,7 +94,7 @@ def atualizar_agente(agente_id, nome, prompt_sistema, base_conhecimento):
         {
             "$set": {
                 "nome": nome,
-                "prompt_sistema": prompt_sistema,
+                "system_prompt": system_prompt,
                 "base_conhecimento": base_conhecimento,
                 "data_atualizacao": datetime.datetime.now()
             }
