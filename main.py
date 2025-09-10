@@ -8,6 +8,7 @@ import os
 from pymongo import MongoClient
 from bson import ObjectId
 import json
+import hashlib
 
 # Configuração inicial
 st.set_page_config(
@@ -16,7 +17,47 @@ st.set_page_config(
     page_icon="🤖"
 )
 
-# Conexão com MongoDB
+# --- Sistema de Autenticação ---
+def make_hashes(password):
+    return hashlib.sha256(str.encode(password)).hexdigest()
+
+def check_hashes(password, hashed_text):
+    return make_hashes(password) == hashed_text
+
+# Dados de usuário (em produção, isso deve vir de um banco de dados seguro)
+users = {
+    "admin": make_hashes("senha1234"),  # admin/senha1234
+    "user1": make_hashes("password1"),  # user1/password1
+    "user2": make_hashes("password2")   # user2/password2
+}
+
+def login():
+    """Formulário de login"""
+    st.title("🔒 Agente Generativo - Login")
+    
+    with st.form("login_form"):
+        username = st.text_input("Usuário")
+        password = st.text_input("Senha", type="password")
+        submit_button = st.form_submit_button("Login")
+        
+        if submit_button:
+            if username in users and check_hashes(password, users[username]):
+                st.session_state.logged_in = True
+                st.session_state.user = username
+                st.success("Login realizado com sucesso!")
+                st.rerun()
+            else:
+                st.error("Usuário ou senha incorretos")
+
+# Verificar se o usuário está logado
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+
+if not st.session_state.logged_in:
+    login()
+    st.stop()
+
+# --- CONEXÃO MONGODB (após login) ---
 client = MongoClient("mongodb+srv://gustavoromao3345:RqWFPNOJQfInAW1N@cluster0.5iilj.mongodb.net/auto_doc?retryWrites=true&w=majority&ssl=true&ssl_cert_reqs=CERT_NONE&tlsAllowInvalidCertificates=true")
 db = client['agentes_personalizados']
 collection_agentes = db['agentes']
@@ -32,31 +73,37 @@ genai.configure(api_key=gemini_api_key)
 modelo_vision = genai.GenerativeModel("gemini-1.5-flash", generation_config={"temperature": 0.1})
 modelo_texto = genai.GenerativeModel("gemini-1.5-flash")
 
-# --- Configuração de Autenticação Simples ---
-def check_password():
-    """Retorna True se o usuário fornecer a senha correta."""
+# --- Configuração de Autenticação de Administrador ---
+def check_admin_password():
+    """Retorna True se o usuário fornecer a senha de admin correta."""
     
-    def password_entered():
-        """Verifica se a senha está correta."""
-        if st.session_state["password"] == "senha123":
-            st.session_state["password_correct"] = True
-            st.session_state["user"] = "admin"
-            del st.session_state["password"]  # Não armazena a senha
+    def admin_password_entered():
+        """Verifica se a senha de admin está correta."""
+        if st.session_state["admin_password"] == "senha123":
+            st.session_state["admin_password_correct"] = True
+            st.session_state["admin_user"] = "admin"
+            del st.session_state["admin_password"]
         else:
-            st.session_state["password_correct"] = False
+            st.session_state["admin_password_correct"] = False
 
-    if "password_correct" not in st.session_state:
-        # Mostra o input para senha primeiro
+    if "admin_password_correct" not in st.session_state:
+        # Mostra o input para senha de admin
         st.text_input(
-            "Senha", type="password", on_change=password_entered, key="password"
+            "Senha de Administrador", 
+            type="password", 
+            on_change=admin_password_entered, 
+            key="admin_password"
         )
         return False
-    elif not st.session_state["password_correct"]:
+    elif not st.session_state["admin_password_correct"]:
         # Senha incorreta, mostra input + erro
         st.text_input(
-            "Senha", type="password", on_change=password_entered, key="password"
+            "Senha de Administrador", 
+            type="password", 
+            on_change=admin_password_entered, 
+            key="admin_password"
         )
-        st.error("😕 Senha incorreta")
+        st.error("😕 Senha de administrador incorreta")
         return False
     else:
         # Senha correta
@@ -130,6 +177,15 @@ def obter_conversas(agente_id, limite=10):
     ).sort("data_criacao", -1).limit(limite))
 
 # --- Interface Principal ---
+st.sidebar.title(f"🤖 Bem-vindo, {st.session_state.user}!")
+
+# Botão de logout na sidebar
+if st.sidebar.button("🚪 Sair"):
+    for key in ["logged_in", "user", "admin_password_correct", "admin_user"]:
+        if key in st.session_state:
+            del st.session_state[key]
+    st.rerun()
+
 st.title("🤖 Agente Generativo Personalizável")
 
 # Inicializar estado da sessão
@@ -151,91 +207,96 @@ with tab_gerenciamento:
     st.header("Gerenciamento de Agentes")
     
     # Verificar autenticação apenas para gerenciamento
-    if not check_password():
+    if st.session_state.user != "admin":
         st.warning("Acesso restrito a administradores")
     else:
-        # Mostra o botão de logout
-        if st.button("Logout"):
-            for key in ["password_correct", "user"]:
-                if key in st.session_state:
-                    del st.session_state[key]
-            st.rerun()
-        
-        st.write(f'Bem-vindo administrador!')
-        
-        # Subabas para gerenciamento
-        sub_tab1, sub_tab2, sub_tab3 = st.tabs(["Criar Agente", "Editar Agente", "Gerenciar Agentes"])
-        
-        with sub_tab1:
-            st.subheader("Criar Novo Agente")
+        # Verificar senha de admin
+        if not check_admin_password():
+            st.warning("Digite a senha de administrador")
+        else:
+            # Mostra o botão de logout admin
+            if st.button("Logout Admin"):
+                if "admin_password_correct" in st.session_state:
+                    del st.session_state["admin_password_correct"]
+                if "admin_user" in st.session_state:
+                    del st.session_state["admin_user"]
+                st.rerun()
             
-            with st.form("form_criar_agente"):
-                nome_agente = st.text_input("Nome do Agente:")
-                system_prompt = st.text_area("Prompt de Sistema:", height=150, 
-                                            placeholder="Ex: Você é um assistente especializado em...")
-                base_conhecimento = st.text_area("Base de Conhecimento:", height=200,
-                                               placeholder="Cole aqui informações, diretrizes, dados...")
-                
-                submitted = st.form_submit_button("Criar Agente")
-                if submitted:
-                    if nome_agente and system_prompt:
-                        agente_id = criar_agente(nome_agente, system_prompt, base_conhecimento)
-                        st.success(f"Agente '{nome_agente}' criado com sucesso!")
-                    else:
-                        st.error("Nome e Prompt de Sistema são obrigatórios!")
-        
-        with sub_tab2:
-            st.subheader("Editar Agente Existente")
+            st.write(f'Bem-vindo administrador!')
             
-            agentes = listar_agentes()
-            if agentes:
-                agente_options = {agente['nome']: agente for agente in agentes}
-                agente_selecionado_nome = st.selectbox("Selecione o agente para editar:", 
-                                                     list(agente_options.keys()))
+            # Subabas para gerenciamento
+            sub_tab1, sub_tab2, sub_tab3 = st.tabs(["Criar Agente", "Editar Agente", "Gerenciar Agentes"])
+            
+            with sub_tab1:
+                st.subheader("Criar Novo Agente")
                 
-                if agente_selecionado_nome:
-                    agente = agente_options[agente_selecionado_nome]
+                with st.form("form_criar_agente"):
+                    nome_agente = st.text_input("Nome do Agente:")
+                    system_prompt = st.text_area("Prompt de Sistema:", height=150, 
+                                                placeholder="Ex: Você é um assistente especializado em...")
+                    base_conhecimento = st.text_area("Base de Conhecimento:", height=200,
+                                                   placeholder="Cole aqui informações, diretrizes, dados...")
                     
-                    with st.form("form_editar_agente"):
-                        novo_nome = st.text_input("Nome do Agente:", value=agente['nome'])
-                        novo_prompt = st.text_area("Prompt de Sistema:", value=agente['system_prompt'], height=150)
-                        nova_base = st.text_area("Base de Conhecimento:", value=agente.get('base_conhecimento', ''), height=200)
-                        
-                        submitted = st.form_submit_button("Atualizar Agente")
-                        if submitted:
-                            if novo_nome and novo_prompt:
-                                atualizar_agente(agente['_id'], novo_nome, novo_prompt, nova_base)
-                                st.success(f"Agente '{novo_nome}' atualizado com sucesso!")
-                                st.rerun()
-                            else:
-                                st.error("Nome e Prompt de Sistema são obrigatórios!")
-            else:
-                st.info("Nenhum agente criado ainda.")
-        
-        with sub_tab3:
-            st.subheader("Gerenciar Agentes")
+                    submitted = st.form_submit_button("Criar Agente")
+                    if submitted:
+                        if nome_agente and system_prompt:
+                            agente_id = criar_agente(nome_agente, system_prompt, base_conhecimento)
+                            st.success(f"Agente '{nome_agente}' criado com sucesso!")
+                        else:
+                            st.error("Nome e Prompt de Sistema são obrigatórios!")
             
-            agentes = listar_agentes()
-            if agentes:
-                for agente in agentes:
-                    with st.expander(f"{agente['nome']} - Criado em {agente['data_criacao'].strftime('%d/%m/%Y')}"):
-                        st.write(f"**Prompt de Sistema:** {agente['system_prompt']}")
-                        if agente.get('base_conhecimento'):
-                            st.write(f"**Base de Conhecimento:** {agente['base_conhecimento'][:200]}...")
+            with sub_tab2:
+                st.subheader("Editar Agente Existente")
+                
+                agentes = listar_agentes()
+                if agentes:
+                    agente_options = {agente['nome']: agente for agente in agentes}
+                    agente_selecionado_nome = st.selectbox("Selecione o agente para editar:", 
+                                                         list(agente_options.keys()))
+                    
+                    if agente_selecionado_nome:
+                        agente = agente_options[agente_selecionado_nome]
                         
-                        col1, col2 = st.columns(2)
-                        with col1:
-                            if st.button("Selecionar para Chat", key=f"select_{agente['_id']}"):
-                                st.session_state.agente_selecionado = agente
-                                st.session_state.messages = []
-                                st.success(f"Agente '{agente['nome']}' selecionado!")
-                        with col2:
-                            if st.button("Desativar", key=f"delete_{agente['_id']}"):
-                                desativar_agente(agente['_id'])
-                                st.success(f"Agente '{agente['nome']}' desativado!")
-                                st.rerun()
-            else:
-                st.info("Nenhum agente criado ainda.")
+                        with st.form("form_editar_agente"):
+                            novo_nome = st.text_input("Nome do Agente:", value=agente['nome'])
+                            novo_prompt = st.text_area("Prompt de Sistema:", value=agente['system_prompt'], height=150)
+                            nova_base = st.text_area("Base de Conhecimento:", value=agente.get('base_conhecimento', ''), height=200)
+                            
+                            submitted = st.form_submit_button("Atualizar Agente")
+                            if submitted:
+                                if novo_nome and novo_prompt:
+                                    atualizar_agente(agente['_id'], novo_nome, novo_prompt, nova_base)
+                                    st.success(f"Agente '{novo_nome}' atualizado com sucesso!")
+                                    st.rerun()
+                                else:
+                                    st.error("Nome e Prompt de Sistema são obrigatórios!")
+                else:
+                    st.info("Nenhum agente criado ainda.")
+            
+            with sub_tab3:
+                st.subheader("Gerenciar Agentes")
+                
+                agentes = listar_agentes()
+                if agentes:
+                    for agente in agentes:
+                        with st.expander(f"{agente['nome']} - Criado em {agente['data_criacao'].strftime('%d/%m/%Y')}"):
+                            st.write(f"**Prompt de Sistema:** {agente['system_prompt']}")
+                            if agente.get('base_conhecimento'):
+                                st.write(f"**Base de Conhecimento:** {agente['base_conhecimento'][:200]}...")
+                            
+                            col1, col2 = st.columns(2)
+                            with col1:
+                                if st.button("Selecionar para Chat", key=f"select_{agente['_id']}"):
+                                    st.session_state.agente_selecionado = agente
+                                    st.session_state.messages = []
+                                    st.success(f"Agente '{agente['nome']}' selecionado!")
+                            with col2:
+                                if st.button("Desativar", key=f"delete_{agente['_id']}"):
+                                    desativar_agente(agente['_id'])
+                                    st.success(f"Agente '{agente['nome']}' desativado!")
+                                    st.rerun()
+                else:
+                    st.info("Nenhum agente criado ainda.")
 
 with tab_chat:
     st.header("💬 Chat com Agente")
