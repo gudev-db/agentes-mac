@@ -110,12 +110,13 @@ def check_admin_password():
         return True
 
 # --- Funções CRUD para Agentes ---
-def criar_agente(nome, system_prompt, base_conhecimento):
+def criar_agente(nome, system_prompt, base_conhecimento, comments):
     """Cria um novo agente no MongoDB"""
     agente = {
         "nome": nome,
         "system_prompt": system_prompt,
         "base_conhecimento": base_conhecimento,
+        "comments": comments,
         "data_criacao": datetime.datetime.now(),
         "ativo": True
     }
