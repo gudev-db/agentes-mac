@@ -132,7 +132,7 @@ def obter_agente(agente_id):
         agente_id = ObjectId(agente_id)
     return collection_agentes.find_one({"_id": agente_id})
 
-def atualizar_agente(agente_id, nome, system_prompt, base_conhecimento):
+def atualizar_agente(agente_id, nome, system_prompt, base_conhecimento, comments):
     """Atualiza um agente existente"""
     if isinstance(agente_id, str):
         agente_id = ObjectId(agente_id)
@@ -143,6 +143,7 @@ def atualizar_agente(agente_id, nome, system_prompt, base_conhecimento):
                 "nome": nome,
                 "system_prompt": system_prompt,
                 "base_conhecimento": base_conhecimento,
+                "comments": comments,
                 "data_atualizacao": datetime.datetime.now()
             }
         }
@@ -236,11 +237,13 @@ with tab_gerenciamento:
                                                 placeholder="Ex: Você é um assistente especializado em...")
                     base_conhecimento = st.text_area("Base de Conhecimento:", height=200,
                                                    placeholder="Cole aqui informações, diretrizes, dados...")
+                    comments = st.text_area("Comentários do cliente:", height=200,
+                                                   placeholder="Cole aqui os comentários de ajuste do cliente (Se houver)")
                     
                     submitted = st.form_submit_button("Criar Agente")
                     if submitted:
                         if nome_agente and system_prompt:
-                            agente_id = criar_agente(nome_agente, system_prompt, base_conhecimento)
+                            agente_id = criar_agente(nome_agente, system_prompt, base_conhecimento, comments)
                             st.success(f"Agente '{nome_agente}' criado com sucesso!")
                         else:
                             st.error("Nome e Prompt de Sistema são obrigatórios!")
@@ -261,11 +264,12 @@ with tab_gerenciamento:
                             novo_nome = st.text_input("Nome do Agente:", value=agente['nome'])
                             novo_prompt = st.text_area("Prompt de Sistema:", value=agente['system_prompt'], height=150)
                             nova_base = st.text_area("Base de Conhecimento:", value=agente.get('base_conhecimento', ''), height=200)
+                            nova_comment = st.text_area("Comentários:", value=agente.get('comments', ''), height=200)
                             
                             submitted = st.form_submit_button("Atualizar Agente")
                             if submitted:
                                 if novo_nome and novo_prompt:
-                                    atualizar_agente(agente['_id'], novo_nome, novo_prompt, nova_base)
+                                    atualizar_agente(agente['_id'], novo_nome, novo_prompt, nova_base, nova_comment)
                                     st.success(f"Agente '{novo_nome}' atualizado com sucesso!")
                                     st.rerun()
                                 else:
@@ -283,6 +287,8 @@ with tab_gerenciamento:
                             st.write(f"**Prompt de Sistema:** {agente['system_prompt']}")
                             if agente.get('base_conhecimento'):
                                 st.write(f"**Base de Conhecimento:** {agente['base_conhecimento'][:200]}...")
+                            if agente.get('comments'):
+                                st.write(f"**Comentários do cliente:** {agente['comments'][:200]}...")
                             
                             col1, col2 = st.columns(2)
                             with col1:
@@ -343,6 +349,9 @@ with tab_chat:
             
             Base de conhecimento:
             {agente.get('base_conhecimento', '')}
+
+            Comentários de ajuste de conteúdo do cliente:
+            {agente.get('comments', '')}
             
             Histórico da conversa:
             """
@@ -395,7 +404,14 @@ with tab_aprovacao:
                             {agente['system_prompt']}
                             
                             Base de conhecimento:
+                            ###BEGIN BASE DE CONHECIMENTO###
                             {agente.get('base_conhecimento', '')}
+                            ###END BASE DE CONHECIMENTO###
+
+                            Comentários de observação de conteúdo do cliente:
+                            ###BEGIN COMMENTS FROM CLIENT###
+                            {agente.get('comments', '')}
+                            ###END COMMENTS FROM CLIENT###
                             
                             Analise esta imagem e forneça um parecer detalhado com:
                             - ✅ Pontos positivos
@@ -420,8 +436,15 @@ with tab_aprovacao:
                     prompt_analise = f"""
                     {agente['system_prompt']}
                     
-                    Base de conhecimento:
-                    {agente.get('base_conhecimento', '')}
+                            Base de conhecimento:
+                            ###BEGIN BASE DE CONHECIMENTO###
+                            {agente.get('base_conhecimento', '')}
+                            ###END BASE DE CONHECIMENTO###
+
+                            Comentários de observação de conteúdo do cliente:
+                            ###BEGIN COMMENTS FROM CLIENT###
+                            {agente.get('comments', '')}
+                            ###END COMMENTS FROM CLIENT###
                     
                     Analise este texto e forneça um parecer detalhado:
                     
@@ -469,8 +492,15 @@ with tab_geracao:
                     prompt = f"""
                     {agente['system_prompt']}
                     
-                    Base de conhecimento:
-                    {agente.get('base_conhecimento', '')}
+                            Base de conhecimento:
+                            ###BEGIN BASE DE CONHECIMENTO###
+                            {agente.get('base_conhecimento', '')}
+                            ###END BASE DE CONHECIMENTO###
+
+                            Comentários de observação de conteúdo do cliente:
+                            ###BEGIN COMMENTS FROM CLIENT###
+                            {agente.get('comments', '')}
+                            ###END COMMENTS FROM CLIENT###
                     
                     Com base no briefing: {campanha_brief}
                     
@@ -493,8 +523,15 @@ with tab_geracao:
                     prompt = f"""
                     {agente['system_prompt']}
                     
-                    Base de conhecimento:
-                    {agente.get('base_conhecimento', '')}
+                            Base de conhecimento:
+                            ###BEGIN BASE DE CONHECIMENTO###
+                            {agente.get('base_conhecimento', '')}
+                            ###END BASE DE CONHECIMENTO###
+
+                            Comentários de observação de conteúdo do cliente:
+                            ###BEGIN COMMENTS FROM CLIENT###
+                            {agente.get('comments', '')}
+                            ###END COMMENTS FROM CLIENT###
                     
                     Com base no briefing: {campanha_brief}
                     
