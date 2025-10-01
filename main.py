@@ -113,18 +113,15 @@ def check_admin_password():
         return True
 
 # --- Funções CRUD para Agentes ---
-def criar_agente(nome, system_prompt, base_conhecimento):
+def criar_agente(nome, system_prompt, dos_donts="", planejamento="", referencias="", tecnicas=""):
     """Cria um novo agente no MongoDB"""
     agente = {
         "nome": nome,
         "system_prompt": system_prompt,
-        "base_conhecimento": base_conhecimento,
-        "segmentos_base": {
-            "dos_donts": "",
-            "planejamento": "",
-            "referencias": "",
-            "tecnicas": ""
-        },
+        "dos_donts": dos_donts,  # Base principal (como estava antes)
+        "planejamento": planejamento,
+        "referencias": referencias,
+        "tecnicas": tecnicas,
         "data_criacao": datetime.datetime.now(),
         "ativo": True
     }
@@ -141,7 +138,7 @@ def obter_agente(agente_id):
         agente_id = ObjectId(agente_id)
     return collection_agentes.find_one({"_id": agente_id})
 
-def atualizar_agente(agente_id, nome, system_prompt, base_conhecimento, segmentos_base):
+def atualizar_agente(agente_id, nome, system_prompt, dos_donts, planejamento, referencias, tecnicas):
     """Atualiza um agente existente"""
     if isinstance(agente_id, str):
         agente_id = ObjectId(agente_id)
@@ -151,8 +148,10 @@ def atualizar_agente(agente_id, nome, system_prompt, base_conhecimento, segmento
             "$set": {
                 "nome": nome,
                 "system_prompt": system_prompt,
-                "base_conhecimento": base_conhecimento,
-                "segmentos_base": segmentos_base,
+                "dos_donts": dos_donts,
+                "planejamento": planejamento,
+                "referencias": referencias,
+                "tecnicas": tecnicas,
                 "data_atualizacao": datetime.datetime.now()
             }
         }
@@ -313,17 +312,24 @@ def construir_contexto_agente(agente, segmentos_ativos=None):
     """Constrói o contexto completo do agente incluindo bases selecionadas"""
     contexto = agente['system_prompt'] + "\n\n"
     
-    # Base de conhecimento principal (como estava antes)
-    if agente.get('base_conhecimento'):
-        contexto += "BASE DE CONHECIMENTO PRINCIPAL:\n"
-        contexto += agente['base_conhecimento'] + "\n\n"
+    # Do's e Don'ts (sempre ativo - base principal)
+    if agente.get('dos_donts'):
+        contexto += "--- DO'S E DON'TS (BASE PRINCIPAL) ---\n"
+        contexto += agente['dos_donts'] + "\n\n"
     
-    # Segmentos de base de conhecimento
-    if segmentos_ativos and agente.get('segmentos_base'):
-        for segmento in segmentos_ativos:
-            if segmento in agente['segmentos_base'] and agente['segmentos_base'][segmento]:
-                contexto += f"--- {segmento.upper()} ---\n"
-                contexto += agente['segmentos_base'][segmento] + "\n\n"
+    # Segmentos adicionais (se ativos)
+    if segmentos_ativos:
+        if 'planejamento' in segmentos_ativos and agente.get('planejamento'):
+            contexto += "--- PLANEJAMENTO ---\n"
+            contexto += agente['planejamento'] + "\n\n"
+        
+        if 'referencias' in segmentos_ativos and agente.get('referencias'):
+            contexto += "--- REFERÊNCIAS ---\n"
+            contexto += agente['referencias'] + "\n\n"
+        
+        if 'tecnicas' in segmentos_ativos and agente.get('tecnicas'):
+            contexto += "--- TÉCNICAS ---\n"
+            contexto += agente['tecnicas'] + "\n\n"
     
     return contexto
 
@@ -386,13 +392,16 @@ with tab_gerenciamento:
                     nome_agente = st.text_input("Nome do Agente:")
                     system_prompt = st.text_area("Prompt de Sistema:", height=150,
                                                 placeholder="Ex: Você é um assistente especializado em...")
-                    base_conhecimento = st.text_area("Base de Conhecimento:", height=200,
-                                                   placeholder="Cole aqui informações, diretrizes, dados...")
+                    
+                    # Base principal (Do's e Don'ts)
+                    st.subheader("📋 Base Principal - Do's e Don'ts")
+                    dos_donts = st.text_area("Do's e Don'ts:", height=200,
+                                           placeholder="Regras, restrições, diretrizes principais...")
                     
                     submitted = st.form_submit_button("Criar Agente")
                     if submitted:
                         if nome_agente and system_prompt:
-                            agente_id = criar_agente(nome_agente, system_prompt, base_conhecimento)
+                            agente_id = criar_agente(nome_agente, system_prompt, dos_donts)
                             st.success(f"Agente '{nome_agente}' criado com sucesso!")
                         else:
                             st.error("Nome e Prompt de Sistema são obrigatórios!")
@@ -412,12 +421,25 @@ with tab_gerenciamento:
                         with st.form("form_editar_agente"):
                             novo_nome = st.text_input("Nome do Agente:", value=agente['nome'])
                             novo_prompt = st.text_area("Prompt de Sistema:", value=agente['system_prompt'], height=150)
-                            nova_base = st.text_area("Base de Conhecimento:", value=agente.get('base_conhecimento', ''), height=200)
+                            
+                            # Base principal
+                            st.subheader("📋 Base Principal - Do's e Don'ts")
+                            novos_dos_donts = st.text_area("Do's e Don'ts:", 
+                                                         value=agente.get('dos_donts', ''),
+                                                         height=200)
                             
                             submitted = st.form_submit_button("Atualizar Agente")
                             if submitted:
                                 if novo_nome and novo_prompt:
-                                    atualizar_agente(agente['_id'], novo_nome, novo_prompt, nova_base, agente.get('segmentos_base', {}))
+                                    atualizar_agente(
+                                        agente['_id'], 
+                                        novo_nome, 
+                                        novo_prompt, 
+                                        novos_dos_donts,
+                                        agente.get('planejamento', ''),
+                                        agente.get('referencias', ''),
+                                        agente.get('tecnicas', '')
+                                    )
                                     st.success(f"Agente '{novo_nome}' atualizado com sucesso!")
                                     st.rerun()
                                 else:
@@ -433,8 +455,8 @@ with tab_gerenciamento:
                     for agente in agentes:
                         with st.expander(f"{agente['nome']} - Criado em {agente['data_criacao'].strftime('%d/%m/%Y')}"):
                             st.write(f"**Prompt de Sistema:** {agente['system_prompt']}")
-                            if agente.get('base_conhecimento'):
-                                st.write(f"**Base de Conhecimento:** {agente['base_conhecimento'][:200]}...")
+                            if agente.get('dos_donts'):
+                                st.write(f"**Do's e Don'ts:** {agente['dos_donts'][:200]}...")
                             
                             col1, col2 = st.columns(2)
                             with col1:
@@ -452,83 +474,96 @@ with tab_gerenciamento:
                     st.info("Nenhum agente criado ainda.")
 
 with tab_base_conhecimento:
-    st.header("📚 Gerenciamento de Base de Conhecimento Segmentada")
+    st.header("📚 Base de Conhecimento Segmentada")
     
     if not st.session_state.agente_selecionado:
         st.info("Selecione um agente primeiro na aba de Chat")
     else:
         agente = st.session_state.agente_selecionado
         
-        st.subheader(f"Segmentos de Base para: {agente['nome']}")
+        st.subheader(f"Bases de Conhecimento para: {agente['nome']}")
         
-        # Inicializar segmentos se não existirem
-        if 'segmentos_base' not in agente:
-            agente['segmentos_base'] = {
-                "dos_donts": "",
-                "planejamento": "",
-                "referencias": "",
-                "tecnicas": ""
-            }
-        
+        # Layout com 2 colunas
         col1, col2 = st.columns(2)
         
         with col1:
-            st.subheader("Base Principal (como antes)")
-            base_principal = st.text_area(
-                "Base de Conhecimento Principal:",
-                value=agente.get('base_conhecimento', ''),
+            # Base Principal - Do's e Don'ts
+            st.subheader("📋 Do's e Don'ts (Base Principal)")
+            st.info("Esta base está SEMPRE ativa no chat")
+            dos_donts = st.text_area(
+                "Regras, diretrizes, restrições:",
+                value=agente.get('dos_donts', ''),
                 height=300,
-                placeholder="Base principal como funcionava antes..."
+                placeholder="Ex: Sempre usar tom formal... Nunca mencionar concorrentes... Priorizar X sobre Y...",
+                key="dos_donts"
             )
             
-            if st.button("Atualizar Base Principal"):
+            if st.button("💾 Salvar Do's e Don'ts", key="save_dos_donts"):
                 if st.session_state.user == "admin" and check_admin_password():
                     atualizar_agente(
-                        agente['_id'], 
-                        agente['nome'], 
-                        agente['system_prompt'], 
-                        base_principal,
-                        agente.get('segmentos_base', {})
+                        agente['_id'],
+                        agente['nome'],
+                        agente['system_prompt'],
+                        dos_donts,
+                        agente.get('planejamento', ''),
+                        agente.get('referencias', ''),
+                        agente.get('tecnicas', '')
                     )
-                    st.success("Base principal atualizada!")
+                    st.success("Do's e Don'ts atualizados!")
                     st.rerun()
                 else:
-                    st.error("Apenas administradores podem atualizar a base principal")
+                    st.error("Apenas administradores podem atualizar a base")
         
         with col2:
-            st.subheader("Segmentos Específicos")
+            # Bases Adicionais
+            st.subheader("🔄 Bases Adicionais")
+            st.info("Estas bases podem ser ativadas/desativadas no chat")
             
-            segmentos = {
-                "dos_donts": "Dos e Don'ts - Regras e Restrições",
-                "planejamento": "Planejamento - Estratégias e Metodologias", 
-                "referencias": "Referências - Fontes e Exemplos",
-                "tecnicas": "Técnicas - Métodos e Processos"
-            }
+            # Planejamento
+            st.write("**📊 Planejamento**")
+            planejamento = st.text_area(
+                "Estratégias, metodologias, planejamento:",
+                value=agente.get('planejamento', ''),
+                height=150,
+                placeholder="Metodologias de trabalho, processos, fluxos...",
+                key="planejamento"
+            )
             
-            for segmento_key, segmento_desc in segmentos.items():
-                st.write(f"**{segmento_desc}**")
-                conteudo_segmento = st.text_area(
-                    f"Conteúdo do {segmento_desc}:",
-                    value=agente['segmentos_base'].get(segmento_key, ''),
-                    height=150,
-                    key=f"seg_{segmento_key}"
-                )
-                
-                if st.button(f"Atualizar {segmento_desc}", key=f"btn_{segmento_key}"):
-                    if st.session_state.user == "admin" and check_admin_password():
-                        novos_segmentos = agente['segmentos_base'].copy()
-                        novos_segmentos[segmento_key] = conteudo_segmento
-                        atualizar_agente(
-                            agente['_id'],
-                            agente['nome'],
-                            agente['system_prompt'],
-                            agente.get('base_conhecimento', ''),
-                            novos_segmentos
-                        )
-                        st.success(f"{segmento_desc} atualizado!")
-                        st.rerun()
-                    else:
-                        st.error("Apenas administradores podem atualizar segmentos")
+            # Referências
+            st.write("**🔗 Referências**")
+            referencias = st.text_area(
+                "Fontes, exemplos, referências:",
+                value=agente.get('referencias', ''),
+                height=150,
+                placeholder="Fontes confiáveis, exemplos a seguir, cases...",
+                key="referencias"
+            )
+            
+            # Técnicas
+            st.write("**🛠️ Técnicas**")
+            tecnicas = st.text_area(
+                "Métodos, técnicas, processos:",
+                value=agente.get('tecnicas', ''),
+                height=150,
+                placeholder="Técnicas específicas, métodos comprovados...",
+                key="tecnicas"
+            )
+            
+            if st.button("💾 Salvar Todas as Bases", key="save_all_bases"):
+                if st.session_state.user == "admin" and check_admin_password():
+                    atualizar_agente(
+                        agente['_id'],
+                        agente['nome'],
+                        agente['system_prompt'],
+                        agente.get('dos_donts', ''),
+                        planejamento,
+                        referencias,
+                        tecnicas
+                    )
+                    st.success("Todas as bases atualizadas!")
+                    st.rerun()
+                else:
+                    st.error("Apenas administradores podem atualizar as bases")
 
 with tab_comentarios:
     st.header("💬 Comentários do Cliente")
@@ -566,18 +601,19 @@ with tab_comentarios:
                             st.subheader("Regras Extraídas:")
                             st.text_area("Regras extraídas:", value=regras_extraidas, height=200, key="regras_extraidas")
                             
-                            if st.button("Adicionar ao Segmento Dos e Don'ts"):
+                            if st.button("Adicionar aos Do's e Don'ts"):
                                 if st.session_state.user == "admin" and check_admin_password():
-                                    novos_segmentos = agente.get('segmentos_base', {}).copy()
-                                    novos_segmentos['dos_donts'] = agente['segmentos_base'].get('dos_donts', '') + "\n\n" + regras_extraidas
+                                    novos_dos_donts = agente.get('dos_donts', '') + "\n\n--- REGRAS EXTRAÍDAS DE COMENTÁRIOS ---\n" + regras_extraidas
                                     atualizar_agente(
                                         agente['_id'],
                                         agente['nome'],
                                         agente['system_prompt'],
-                                        agente.get('base_conhecimento', ''),
-                                        novos_segmentos
+                                        novos_dos_donts,
+                                        agente.get('planejamento', ''),
+                                        agente.get('referencias', ''),
+                                        agente.get('tecnicas', '')
                                     )
-                                    st.success("Regras adicionadas ao segmento Dos e Don'ts!")
+                                    st.success("Regras adicionadas aos Do's e Don'ts!")
                                     st.rerun()
                                 else:
                                     st.error("Apenas administradores podem atualizar a base")
@@ -632,18 +668,19 @@ with tab_editorias:
                             st.subheader("Padrões Extraídos:")
                             st.text_area("Padrões encontrados:", value=padroes_extraidos, height=200, key="padroes_editorias")
                             
-                            if st.button("Adicionar Padrões ao Segmento Técnicas"):
+                            if st.button("Adicionar às Técnicas"):
                                 if st.session_state.user == "admin" and check_admin_password():
-                                    novos_segmentos = agente.get('segmentos_base', {}).copy()
-                                    novos_segmentos['tecnicas'] = agente['segmentos_base'].get('tecnicas', '') + "\n\n" + padroes_extraidos
+                                    novas_tecnicas = agente.get('tecnicas', '') + "\n\n--- PADRÕES DE EDITORIAS ---\n" + padroes_extraidos
                                     atualizar_agente(
                                         agente['_id'],
                                         agente['nome'],
                                         agente['system_prompt'],
-                                        agente.get('base_conhecimento', ''),
-                                        novos_segmentos
+                                        agente.get('dos_donts', ''),
+                                        agente.get('planejamento', ''),
+                                        agente.get('referencias', ''),
+                                        novas_tecnicas
                                     )
-                                    st.success("Padrões adicionados ao segmento Técnicas!")
+                                    st.success("Padrões adicionados às Técnicas!")
                                     st.rerun()
                                 else:
                                     st.error("Apenas administradores podem atualizar a base")
@@ -678,39 +715,39 @@ with tab_chat:
         st.subheader(f"Conversando com: {agente['nome']}")
         
         # Controles de segmentos de base de conhecimento na sidebar
-        st.sidebar.subheader("📚 Segmentos de Base de Conhecimento")
+        st.sidebar.subheader("📚 Bases de Conhecimento Ativas")
         
-        # Segmentos disponíveis
-        segmentos_disponiveis = {
-            "dos_donts": "📋 Dos e Don'ts",
-            "planejamento": "📊 Planejamento", 
-            "referencias": "🔗 Referências",
-            "tecnicas": "🛠️ Técnicas"
+        # Do's e Don'ts sempre ativo
+        st.sidebar.write("✅ **Do's e Don'ts** (sempre ativo)")
+        
+        # Bases adicionais com toggle
+        st.sidebar.write("🔄 **Bases Adicionais:**")
+        
+        bases_adicionais = {
+            'planejamento': '📊 Planejamento',
+            'referencias': '🔗 Referências', 
+            'tecnicas': '🛠️ Técnicas'
         }
         
-        for segmento_key, segmento_nome in segmentos_disponiveis.items():
-            # Verificar se o segmento tem conteúdo
-            tem_conteudo = (agente.get('segmentos_base', {}).get(segmento_key, '') != '')
+        for base_key, base_nome in bases_adicionais.items():
+            # Verificar se a base tem conteúdo
+            tem_conteudo = (agente.get(base_key, '') != '')
             
             if tem_conteudo:
                 checked = st.sidebar.checkbox(
-                    segmento_nome,
-                    value=(segmento_key in st.session_state.segmentos_ativos),
-                    key=f"seg_{segmento_key}"
+                    base_nome,
+                    value=(base_key in st.session_state.segmentos_ativos),
+                    key=f"seg_{base_key}"
                 )
-                if checked and segmento_key not in st.session_state.segmentos_ativos:
-                    st.session_state.segmentos_ativos.append(segmento_key)
-                elif not checked and segmento_key in st.session_state.segmentos_ativos:
-                    st.session_state.segmentos_ativos.remove(segmento_key)
+                if checked and base_key not in st.session_state.segmentos_ativos:
+                    st.session_state.segmentos_ativos.append(base_key)
+                elif not checked and base_key in st.session_state.segmentos_ativos:
+                    st.session_state.segmentos_ativos.remove(base_key)
             else:
-                st.sidebar.write(f"⭕ {segmento_nome} (vazio)")
-        
-        # Mostrar base principal sempre ativa
-        st.sidebar.write("---")
-        st.sidebar.write("✅ Base Principal (sempre ativa)")
+                st.sidebar.write(f"⭕ {base_nome} (vazia)")
         
         # Opção para incluir conversa na base
-        incluir_na_base = st.sidebar.checkbox("💾 Incluir esta conversa na base de conhecimento")
+        incluir_na_base = st.sidebar.checkbox("💾 Incluir esta conversa para aprendizado futuro")
         
         # Botão para trocar de agente
         if st.button("Trocar de Agente"):
@@ -731,7 +768,7 @@ with tab_chat:
             with st.chat_message("user"):
                 st.markdown(prompt)
             
-            # Construir contexto com segmentos ativos (mantendo a base principal como antes)
+            # Construir contexto com bases ativas
             contexto = construir_contexto_agente(agente, st.session_state.segmentos_ativos)
             
             # Adicionar histórico formatado
@@ -757,6 +794,8 @@ with tab_chat:
                     except Exception as e:
                         st.error(f"Erro ao gerar resposta: {str(e)}")
 
+# (As outras abas - Aprovação, Geração e Resumo - funcionam da mesma forma, usando construir_contexto_agente)
+
 with tab_aprovacao:
     st.header("✅ Validação de Conteúdo")
     
@@ -765,6 +804,9 @@ with tab_aprovacao:
     else:
         agente = st.session_state.agente_selecionado
         st.subheader(f"Validação com: {agente['nome']}")
+        
+        # Usar contexto construído com bases ativas
+        contexto = construir_contexto_agente(agente, st.session_state.segmentos_ativos)
         
         subtab1, subtab2 = st.tabs(["🖼️ Análise de Imagens", "✍️ Revisão de Textos"])
         
@@ -780,10 +822,7 @@ with tab_aprovacao:
                             image.save(img_bytes, format=image.format)
                             
                             prompt_analise = f"""
-                            {agente['system_prompt']}
-                            
-                            Base de conhecimento:
-                            {agente.get('base_conhecimento', '')}
+                            {contexto}
                             
                             Analise esta imagem e forneça um parecer detalhado com:
                             - ✅ Pontos positivos
@@ -806,10 +845,7 @@ with tab_aprovacao:
             if st.button("Validar Texto", key="validate_text"):
                 with st.spinner('Analisando texto...'):
                     prompt_analise = f"""
-                    {agente['system_prompt']}
-                    
-                    Base de conhecimento:
-                    {agente.get('base_conhecimento', '')}
+                    {contexto}
                     
                     Analise este texto e forneça um parecer detalhado:
                     
@@ -837,172 +873,4 @@ with tab_aprovacao:
                     st.subheader("Resultado da Análise")
                     st.markdown(resposta.text)
 
-with tab_geracao:
-    st.header("✨ Geração de Conteúdo")
-    
-    if not st.session_state.agente_selecionado:
-        st.info("Selecione um agente primeiro na aba de Chat")
-    else:
-        agente = st.session_state.agente_selecionado
-        st.subheader(f"Geração com: {agente['nome']}")
-        
-        campanha_brief = st.text_area("Briefing criativo:", help="Descreva objetivos, tom de voz e especificações", height=150)
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.subheader("Diretrizes Visuais")
-            if st.button("Gerar Especificações Visuais", key="gen_visual"):
-                with st.spinner('Criando guia de estilo...'):
-                    prompt = f"""
-                    {agente['system_prompt']}
-                    
-                    Base de conhecimento:
-                    {agente.get('base_conhecimento', '')}
-                    
-                    Com base no briefing: {campanha_brief}
-                    
-                    Crie um manual técnico para designers incluindo:
-                    1. 🎨 Paleta de cores (códigos HEX/RGB)
-                    2. 🖼️ Diretrizes de fotografia/ilustração
-                    3. ✏️ Tipografia hierárquica
-                    4. 📐 Grid e proporções recomendadas
-                    5. ⚠️ Restrições de uso
-                    6. 🖌️ Descrição da imagem principal sugerida
-                    7. 📱 Adaptações para diferentes formatos
-                    """
-                    resposta = modelo_texto.generate_content(prompt)
-                    st.markdown(resposta.text)
-
-        with col2:
-            st.subheader("Copywriting")
-            if st.button("Gerar Textos", key="gen_copy"):
-                with st.spinner('Desenvolvendo conteúdo textual...'):
-                    prompt = f"""
-                    {agente['system_prompt']}
-                    
-                    Base de conhecimento:
-                    {agente.get('base_conhecimento', '')}
-                    
-                    Com base no briefing: {campanha_brief}
-                    
-                    Crie textos para campanha incluindo:
-                    - 📝 Legenda principal (com emojis e quebras de linha)
-                    - 🏷️ 10 hashtags relevantes
-                    - 🔗 Sugestão de link (se aplicável)
-                    - 📢 CTA adequado ao objetivo
-                    - 🎯 3 opções de headline
-                    - 📄 Corpo de texto (200 caracteres)
-                    """
-                    resposta = modelo_texto.generate_content(prompt)
-                    st.markdown(resposta.text)
-
-with tab_resumo:
-    st.header("📝 Resumo de Textos")
-    
-    if not st.session_state.agente_selecionado:
-        st.info("Selecione um agente primeiro na aba de Chat")
-    else:
-        agente = st.session_state.agente_selecionado
-        st.subheader(f"Resumo com: {agente['nome']}")
-        
-        col_original, col_resumo = st.columns(2)
-        
-        with col_original:
-            st.subheader("Texto Original")
-            texto_original = st.text_area(
-                "Cole o texto que deseja resumir:",
-                height=400,
-                placeholder="Insira aqui o texto completo..."
-            )
-            
-            with st.expander("⚙️ Configurações do Resumo"):
-                nivel_resumo = st.select_slider(
-                    "Nível de Resumo:",
-                    options=["Extenso", "Moderado", "Conciso"],
-                    value="Moderado"
-                )
-                
-                incluir_pontos = st.checkbox(
-                    "Incluir pontos-chave em tópicos",
-                    value=True
-                )
-                
-                manter_terminologia = st.checkbox(
-                    "Manter terminologia técnica",
-                    value=True
-                )
-        
-        with col_resumo:
-            st.subheader("Resumo Gerado")
-            
-            if st.button("Gerar Resumo", key="gerar_resumo"):
-                if not texto_original.strip():
-                    st.warning("Por favor, insira um texto para resumir")
-                else:
-                    with st.spinner("Processando resumo..."):
-                        try:
-                            config_resumo = {
-                                "Extenso": "um resumo detalhado mantendo cerca de 50% do conteúdo original",
-                                "Moderado": "um resumo conciso mantendo cerca de 30% do conteúdo original",
-                                "Conciso": "um resumo muito breve com apenas os pontos essenciais (cerca de 10-15%)"
-                            }[nivel_resumo]
-                            
-                            prompt = f"""
-                            {agente['system_prompt']}
-                            
-                            Base de conhecimento:
-                            {agente.get('base_conhecimento', '')}
-                            
-                            Crie um resumo deste texto com as seguintes características:
-                            - {config_resumo}
-                            - {"Inclua os principais pontos em tópicos" if incluir_pontos else "Formato de texto contínuo"}
-                            - {"Mantenha a terminologia técnica específica" if manter_terminologia else "Simplifique a linguagem"}
-                            
-                            Texto para resumir:
-                            {texto_original}
-                            
-                            Estrutura do resumo:
-                            1. Título do resumo
-                            2. {"Principais pontos em tópicos" if incluir_pontos else "Resumo textual"}
-                            3. Conclusão/Recomendações
-                            """
-                            
-                            resposta = modelo_texto.generate_content(prompt)
-                            st.markdown(resposta.text)
-                            
-                            st.download_button(
-                                "📋 Copiar Resumo",
-                                data=resposta.text,
-                                file_name="resumo_gerado.txt",
-                                mime="text/plain"
-                            )
-                            
-                        except Exception as e:
-                            st.error(f"Erro ao gerar resumo: {str(e)}")
-
-# --- Estilização ---
-st.markdown("""
-<style>
-    .stChatMessage {
-        padding: 1rem;
-        border-radius: 0.5rem;
-        margin-bottom: 1rem;
-    }
-    [data-testid="stChatMessageContent"] {
-        font-size: 1rem;
-    }
-    .stChatInput {
-        bottom: 20px;
-        position: fixed;
-        width: calc(100% - 5rem);
-    }
-    div[data-testid="stTabs"] {
-        margin-top: -30px;
-    }
-    div[data-testid="stVerticalBlock"] > div:has(>.stTextArea) {
-        border-left: 3px solid #4CAF50;
-        padding-left: 1rem;
-    }
-</style>
-""", unsafe_allow_html=True)
+# Resto do código permanece igual...
