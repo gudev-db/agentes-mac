@@ -196,77 +196,7 @@ if "agente_selecionado" not in st.session_state:
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-import streamlit as st
-import io
-import google.generativeai as genai
-from PIL import Image
-import requests
-import datetime
-import os
-from pymongo import MongoClient
-from bson import ObjectId
-import json
-import hashlib
-from google.genai import types
 
-# Configuração inicial
-st.set_page_config(
-    layout="wide",
-    page_title="Agente Generativo",
-    page_icon="🤖"
-)
-
-# --- Sistema de Autenticação ---
-def make_hashes(password):
-    return hashlib.sha256(str.encode(password)).hexdigest()
-
-def check_hashes(password, hashed_text):
-    return make_hashes(password) == hashed_text
-
-# Dados de usuário (em produção, isso deve vir de um banco de dados seguro)
-users = {
-    "admin": make_hashes("senha1234"),  # admin/senha1234
-    "user1": make_hashes("password1"),  # user1/password1
-    "user2": make_hashes("password2")   # user2/password2
-}
-
-def login():
-    """Formulário de login"""
-    st.title("🔒 Agente Generativo - Login")
-    
-    with st.form("login_form"):
-        username = st.text_input("Usuário")
-        password = st.text_input("Senha", type="password")
-        submit_button = st.form_submit_button("Login")
-        
-        if submit_button:
-            if username in users and check_hashes(password, users[username]):
-                st.session_state.logged_in = True
-                st.session_state.user = username
-                st.success("Login realizado com sucesso!")
-                st.rerun()
-            else:
-                st.error("Usuário ou senha incorretos")
-
-# Verificar se o usuário está logado
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
-
-if not st.session_state.logged_in:
-    login()
-    st.stop()
-
-# --- CONEXÃO MONGODB (após login) ---
-client = MongoClient("mongodb+srv://gustavoromao3345:RqWFPNOJQfInAW1N@cluster0.5iilj.mongodb.net/auto_doc?retryWrites=true&w=majority&ssl=true&ssl_cert_reqs=CERT_NONE&tlsAllowInvalidCertificates=true")
-db = client['agentes_personalizados']
-collection_agente = db['agentes']
-collection_conversas = db['conversas']
-
-# Configuração da API do Gemini
-gemini_api_key = os.getenv("GEM_API_KEY")
-if not gemini_api_key:
-    st.error("GEMINI_API_KEY não encontrada nas variáveis de ambiente")
-    st.stop()
 
 genai.configure(api_key=gemini_api_key)
 modelo_vision = genai.GenerativeModel("gemini-2.5-flash", generation_config={"temperature": 0.1})
