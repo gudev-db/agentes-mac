@@ -236,7 +236,7 @@ with tab_gerenciamento:
                     nome_agente = st.text_input("Nome do Agente:")
                     system_prompt = st.text_area("Prompt de Sistema:", height=150, 
                                                 placeholder="Ex: Você é um assistente especializado em...")
-                    base_conhecimento = st.text_area("Base de Conhecimento:", height=200,
+                    base_conhecimento = st.text_area("Brand Guidelines:", height=200,
                                                    placeholder="Cole aqui informações, diretrizes, dados...")
                     comments = st.text_area("Comentários do cliente:", height=200,
                                                    placeholder="Cole aqui os comentários de ajuste do cliente (Se houver)")
@@ -264,7 +264,7 @@ with tab_gerenciamento:
                         with st.form("form_editar_agente"):
                             novo_nome = st.text_input("Nome do Agente:", value=agente['nome'])
                             novo_prompt = st.text_area("Prompt de Sistema:", value=agente['system_prompt'], height=150)
-                            nova_base = st.text_area("Base de Conhecimento:", value=agente.get('base_conhecimento', ''), height=200)
+                            nova_base = st.text_area("Brand Guidelines:", value=agente.get('base_conhecimento', ''), height=200)
                             nova_comment = st.text_area("Comentários:", value=agente.get('comments', ''), height=200)
                             
                             submitted = st.form_submit_button("Atualizar Agente")
@@ -287,7 +287,7 @@ with tab_gerenciamento:
                         with st.expander(f"{agente['nome']} - Criado em {agente['data_criacao'].strftime('%d/%m/%Y')}"):
                             st.write(f"**Prompt de Sistema:** {agente['system_prompt']}")
                             if agente.get('base_conhecimento'):
-                                st.write(f"**Base de Conhecimento:** {agente['base_conhecimento'][:200]}...")
+                                st.write(f"**Brand Guidelines:** {agente['base_conhecimento'][:200]}...")
                             if agente.get('comments'):
                                 st.write(f"**Comentários do cliente:** {agente['comments'][:200]}...")
                             
@@ -344,11 +344,11 @@ with tab_chat:
             with st.chat_message("user"):
                 st.markdown(prompt)
             
-            # Preparar contexto com prompt do sistema e base de conhecimento
+            # Preparar contexto com prompt do sistema e Brand Guidelines
             contexto = f"""
             {agente['system_prompt']}
             
-            Base de conhecimento:
+            Brand Guidelines:
             {agente.get('base_conhecimento', '')}
 
             Comentários de ajuste de conteúdo do cliente:
@@ -404,10 +404,10 @@ with tab_aprovacao:
                             prompt_analise = f"""
                             {agente['system_prompt']}
                             
-                            Base de conhecimento:
-                            ###BEGIN BASE DE CONHECIMENTO###
+                            Brand Guidelines:
+                            ###BEGIN Brand Guidelines###
                             {agente.get('base_conhecimento', '')}
-                            ###END BASE DE CONHECIMENTO###
+                            ###END Brand Guidelines###
 
                             Comentários de observação de conteúdo do cliente:
                             ###BEGIN COMMENTS FROM CLIENT###
@@ -437,10 +437,10 @@ with tab_aprovacao:
                     prompt_analise = f"""
                     {agente['system_prompt']}
                     
-                            Base de conhecimento:
-                            ###BEGIN BASE DE CONHECIMENTO###
+                            Brand Guidelines:
+                            ###BEGIN Brand Guidelines###
                             {agente.get('base_conhecimento', '')}
-                            ###END BASE DE CONHECIMENTO###
+                            ###END Brand Guidelines###
 
                             Comentários de observação de conteúdo do cliente:
                             ###BEGIN COMMENTS FROM CLIENT###
@@ -493,10 +493,10 @@ with tab_geracao:
                     prompt = f"""
                     {agente['system_prompt']}
                     
-                            Base de conhecimento:
-                            ###BEGIN BASE DE CONHECIMENTO###
+                            Brand Guidelines:
+                            ###BEGIN Brand Guidelines###
                             {agente.get('base_conhecimento', '')}
-                            ###END BASE DE CONHECIMENTO###
+                            ###END Brand Guidelines###
 
                             Comentários de observação de conteúdo do cliente:
                             ###BEGIN COMMENTS FROM CLIENT###
@@ -524,10 +524,10 @@ with tab_geracao:
                     prompt = f"""
                     {agente['system_prompt']}
                     
-                            Base de conhecimento:
-                            ###BEGIN BASE DE CONHECIMENTO###
+                            Brand Guidelines:
+                            ###BEGIN Brand Guidelines###
                             {agente.get('base_conhecimento', '')}
-                            ###END BASE DE CONHECIMENTO###
+                            ###END Brand Guidelines###
 
                             Comentários de observação de conteúdo do cliente:
                             ###BEGIN COMMENTS FROM CLIENT###
@@ -601,7 +601,7 @@ with tab_resumo:
                             prompt = f"""
                             {agente['system_prompt']}
                             
-                            Base de conhecimento:
+                            Brand Guidelines:
                             {agente.get('base_conhecimento', '')}
                             
                             Crie um resumo deste texto com as seguintes características:
