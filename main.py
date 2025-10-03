@@ -9,6 +9,7 @@ from pymongo import MongoClient
 from bson import ObjectId
 import json
 import hashlib
+from google.genai import types
 
 # Configuração inicial
 st.set_page_config(
@@ -159,13 +160,14 @@ def desativar_agente(agente_id):
         {"$set": {"ativo": False, "data_desativacao": datetime.datetime.now()}}
     )
 
-def salvar_conversa(agente_id, mensagens):
+def salvar_conversa(agente_id, mensagens, segmentos_utilizados=None):
     """Salva uma conversa no histórico"""
     if isinstance(agente_id, str):
         agente_id = ObjectId(agente_id)
     conversa = {
         "agente_id": agente_id,
         "mensagens": mensagens,
+        "segmentos_utilizados": segmentos_utilizados,
         "data_criacao": datetime.datetime.now()
     }
     return collection_conversas.insert_one(conversa)
@@ -178,31 +180,30 @@ def obter_conversas(agente_id, limite=10):
         {"agente_id": agente_id}
     ).sort("data_criacao", -1).limit(limite))
 
-# --- Interface Principal ---
-st.sidebar.title(f"🤖 Bem-vindo, {st.session_state.user}!")
-
-# Botão de logout na sidebar
-if st.sidebar.button("🚪 Sair"):
-    for key in ["logged_in", "user", "admin_password_correct", "admin_user"]:
-        if key in st.session_state:
-            del st.session_state[key]
-    st.rerun()
-
-st.title("🤖 Agente Generativo Personalizável")
-
-# Inicializar estado da sessão
-if "agente_selecionado" not in st.session_state:
-    st.session_state.agente_selecionado = None
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-
-
-
-genai.configure(api_key=gemini_api_key)
-modelo_vision = genai.GenerativeModel("gemini-2.5-flash", generation_config={"temperature": 0.1})
-modelo_texto = genai.GenerativeModel("gemini-2.5-flash")
-
-
+# --- Função para construir contexto com segmentos selecionados ---
+def construir_contexto(agente, segmentos_selecionados, historico_mensagens=None):
+    """Constrói o contexto com base nos segmentos selecionados"""
+    contexto = ""
+    
+    if "system_prompt" in segmentos_selecionados and agente.get('system_prompt'):
+        contexto += f"### INSTRUÇÕES DO SISTEMA ###\n{agente['system_prompt']}\n\n"
+    
+    if "base_conhecimento" in segmentos_selecionados and agente.get('base_conhecimento'):
+        contexto += f"### BASE DE CONHECIMENTO ###\n{agente['base_conhecimento']}\n\n"
+    
+    if "comments" in segmentos_selecionados and agente.get('comments'):
+        contexto += f"### COMENTÁRIOS DO CLIENTE ###\n{agente['comments']}\n\n"
+    
+    # Adicionar histórico se fornecido
+    if historico_mensagens:
+        contexto += "### HISTÓRICO DA CONVERSA ###\n"
+        for msg in historico_mensagens:
+            contexto += f"{msg['role']}: {msg['content']}\n"
+        contexto += "\n"
+    
+    contexto += "### RESPOSTA ATUAL ###\nassistant:"
+    
+    return contexto
 
 # --- Funções para processamento de vídeo ---
 def processar_video_upload(video_file, segmentos_selecionados, agente, tipo_analise="completa"):
@@ -363,7 +364,7 @@ def processar_url_youtube(youtube_url, segmentos_selecionados, agente, tipo_anal
 st.sidebar.title(f"🤖 Bem-vindo, {st.session_state.user}!")
 
 # Botão de logout na sidebar
-if st.sidebar.button("🚪 Sair"):
+if st.sidebar.button("🚪 Sair", key="logout_btn"):
     for key in ["logged_in", "user", "admin_password_correct", "admin_user"]:
         if key in st.session_state:
             del st.session_state[key]
@@ -379,7 +380,7 @@ if "messages" not in st.session_state:
 if "segmentos_selecionados" not in st.session_state:
     st.session_state.segmentos_selecionados = ["system_prompt", "base_conhecimento", "comments"]
 
-# Menu de abas - ADICIONANDO A NOVA ABA DE VÍDEO
+# Menu de abas
 tab_chat, tab_gerenciamento, tab_aprovacao, tab_video, tab_geracao, tab_resumo = st.tabs([
     "💬 Chat", 
     "⚙️ Gerenciar Agentes", 
@@ -401,7 +402,7 @@ with tab_gerenciamento:
             st.warning("Digite a senha de administrador")
         else:
             # Mostra o botão de logout admin
-            if st.button("Logout Admin"):
+            if st.button("Logout Admin", key="admin_logout"):
                 if "admin_password_correct" in st.session_state:
                     del st.session_state["admin_password_correct"]
                 if "admin_user" in st.session_state:
@@ -467,7 +468,7 @@ with tab_gerenciamento:
                 
                 agentes = listar_agentes()
                 if agentes:
-                    for agente in agentes:
+                    for i, agente in enumerate(agentes):
                         with st.expander(f"{agente['nome']} - Criado em {agente['data_criacao'].strftime('%d/%m/%Y')}"):
                             st.write(f"**Prompt de Sistema:** {agente['system_prompt']}")
                             if agente.get('base_conhecimento'):
@@ -477,12 +478,12 @@ with tab_gerenciamento:
                             
                             col1, col2 = st.columns(2)
                             with col1:
-                                if st.button("Selecionar para Chat", key=f"select_{agente['_id']}"):
+                                if st.button("Selecionar para Chat", key=f"select_{i}"):
                                     st.session_state.agente_selecionado = agente
                                     st.session_state.messages = []
                                     st.success(f"Agente '{agente['nome']}' selecionado!")
                             with col2:
-                                if st.button("Desativar", key=f"delete_{agente['_id']}"):
+                                if st.button("Desativar", key=f"delete_{i}"):
                                     desativar_agente(agente['_id'])
                                     st.success(f"Agente '{agente['nome']}' desativado!")
                                     st.rerun()
@@ -500,7 +501,7 @@ with tab_chat:
             agente_selecionado_nome = st.selectbox("Selecione um agente para conversar:", 
                                                  list(agente_options.keys()))
             
-            if st.button("Iniciar Conversa"):
+            if st.button("Iniciar Conversa", key="iniciar_chat"):
                 st.session_state.agente_selecionado = agente_options[agente_selecionado_nome]
                 st.session_state.messages = []
                 st.rerun()
@@ -510,8 +511,31 @@ with tab_chat:
         agente = st.session_state.agente_selecionado
         st.subheader(f"Conversando com: {agente['nome']}")
         
+        # Controles de segmentos na sidebar do chat
+        st.sidebar.subheader("🔧 Configurações do Agente")
+        st.sidebar.write("Selecione quais bases de conhecimento usar:")
+        
+        segmentos_disponiveis = {
+            "Prompt do Sistema": "system_prompt",
+            "Brand Guidelines": "base_conhecimento", 
+            "Comentários do Cliente": "comments"
+        }
+        
+        segmentos_selecionados = []
+        for nome, chave in segmentos_disponiveis.items():
+            if st.sidebar.checkbox(nome, value=chave in st.session_state.segmentos_selecionados, key=f"seg_{chave}"):
+                segmentos_selecionados.append(chave)
+        
+        st.session_state.segmentos_selecionados = segmentos_selecionados
+        
+        # Exibir status dos segmentos
+        if segmentos_selecionados:
+            st.sidebar.success(f"✅ Usando {len(segmentos_selecionados)} segmento(s)")
+        else:
+            st.sidebar.warning("⚠️ Nenhum segmento selecionado")
+        
         # Botão para trocar de agente
-        if st.button("Trocar de Agente"):
+        if st.button("Trocar de Agente", key="trocar_agente"):
             st.session_state.agente_selecionado = None
             st.session_state.messages = []
             st.rerun()
@@ -528,24 +552,12 @@ with tab_chat:
             with st.chat_message("user"):
                 st.markdown(prompt)
             
-            # Preparar contexto com prompt do sistema e Brand Guidelines
-            contexto = f"""
-            {agente['system_prompt']}
-            
-            Brand Guidelines:
-            {agente.get('base_conhecimento', '')}
-
-            Comentários de ajuste de conteúdo do cliente:
-            {agente.get('comments', '')}
-            
-            Histórico da conversa:
-            """
-            
-            # Adicionar histórico formatado
-            for msg in st.session_state.messages:
-                contexto += f"\n{msg['role']}: {msg['content']}"
-            
-            contexto += "\n\nassistant:"
+            # Construir contexto com segmentos selecionados
+            contexto = construir_contexto(
+                agente, 
+                st.session_state.segmentos_selecionados, 
+                st.session_state.messages
+            )
             
             # Gerar resposta
             with st.chat_message("assistant"):
@@ -557,8 +569,12 @@ with tab_chat:
                         # Adicionar ao histórico
                         st.session_state.messages.append({"role": "assistant", "content": resposta.text})
                         
-                        # Salvar conversa
-                        salvar_conversa(agente['_id'], st.session_state.messages)
+                        # Salvar conversa com segmentos utilizados
+                        salvar_conversa(
+                            agente['_id'], 
+                            st.session_state.messages,
+                            st.session_state.segmentos_selecionados
+                        )
                         
                     except Exception as e:
                         st.error(f"Erro ao gerar resposta: {str(e)}")
@@ -587,7 +603,8 @@ with tab_video:
         entrada_tipo = st.radio(
             "Escolha o tipo de entrada:",
             ["Upload de Arquivo", "URL do YouTube"],
-            horizontal=True
+            horizontal=True,
+            key="video_input_type"
         )
         
         # Configurações de análise
@@ -601,7 +618,8 @@ with tab_video:
                     "completa": "📊 Análise Completa",
                     "rapida": "⚡ Análise Rápida", 
                     "tecnica": "🛠️ Análise Técnica"
-                }[x]
+                }[x],
+                key="tipo_analise"
             )
         
         with col_config2:
@@ -618,7 +636,8 @@ with tab_video:
             uploaded_video = st.file_uploader(
                 "Carregue o vídeo para análise",
                 type=["mp4", "mpeg", "mov", "avi", "flv", "mpg", "webm", "wmv", "3gpp"],
-                help="Formatos suportados: MP4, MPEG, MOV, AVI, FLV, MPG, WEBM, WMV, 3GPP"
+                help="Formatos suportados: MP4, MPEG, MOV, AVI, FLV, MPG, WEBM, WMV, 3GPP",
+                key="video_uploader"
             )
             
             if uploaded_video:
@@ -630,7 +649,7 @@ with tab_video:
                 st.video(uploaded_video)
                 
                 # Botão de análise
-                if st.button("🎬 Iniciar Análise do Vídeo", type="primary"):
+                if st.button("🎬 Iniciar Análise do Vídeo", type="primary", key="analise_upload"):
                     with st.spinner('Analisando vídeo... Isso pode levar alguns minutos'):
                         resultado = processar_video_upload(
                             uploaded_video, 
@@ -647,7 +666,8 @@ with tab_video:
                             "💾 Baixar Relatório",
                             data=resultado,
                             file_name=f"relatorio_video_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
-                            mime="text/plain"
+                            mime="text/plain",
+                            key="download_upload"
                         )
         
         else:  # URL do YouTube
@@ -656,7 +676,8 @@ with tab_video:
             youtube_url = st.text_input(
                 "Cole a URL do vídeo do YouTube:",
                 placeholder="https://www.youtube.com/watch?v=...",
-                help="A URL deve ser pública (não privada ou não listada)"
+                help="A URL deve ser pública (não privada ou não listada)",
+                key="youtube_url"
             )
             
             if youtube_url:
@@ -665,7 +686,7 @@ with tab_video:
                     st.success("✅ URL do YouTube válida detectada")
                     
                     # Botão de análise
-                    if st.button("🎬 Iniciar Análise do Vídeo", type="primary"):
+                    if st.button("🎬 Iniciar Análise do Vídeo", type="primary", key="analise_youtube"):
                         with st.spinner('Analisando vídeo do YouTube... Isso pode levar alguns minutos'):
                             resultado = processar_url_youtube(
                                 youtube_url, 
@@ -682,7 +703,8 @@ with tab_video:
                                 "💾 Baixar Relatório",
                                 data=resultado,
                                 file_name=f"relatorio_youtube_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
-                                mime="text/plain"
+                                mime="text/plain",
+                                key="download_youtube"
                             )
                 else:
                     st.error("❌ Por favor, insira uma URL válida do YouTube")
@@ -738,7 +760,7 @@ with tab_aprovacao:
         subtab1, subtab2 = st.tabs(["🖼️ Análise de Imagens", "✍️ Revisão de Textos"])
         
         with subtab1:
-            uploaded_image = st.file_uploader("Carregue imagem para análise (.jpg, .png)", type=["jpg", "jpeg", "png"])
+            uploaded_image = st.file_uploader("Carregue imagem para análise (.jpg, .png)", type=["jpg", "jpeg", "png"], key="image_upload")
             if uploaded_image:
                 st.image(uploaded_image, use_column_width=True, caption="Pré-visualização")
                 if st.button("Validar Imagem", key="analyze_img"):
@@ -778,7 +800,7 @@ with tab_aprovacao:
                             st.error(f"Falha na análise: {str(e)}")
 
         with subtab2:
-            texto_input = st.text_area("Insira o texto para validação:", height=200)
+            texto_input = st.text_area("Insira o texto para validação:", height=200, key="texto_validacao")
             if st.button("Validar Texto", key="validate_text"):
                 with st.spinner('Analisando texto...'):
                     prompt_analise = f"""
@@ -829,7 +851,7 @@ with tab_geracao:
         agente = st.session_state.agente_selecionado
         st.subheader(f"Geração com: {agente['nome']}")
         
-        campanha_brief = st.text_area("Briefing criativo:", help="Descreva objetivos, tom de voz e especificações", height=150)
+        campanha_brief = st.text_area("Briefing criativo:", help="Descreva objetivos, tom de voz e especificações", height=150, key="campanha_brief")
         
         col1, col2 = st.columns(2)
         
@@ -910,24 +932,28 @@ with tab_resumo:
             texto_original = st.text_area(
                 "Cole o texto que deseja resumir:",
                 height=400,
-                placeholder="Insira aqui o texto completo..."
+                placeholder="Insira aqui o texto completo...",
+                key="texto_original"
             )
             
             with st.expander("⚙️ Configurações do Resumo"):
                 nivel_resumo = st.select_slider(
                     "Nível de Resumo:",
                     options=["Extenso", "Moderado", "Conciso"],
-                    value="Moderado"
+                    value="Moderado",
+                    key="nivel_resumo"
                 )
                 
                 incluir_pontos = st.checkbox(
                     "Incluir pontos-chave em tópicos",
-                    value=True
+                    value=True,
+                    key="incluir_pontos"
                 )
                 
                 manter_terminologia = st.checkbox(
                     "Manter terminologia técnica",
-                    value=True
+                    value=True,
+                    key="manter_terminologia"
                 )
         
         with col_resumo:
@@ -972,37 +998,12 @@ with tab_resumo:
                                 "📋 Copiar Resumo",
                                 data=resposta.text,
                                 file_name="resumo_gerado.txt",
-                                mime="text/plain"
+                                mime="text/plain",
+                                key="download_resumo"
                             )
                             
                         except Exception as e:
                             st.error(f"Erro ao gerar resumo: {str(e)}")
-
-# --- Estilização ---
-st.markdown("""
-<style>
-    .stChatMessage {
-        padding: 1rem;
-        border-radius: 0.5rem;
-        margin-bottom: 1rem;
-    }
-    [data-testid="stChatMessageContent"] {
-        font-size: 1rem;
-    }
-    .stChatInput {
-        bottom: 20px;
-        position: fixed;
-        width: calc(100% - 5rem);
-    }
-    div[data-testid="stTabs"] {
-        margin-top: -30px;
-    }
-    div[data-testid="stVerticalBlock"] > div:has(>.stTextArea) {
-        border-left: 3px solid #4CAF50;
-        padding-left: 1rem;
-    }
-</style>
-""", unsafe_allow_html=True)
 
 # --- Estilização ---
 st.markdown("""
