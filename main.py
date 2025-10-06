@@ -111,13 +111,17 @@ def check_admin_password():
         return True
 
 # --- Funções CRUD para Agentes ---
-def criar_agente(nome, system_prompt, base_conhecimento, comments):
+def criar_agente(nome, system_prompt, base_conhecimento, comments, planejamento, categoria, agente_mae_id=None, herdar_elementos=None):
     """Cria um novo agente no MongoDB"""
     agente = {
         "nome": nome,
         "system_prompt": system_prompt,
         "base_conhecimento": base_conhecimento,
         "comments": comments,
+        "planejamento": planejamento,
+        "categoria": categoria,
+        "agente_mae_id": agente_mae_id,
+        "herdar_elementos": herdar_elementos or [],
         "data_criacao": datetime.datetime.now(),
         "ativo": True
     }
@@ -128,13 +132,17 @@ def listar_agentes():
     """Retorna todos os agentes ativos"""
     return list(collection_agentes.find({"ativo": True}).sort("data_criacao", -1))
 
+def listar_agentes_mae():
+    """Retorna apenas agentes que podem ser mães (não são filhos)"""
+    return list(collection_agentes.find({"ativo": True, "agente_mae_id": None}).sort("data_criacao", -1))
+
 def obter_agente(agente_id):
     """Obtém um agente específico pelo ID"""
     if isinstance(agente_id, str):
         agente_id = ObjectId(agente_id)
     return collection_agentes.find_one({"_id": agente_id})
 
-def atualizar_agente(agente_id, nome, system_prompt, base_conhecimento, comments):
+def atualizar_agente(agente_id, nome, system_prompt, base_conhecimento, comments, planejamento, categoria, agente_mae_id=None, herdar_elementos=None):
     """Atualiza um agente existente"""
     if isinstance(agente_id, str):
         agente_id = ObjectId(agente_id)
@@ -146,6 +154,10 @@ def atualizar_agente(agente_id, nome, system_prompt, base_conhecimento, comments
                 "system_prompt": system_prompt,
                 "base_conhecimento": base_conhecimento,
                 "comments": comments,
+                "planejamento": planejamento,
+                "categoria": categoria,
+                "agente_mae_id": agente_mae_id,
+                "herdar_elementos": herdar_elementos or [],
                 "data_atualizacao": datetime.datetime.now()
             }
         }
@@ -159,6 +171,31 @@ def desativar_agente(agente_id):
         {"_id": agente_id},
         {"$set": {"ativo": False, "data_desativacao": datetime.datetime.now()}}
     )
+
+def obter_agente_com_heranca(agente_id):
+    """Obtém um agente com os elementos herdados aplicados"""
+    agente = obter_agente(agente_id)
+    if not agente or not agente.get('agente_mae_id'):
+        return agente
+    
+    agente_mae = obter_agente(agente['agente_mae_id'])
+    if not agente_mae:
+        return agente
+    
+    elementos_herdar = agente.get('herdar_elementos', [])
+    agente_completo = agente.copy()
+    
+    for elemento in elementos_herdar:
+        if elemento == 'system_prompt' and not agente_completo.get('system_prompt'):
+            agente_completo['system_prompt'] = agente_mae.get('system_prompt', '')
+        elif elemento == 'base_conhecimento' and not agente_completo.get('base_conhecimento'):
+            agente_completo['base_conhecimento'] = agente_mae.get('base_conhecimento', '')
+        elif elemento == 'comments' and not agente_completo.get('comments'):
+            agente_completo['comments'] = agente_mae.get('comments', '')
+        elif elemento == 'planejamento' and not agente_completo.get('planejamento'):
+            agente_completo['planejamento'] = agente_mae.get('planejamento', '')
+    
+    return agente_completo
 
 def salvar_conversa(agente_id, mensagens, segmentos_utilizados=None):
     """Salva uma conversa no histórico"""
@@ -193,6 +230,9 @@ def construir_contexto(agente, segmentos_selecionados, historico_mensagens=None)
     
     if "comments" in segmentos_selecionados and agente.get('comments'):
         contexto += f"### COMENTÁRIOS DO CLIENTE ###\n{agente['comments']}\n\n"
+    
+    if "planejamento" in segmentos_selecionados and agente.get('planejamento'):
+        contexto += f"### PLANEJAMENTO ###\n{agente['planejamento']}\n\n"
     
     # Adicionar histórico se fornecido
     if historico_mensagens:
@@ -271,7 +311,7 @@ def processar_video_upload(video_file, segmentos_selecionados, agente, tipo_anal
             Faça uma análise técnica detalhada do vídeo:
             
             ### 🛠️ Análise Técnica
-            - **Qualidade de Vídeo**: [Resolução, estabilidade, compressão]
+            - **Qualidade de Vídeo**: [Resolução, estabilidade, compression]
             - **Qualidade de Áudio**: [Clareza, ruído, mixagem]
             - **Edição e Transições**: [Fluidez, ritmo, cortes]
             - **Aspectos Técnicos Conformes**: 
@@ -378,7 +418,7 @@ if "agente_selecionado" not in st.session_state:
 if "messages" not in st.session_state:
     st.session_state.messages = []
 if "segmentos_selecionados" not in st.session_state:
-    st.session_state.segmentos_selecionados = ["system_prompt", "base_conhecimento", "comments"]
+    st.session_state.segmentos_selecionados = ["system_prompt", "base_conhecimento", "comments", "planejamento"]
 
 # Menu de abas
 tab_chat, tab_gerenciamento, tab_aprovacao, tab_video, tab_geracao, tab_resumo = st.tabs([
@@ -419,20 +459,66 @@ with tab_gerenciamento:
                 
                 with st.form("form_criar_agente"):
                     nome_agente = st.text_input("Nome do Agente:")
+                    
+                    # Seleção de categoria
+                    categoria = st.selectbox(
+                        "Categoria:",
+                        ["Social", "SEO", "Conteúdo"],
+                        help="Organize o agente por área de atuação"
+                    )
+                    
+                    # Opção para criar como agente filho
+                    criar_como_filho = st.checkbox("Criar como agente filho (herdar elementos)")
+                    
+                    agente_mae_id = None
+                    herdar_elementos = []
+                    
+                    if criar_como_filho:
+                        agentes_mae = listar_agentes_mae()
+                        if agentes_mae:
+                            agente_mae_options = {agente['nome']: agente['_id'] for agente in agentes_mae}
+                            agente_mae_selecionado = st.selectbox(
+                                "Agente Mãe:",
+                                list(agente_mae_options.keys())
+                            )
+                            agente_mae_id = agente_mae_options[agente_mae_selecionado]
+                            
+                            st.subheader("Elementos para Herdar")
+                            herdar_elementos = st.multiselect(
+                                "Selecione os elementos a herdar do agente mãe:",
+                                ["system_prompt", "base_conhecimento", "comments", "planejamento"],
+                                help="Estes elementos serão herdados do agente mãe se não preenchidos abaixo"
+                            )
+                    
                     system_prompt = st.text_area("Prompt de Sistema:", height=150, 
-                                                placeholder="Ex: Você é um assistente especializado em...")
+                                                placeholder="Ex: Você é um assistente especializado em...",
+                                                help="Deixe vazio se for herdar do agente mãe")
                     base_conhecimento = st.text_area("Brand Guidelines:", height=200,
-                                                   placeholder="Cole aqui informações, diretrizes, dados...")
+                                                   placeholder="Cole aqui informações, diretrizes, dados...",
+                                                   help="Deixe vazio se for herdar do agente mãe")
                     comments = st.text_area("Comentários do cliente:", height=200,
-                                                   placeholder="Cole aqui os comentários de ajuste do cliente (Se houver)")
+                                                   placeholder="Cole aqui os comentários de ajuste do cliente (Se houver)",
+                                                   help="Deixe vazio se for herdar do agente mãe")
+                    planejamento = st.text_area("Planejamento:", height=200,
+                                               placeholder="Estratégias, planejamentos, cronogramas...",
+                                               help="Deixe vazio se for herdar do agente mãe")
                     
                     submitted = st.form_submit_button("Criar Agente")
                     if submitted:
-                        if nome_agente and system_prompt:
-                            agente_id = criar_agente(nome_agente, system_prompt, base_conhecimento, comments)
-                            st.success(f"Agente '{nome_agente}' criado com sucesso!")
+                        if nome_agente:
+                            agente_id = criar_agente(
+                                nome_agente, 
+                                system_prompt, 
+                                base_conhecimento, 
+                                comments, 
+                                planejamento,
+                                categoria,
+                                agente_mae_id if criar_como_filho else None,
+                                herdar_elementos if criar_como_filho else []
+                            )
+                            st.success(f"Agente '{nome_agente}' criado com sucesso na categoria {categoria}!")
                         else:
-                            st.error("Nome e Prompt de Sistema são obrigatórios!")
+                            st.error("Nome é obrigatório!")
             
             with sub_tab2:
                 st.subheader("Editar Agente Existente")
@@ -448,38 +534,114 @@ with tab_gerenciamento:
                         
                         with st.form("form_editar_agente"):
                             novo_nome = st.text_input("Nome do Agente:", value=agente['nome'])
+                            
+                            # Categoria
+                            nova_categoria = st.selectbox(
+                                "Categoria:",
+                                ["Social", "SEO", "Conteúdo"],
+                                index=["Social", "SEO", "Conteúdo"].index(agente.get('categoria', 'Social')),
+                                help="Organize o agente por área de atuação"
+                            )
+                            
+                            # Informações de herança
+                            if agente.get('agente_mae_id'):
+                                agente_mae = obter_agente(agente['agente_mae_id'])
+                                if agente_mae:
+                                    st.info(f"🔗 Este agente é filho de: {agente_mae['nome']}")
+                                    st.write(f"Elementos herdados: {', '.join(agente.get('herdar_elementos', []))}")
+                            
+                            # Opção para tornar independente
+                            if agente.get('agente_mae_id'):
+                                tornar_independente = st.checkbox("Tornar agente independente (remover herança)")
+                                if tornar_independente:
+                                    agente_mae_id = None
+                                    herdar_elementos = []
+                                else:
+                                    agente_mae_id = agente.get('agente_mae_id')
+                                    herdar_elementos = agente.get('herdar_elementos', [])
+                            else:
+                                agente_mae_id = None
+                                herdar_elementos = []
+                                # Opção para adicionar herança
+                                adicionar_heranca = st.checkbox("Adicionar herança de agente mãe")
+                                if adicionar_heranca:
+                                    agentes_mae = listar_agentes_mae()
+                                    if agentes_mae:
+                                        agente_mae_options = {agente_mae['nome']: agente_mae['_id'] for agente_mae in agentes_mae if agente_mae['_id'] != agente['_id']}
+                                        if agente_mae_options:
+                                            agente_mae_selecionado = st.selectbox(
+                                                "Agente Mãe:",
+                                                list(agente_mae_options.keys())
+                                            )
+                                            agente_mae_id = agente_mae_options[agente_mae_selecionado]
+                                            herdar_elementos = st.multiselect(
+                                                "Elementos para herdar:",
+                                                ["system_prompt", "base_conhecimento", "comments", "planejamento"],
+                                                default=herdar_elementos
+                                            )
+                            
                             novo_prompt = st.text_area("Prompt de Sistema:", value=agente['system_prompt'], height=150)
                             nova_base = st.text_area("Brand Guidelines:", value=agente.get('base_conhecimento', ''), height=200)
                             nova_comment = st.text_area("Comentários:", value=agente.get('comments', ''), height=200)
+                            novo_planejamento = st.text_area("Planejamento:", value=agente.get('planejamento', ''), height=200)
                             
                             submitted = st.form_submit_button("Atualizar Agente")
                             if submitted:
-                                if novo_nome and novo_prompt:
-                                    atualizar_agente(agente['_id'], novo_nome, novo_prompt, nova_base, nova_comment)
+                                if novo_nome:
+                                    atualizar_agente(
+                                        agente['_id'], 
+                                        novo_nome, 
+                                        novo_prompt, 
+                                        nova_base, 
+                                        nova_comment, 
+                                        novo_planejamento,
+                                        nova_categoria,
+                                        agente_mae_id,
+                                        herdar_elementos
+                                    )
                                     st.success(f"Agente '{novo_nome}' atualizado com sucesso!")
                                     st.rerun()
                                 else:
-                                    st.error("Nome e Prompt de Sistema são obrigatórios!")
+                                    st.error("Nome é obrigatório!")
                 else:
                     st.info("Nenhum agente criado ainda.")
             
             with sub_tab3:
                 st.subheader("Gerenciar Agentes")
                 
+                # Filtros por categoria
+                categorias = ["Todos", "Social", "SEO", "Conteúdo"]
+                categoria_filtro = st.selectbox("Filtrar por categoria:", categorias)
+                
                 agentes = listar_agentes()
+                
+                # Aplicar filtro
+                if categoria_filtro != "Todos":
+                    agentes = [agente for agente in agentes if agente.get('categoria') == categoria_filtro]
+                
                 if agentes:
                     for i, agente in enumerate(agentes):
-                        with st.expander(f"{agente['nome']} - Criado em {agente['data_criacao'].strftime('%d/%m/%Y')}"):
-                            st.write(f"**Prompt de Sistema:** {agente['system_prompt']}")
+                        with st.expander(f"{agente['nome']} - {agente.get('categoria', 'Social')} - Criado em {agente['data_criacao'].strftime('%d/%m/%Y')}"):
+                            
+                            # Mostrar informações de herança
+                            if agente.get('agente_mae_id'):
+                                agente_mae = obter_agente(agente['agente_mae_id'])
+                                if agente_mae:
+                                    st.write(f"**🔗 Herda de:** {agente_mae['nome']}")
+                                    st.write(f"**Elementos herdados:** {', '.join(agente.get('herdar_elementos', []))}")
+                            
+                            st.write(f"**Prompt de Sistema:** {agente['system_prompt'][:100]}..." if agente['system_prompt'] else "**Prompt de Sistema:** (herdado ou vazio)")
                             if agente.get('base_conhecimento'):
                                 st.write(f"**Brand Guidelines:** {agente['base_conhecimento'][:200]}...")
                             if agente.get('comments'):
                                 st.write(f"**Comentários do cliente:** {agente['comments'][:200]}...")
+                            if agente.get('planejamento'):
+                                st.write(f"**Planejamento:** {agente['planejamento'][:200]}...")
                             
                             col1, col2 = st.columns(2)
                             with col1:
                                 if st.button("Selecionar para Chat", key=f"select_{i}"):
-                                    st.session_state.agente_selecionado = agente
+                                    st.session_state.agente_selecionado = obter_agente_com_heranca(agente['_id'])
                                     st.session_state.messages = []
                                     st.success(f"Agente '{agente['nome']}' selecionado!")
                             with col2:
@@ -488,7 +650,7 @@ with tab_gerenciamento:
                                     st.success(f"Agente '{agente['nome']}' desativado!")
                                     st.rerun()
                 else:
-                    st.info("Nenhum agente criado ainda.")
+                    st.info("Nenhum agente encontrado para esta categoria.")
 
 with tab_chat:
     st.header("💬 Chat com Agente")
@@ -497,12 +659,29 @@ with tab_chat:
     if not st.session_state.agente_selecionado:
         agentes = listar_agentes()
         if agentes:
-            agente_options = {agente['nome']: agente for agente in agentes}
-            agente_selecionado_nome = st.selectbox("Selecione um agente para conversar:", 
-                                                 list(agente_options.keys()))
+            # Agrupar agentes por categoria
+            agentes_por_categoria = {}
+            for agente in agentes:
+                categoria = agente.get('categoria', 'Social')
+                if categoria not in agentes_por_categoria:
+                    agentes_por_categoria[categoria] = []
+                agentes_por_categoria[categoria].append(agente)
+            
+            # Seleção com agrupamento
+            agente_options = {}
+            for categoria, agentes_cat in agentes_por_categoria.items():
+                for agente in agentes_cat:
+                    agente_completo = obter_agente_com_heranca(agente['_id'])
+                    display_name = f"{agente['nome']} ({categoria})"
+                    if agente.get('agente_mae_id'):
+                        display_name += " 🔗"
+                    agente_options[display_name] = agente_completo
+            
+            agente_selecionado_display = st.selectbox("Selecione um agente para conversar:", 
+                                                     list(agente_options.keys()))
             
             if st.button("Iniciar Conversa", key="iniciar_chat"):
-                st.session_state.agente_selecionado = agente_options[agente_selecionado_nome]
+                st.session_state.agente_selecionado = agente_options[agente_selecionado_display]
                 st.session_state.messages = []
                 st.rerun()
         else:
@@ -511,6 +690,12 @@ with tab_chat:
         agente = st.session_state.agente_selecionado
         st.subheader(f"Conversando com: {agente['nome']}")
         
+        # Mostrar informações de herança se aplicável
+        if 'agente_mae_id' in agente and agente['agente_mae_id']:
+            agente_original = obter_agente(agente['_id'])
+            if agente_original and agente_original.get('herdar_elementos'):
+                st.info(f"🔗 Este agente herda {len(agente_original['herdar_elementos'])} elementos do agente mãe")
+        
         # Controles de segmentos na sidebar do chat
         st.sidebar.subheader("🔧 Configurações do Agente")
         st.sidebar.write("Selecione quais bases de conhecimento usar:")
@@ -518,7 +703,8 @@ with tab_chat:
         segmentos_disponiveis = {
             "Prompt do Sistema": "system_prompt",
             "Brand Guidelines": "base_conhecimento", 
-            "Comentários do Cliente": "comments"
+            "Comentários do Cliente": "comments",
+            "Planejamento": "planejamento"
         }
         
         segmentos_selecionados = []
@@ -594,7 +780,7 @@ with tab_video:
         
         segmentos_video = st.sidebar.multiselect(
             "Bases para validação de vídeo:",
-            options=["system_prompt", "base_conhecimento", "comments"],
+            options=["system_prompt", "base_conhecimento", "comments", "planejamento"],
             default=st.session_state.segmentos_selecionados,
             key="video_segmentos"
         )
@@ -783,6 +969,11 @@ with tab_aprovacao:
                             {agente.get('comments', '')}
                             ###END COMMENTS FROM CLIENT###
                             
+                            Planejamento:
+                            ###BEGIN PLANEJAMENTO###
+                            {agente.get('planejamento', '')}
+                            ###END PLANEJAMENTO###
+                            
                             Analise esta imagem e forneça um parecer detalhado com:
                             - ✅ Pontos positivos
                             - ❌ Pontos que precisam de ajuste
@@ -815,6 +1006,11 @@ with tab_aprovacao:
                             ###BEGIN COMMENTS FROM CLIENT###
                             {agente.get('comments', '')}
                             ###END COMMENTS FROM CLIENT###
+                    
+                            Planejamento:
+                            ###BEGIN PLANEJAMENTO###
+                            {agente.get('planejamento', '')}
+                            ###END PLANEJAMENTO###
                     
                     Analise este texto e forneça um parecer detalhado:
                     
@@ -872,6 +1068,11 @@ with tab_geracao:
                             {agente.get('comments', '')}
                             ###END COMMENTS FROM CLIENT###
                     
+                            Planejamento:
+                            ###BEGIN PLANEJAMENTO###
+                            {agente.get('planejamento', '')}
+                            ###END PLANEJAMENTO###
+                    
                     Com base no briefing: {campanha_brief}
                     
                     Crie um manual técnico para designers incluindo:
@@ -902,6 +1103,11 @@ with tab_geracao:
                             ###BEGIN COMMENTS FROM CLIENT###
                             {agente.get('comments', '')}
                             ###END COMMENTS FROM CLIENT###
+                    
+                            Planejamento:
+                            ###BEGIN PLANEJAMENTO###
+                            {agente.get('planejamento', '')}
+                            ###END PLANEJAMENTO###
                     
                     Com base no briefing: {campanha_brief}
                     
@@ -977,6 +1183,9 @@ with tab_resumo:
                             Brand Guidelines:
                             {agente.get('base_conhecimento', '')}
                             
+                            Planejamento:
+                            {agente.get('planejamento', '')}
+                            
                             Crie um resumo deste texto com as seguintes características:
                             - {config_resumo}
                             - {"Inclua os principais pontos em tópicos" if incluir_pontos else "Formato de texto contínuo"}
@@ -1041,6 +1250,14 @@ st.markdown("""
         padding: 1.5rem;
         border-radius: 10px;
         margin: 1rem 0;
+    }
+    .inheritance-badge {
+        background-color: #e3f2fd;
+        color: #1976d2;
+        padding: 0.2rem 0.5rem;
+        border-radius: 12px;
+        font-size: 0.8rem;
+        margin-left: 0.5rem;
     }
 </style>
 """, unsafe_allow_html=True)
