@@ -512,7 +512,7 @@ def analisar_urls_perplexity(urls, pergunta, contexto_agente=None):
         }
         
         payload = {
-            "model": "sonar-medium-online",
+            "model": "sonar",
             "messages": [
                 {
                     "role": "system",
