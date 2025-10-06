@@ -548,6 +548,121 @@ def analisar_urls_perplexity(urls, pergunta, contexto_agente=None):
     except Exception as e:
         return f"❌ Erro ao analisar URLs: {str(e)}"
 
+# --- Função para Otimização SEO ---
+def gerar_analise_seo(conteudo, agente, palavra_chave_principal=None, tipo_conteudo="blog"):
+    """Gera análise completa de SEO para o conteúdo fornecido"""
+    
+    # Construir contexto com segmentos do agente
+    contexto = construir_contexto(agente, ["system_prompt", "base_conhecimento", "planejamento"])
+    
+    # Definir prompt específico para SEO
+    prompt = f"""
+    {contexto}
+    
+    ## 🎯 ANÁLISE DE OTIMIZAÇÃO SEO
+    
+    Analise o seguinte conteúdo para otimização SEO e forneça um relatório detalhado:
+    
+    **Informações do Conteúdo:**
+    - Tipo: {tipo_conteudo}
+    {f"- Palavra-chave Principal: {palavra_chave_principal}" if palavra_chave_principal else "- Palavra-chave: A ser identificada"}
+    
+    **Conteúdo para Análise:**
+    {conteudo}
+    
+    ### 📊 RESUMO EXECUTIVO
+    [Avaliação geral do conteúdo em termos de SEO]
+    
+    ### 🔍 ANÁLISE DE PALAVRAS-CHAVE
+    **Palavras-chave Identificadas:**
+    - Principal: [identificar/sugerir]
+    - Secundárias: [listar 3-5]
+    - LSI (Latent Semantic Indexing): [sugerir 3-5]
+    
+    **Densidade e Uso:**
+    - Frequência da palavra-chave principal: 
+    - Distribuição ao longo do texto:
+    - Sugestões de otimização:
+    
+    ### 📝 ANÁLISE DE CONTEÚDO
+    **Meta Informações:**
+    - **Título SEO** (atual/sugerido): 
+      [Avaliar e sugerir título otimizado (50-60 caracteres)]
+    
+    - **Meta Description** (atual/sugerida):
+      [Avaliar e sugerir descrição otimizada (120-158 caracteres)]
+    
+    **Estrutura do Conteúdo:**
+    - Títulos H1, H2, H3: [Avaliar hierarquia e uso de palavras-chave]
+    - Comprimento do conteúdo: [Avaliar se é adequado para o tópico]
+    - Legibilidade: [Avaliar clareza e facilidade de leitura]
+    - Valor para o usuário: [Avaliar qualidade e profundidade]
+    
+    ### 🔗 OTIMIZAÇÃO ON-PAGE
+    **Elementos Técnicos:**
+    - URLs: [Sugerir estrutura otimizada]
+    - Imagens: [Sugerir otimização de alt text e nomes de arquivo]
+    - Links Internos: [Sugerir oportunidades]
+    - Links Externos: [Sugerir fontes autoritativas]
+    
+    **Engajamento:**
+    - Chamadas para ação (CTAs): [Avaliar e sugerir]
+    - Elementos visuais: [Sugerir melhorias]
+    - Interatividade: [Sugerir elementos engajadores]
+    
+    ### 📈 OTIMIZAÇÃO OFF-PAGE
+    **Estratégias de Link Building:**
+    - [Sugerir 3-5 estratégias específicas]
+    
+    **Compartilhamento Social:**
+    - Títulos para redes sociais: [Sugerir variações]
+    - Descrições otimizadas: [Para Facebook, Twitter, LinkedIn]
+    
+    ### 🎯 SCORE SEO
+    **Pontuação por Categoria:**
+    - Palavras-chave: [0-10]
+    - Conteúdo: [0-10] 
+    - Técnico: [0-10]
+    - Experiência do Usuário: [0-10]
+    
+    **Pontuação Total:** [0-40]
+    
+    ### 🚀 AÇÕES RECOMENDADAS
+    **Prioridade Alta:**
+    - [Listar 3-5 ações críticas]
+    
+    **Prioridade Média:**
+    - [Listar 3-5 ações importantes]
+    
+    **Prioridade Baixa:**
+    - [Listar 2-3 otimizações adicionais]
+    
+    ### 💡 CONTEÚDO SUGERIDO
+    **Tópicos Relacionados:**
+    - [Sugerir 3-5 tópicos para pillar content]
+    
+    **Perguntas Frequentes:**
+    - [Listar 3-5 perguntas que o conteúdo responde]
+    
+    ### 📋 CHECKLIST DE OTIMIZAÇÃO
+    - [ ] Título otimizado com palavra-chave
+    - [ ] Meta description atrativa
+    - [ ] Estrutura de headings adequada
+    - [ ] Conteúdo de valor e profundidade
+    - [ ] Palavras-chave bem distribuídas
+    - [ ] Imagens otimizadas
+    - [ ] Links internos relevantes
+    - [ ] CTAs eficazes
+    - [ ] Conteúdo mobile-friendly
+    - [ ] Velocidade de carregamento adequada
+    """
+    
+    try:
+        resposta = modelo_texto.generate_content(prompt)
+        return resposta.text
+    except Exception as e:
+        return f"❌ Erro ao gerar análise SEO: {str(e)}"
+
 # --- Interface Principal ---
 st.sidebar.title(f"🤖 Bem-vindo, {st.session_state.user}!")
 
@@ -568,15 +683,16 @@ if "messages" not in st.session_state:
 if "segmentos_selecionados" not in st.session_state:
     st.session_state.segmentos_selecionados = ["system_prompt", "base_conhecimento", "comments", "planejamento"]
 
-# Menu de abas
-tab_chat, tab_gerenciamento, tab_aprovacao, tab_video, tab_geracao, tab_resumo, tab_busca = st.tabs([
+# Menu de abas - ADICIONANDO A NOVA ABA SEO
+tab_chat, tab_gerenciamento, tab_aprovacao, tab_video, tab_geracao, tab_resumo, tab_busca, tab_seo = st.tabs([
     "💬 Chat", 
     "⚙️ Gerenciar Agentes", 
     "✅ Validação", 
     "🎬 Validação de Vídeo",
     "✨ Geração de Conteúdo",
     "📝 Resumo de Textos",
-    "🌐 Busca Web"
+    "🌐 Busca Web",
+    "🚀 Otimização SEO"  # NOVA ABA
 ])
 
 with tab_gerenciamento:
@@ -1571,6 +1687,181 @@ with tab_busca:
             - Limite de 5 URLs por análise para melhor performance
             """)
 
+# --- NOVA ABA: OTIMIZAÇÃO SEO ---
+with tab_seo:
+    st.header("🚀 Otimização de Conteúdo SEO")
+    
+    if not st.session_state.agente_selecionado:
+        st.info("Selecione um agente primeiro na aba de Chat")
+    else:
+        agente = st.session_state.agente_selecionado
+        
+        # Verificar se o agente selecionado é da categoria SEO
+        if agente.get('categoria') != 'SEO':
+            st.warning("⚠️ Esta funcionalidade é otimizada para agentes da categoria SEO.")
+            st.info("💡 Para melhor desempenho, selecione um agente específico para SEO na aba de Chat.")
+        
+        st.subheader(f"Otimização com: {agente['nome']}")
+        
+        # Layout em colunas para organização
+        col_config, col_conteudo = st.columns([1, 2])
+        
+        with col_config:
+            st.subheader("⚙️ Configurações SEO")
+            
+            # Tipo de conteúdo
+            tipo_conteudo = st.selectbox(
+                "Tipo de Conteúdo:",
+                ["blog", "landing page", "página de produto", "artigo", "notícia", "guia"],
+                help="Selecione o tipo de conteúdo para análise específica",
+                key="tipo_conteudo_seo"
+            )
+            
+            # Palavra-chave principal
+            palavra_chave_principal = st.text_input(
+                "Palavra-chave Principal (opcional):",
+                placeholder="Ex: marketing digital",
+                help="Deixe em branco para o agente identificar automaticamente",
+                key="palavra_chave_seo"
+            )
+            
+            # Configurações de análise
+            with st.expander("🔧 Configurações Avançadas"):
+                analise_competitiva = st.checkbox(
+                    "Incluir análise competitiva",
+                    value=True,
+                    help="Sugerir estratégias baseadas em concorrentes",
+                    key="analise_competitiva"
+                )
+                
+                sugestoes_conteudo = st.checkbox(
+                    "Gerar sugestões de conteúdo relacionado",
+                    value=True,
+                    help="Sugerir tópicos relacionados para pillar content",
+                    key="sugestoes_conteudo"
+                )
+                
+                checklist_acao = st.checkbox(
+                    "Incluir checklist de ações",
+                    value=True,
+                    help="Gerar lista de tarefas para implementação",
+                    key="checklist_acao"
+                )
+        
+        with col_conteudo:
+            st.subheader("📝 Conteúdo para Otimização")
+            
+            conteudo_para_analise = st.text_area(
+                "Cole o conteúdo que deseja otimizar para SEO:",
+                height=400,
+                placeholder="Cole aqui o texto completo do seu conteúdo...\n\nInclua títulos, subtítulos e corpo do texto.",
+                help="Quanto mais completo o conteúdo, mais detalhada será a análise SEO",
+                key="conteudo_seo"
+            )
+            
+            # Estatísticas do conteúdo
+            if conteudo_para_analise:
+                palavras = len(conteudo_para_analise.split())
+                caracteres = len(conteudo_para_analise)
+                paragrafos = conteudo_para_analise.count('\n\n') + 1
+                
+                col_stats1, col_stats2, col_stats3 = st.columns(3)
+                with col_stats1:
+                    st.metric("📊 Palavras", palavras)
+                with col_stats2:
+                    st.metric("🔤 Caracteres", caracteres)
+                with col_stats3:
+                    st.metric("📄 Parágrafos", paragrafos)
+            
+            # Botão de análise
+            if st.button("🚀 Gerar Análise SEO Completa", type="primary", key="analise_seo"):
+                if not conteudo_para_analise.strip():
+                    st.warning("⚠️ Por favor, cole o conteúdo que deseja otimizar.")
+                else:
+                    with st.spinner("🔄 Analisando conteúdo e gerando relatório SEO..."):
+                        try:
+                            resultado = gerar_analise_seo(
+                                conteudo=conteudo_para_analise,
+                                agente=agente,
+                                palavra_chave_principal=palavra_chave_principal if palavra_chave_principal else None,
+                                tipo_conteudo=tipo_conteudo
+                            )
+                            
+                            st.subheader("📋 Relatório de Otimização SEO")
+                            st.markdown(resultado)
+                            
+                            # Opções de download
+                            col_dl1, col_dl2 = st.columns(2)
+                            
+                            with col_dl1:
+                                st.download_button(
+                                    "💾 Baixar Relatório Completo",
+                                    data=resultado,
+                                    file_name=f"relatorio_seo_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+                                    mime="text/plain",
+                                    key="download_seo_completo"
+                                )
+                            
+                            with col_dl2:
+                                # Extrair apenas o checklist se disponível
+                                if "### 📋 CHECKLIST DE OTIMIZAÇÃO" in resultado:
+                                    checklist_start = resultado.find("### 📋 CHECKLIST DE OTIMIZAÇÃO")
+                                    checklist_end = resultado.find("###", checklist_start + 1)
+                                    checklist = resultado[checklist_start:checklist_end] if checklist_end != -1 else resultado[checklist_start:]
+                                    
+                                    st.download_button(
+                                        "📋 Baixar Checklist",
+                                        data=checklist,
+                                        file_name=f"checklist_seo_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+                                        mime="text/plain",
+                                        key="download_checklist_seo"
+                                    )
+                            
+                        except Exception as e:
+                            st.error(f"❌ Erro ao gerar análise SEO: {str(e)}")
+        
+        # Seção informativa
+        with st.expander("ℹ️ Sobre a Análise SEO"):
+            st.markdown("""
+            ### 🎯 O que é Analisado
+            
+            **🔍 Análise de Palavras-chave:**
+            - Identificação de palavras-chave principais e secundárias
+            - Densidade e distribuição no conteúdo
+            - Sugestões de palavras-chave LSI (Latent Semantic Indexing)
+            
+            **📝 Otimização On-Page:**
+            - Meta título e description
+            - Estrutura de headings (H1, H2, H3)
+            - Comprimento e qualidade do conteúdo
+            - Legibilidade e engajamento
+            
+            **🔗 Elementos Técnicos:**
+            - Estrutura de URLs
+            - Otimização de imagens (alt text)
+            - Links internos e externos
+            - Chamadas para ação (CTAs)
+            
+            **📈 Estratégias Off-Page:**
+            - Link building
+            - Compartilhamento em redes sociais
+            - Conteúdo relacionado
+            
+            ### 📊 Métricas de Qualidade
+            
+            - **Score SEO**: Pontuação geral de 0-40
+            - **Conteúdo**: Valor, profundidade e originalidade
+            - **Técnico**: Elementos técnicos de SEO
+            - **Experiência do Usuário**: Engajamento e usabilidade
+            
+            ### 💡 Dicas para Melhor Análise
+            
+            1. **Conteúdo Completo**: Cole o texto integral para análise detalhada
+            2. **Palavra-chave**: Especifique a palavra-chave principal quando possível
+            3. **Contexto**: Use agentes da categoria SEO para melhores resultados
+            4. **Implementação**: Siga o checklist gerado para otimização prática
+            """)
+
 # --- Estilização ---
 st.markdown("""
 <style>
@@ -1617,6 +1908,13 @@ st.markdown("""
         margin-left: 0.5rem;
     }
     .web-search-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 1.5rem;
+        border-radius: 10px;
+        margin: 1rem 0;
+    }
+    .seo-analysis-card {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
         padding: 1.5rem;
