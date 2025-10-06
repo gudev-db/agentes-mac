@@ -74,6 +74,11 @@ genai.configure(api_key=gemini_api_key)
 modelo_vision = genai.GenerativeModel("gemini-2.5-flash", generation_config={"temperature": 0.1})
 modelo_texto = genai.GenerativeModel("gemini-2.5-flash")
 
+# Configuração da API do Perplexity
+perp_api_key = os.getenv("PERP_API_KEY")
+if not perp_api_key:
+    st.error("PERP_API_KEY não encontrada nas variáveis de ambiente")
+
 # --- Configuração de Autenticação de Administrador ---
 def check_admin_password():
     """Retorna True se o usuário fornecer a senha de admin correta."""
@@ -132,9 +137,15 @@ def listar_agentes():
     """Retorna todos os agentes ativos"""
     return list(collection_agentes.find({"ativo": True}).sort("data_criacao", -1))
 
-def listar_agentes_mae():
-    """Retorna apenas agentes que podem ser mães (não são filhos)"""
-    return list(collection_agentes.find({"ativo": True, "agente_mae_id": None}).sort("data_criacao", -1))
+def listar_agentes_para_heranca(agente_atual_id=None):
+    """Retorna todos os agentes ativos que podem ser usados como mãe"""
+    query = {"ativo": True}
+    if agente_atual_id:
+        # Excluir o próprio agente da lista de opções para evitar auto-herança
+        if isinstance(agente_atual_id, str):
+            agente_atual_id = ObjectId(agente_atual_id)
+        query["_id"] = {"$ne": agente_atual_id}
+    return list(collection_agentes.find(query).sort("data_criacao", -1))
 
 def obter_agente(agente_id):
     """Obtém um agente específico pelo ID"""
@@ -400,6 +411,143 @@ def processar_url_youtube(youtube_url, segmentos_selecionados, agente, tipo_anal
     except Exception as e:
         return f"Erro ao processar URL do YouTube: {str(e)}"
 
+# --- Funções para busca web com Perplexity ---
+def buscar_perplexity(pergunta, contexto_agente=None, focus=None, urls_especificas=None):
+    """Faz busca na web usando a API do Perplexity"""
+    try:
+        if not perp_api_key:
+            return "❌ Erro: Chave da API Perplexity não configurada"
+        
+        # Construir o prompt com contexto do agente se fornecido
+        prompt_final = pergunta
+        if contexto_agente:
+            prompt_final = f"""
+            Contexto do agente:
+            {contexto_agente}
+            
+            Pergunta: {pergunta}
+            
+            Por favor, responda considerando o contexto acima e complemente com informações atualizadas da web.
+            """
+        
+        # Configurar os parâmetros da requisição
+        url = "https://api.perplexity.ai/chat/completions"
+        
+        headers = {
+            "Authorization": perp_api_key,
+            "Content-Type": "application/json"
+        }
+        
+        # Configurar o payload
+        payload = {
+            "model": "sonar-medium-online",
+            "messages": [
+                {
+                    "role": "system",
+                    "content": "Seja preciso e forneça informações atualizadas. Cite fontes quando relevante."
+                },
+                {
+                    "role": "user",
+                    "content": prompt_final
+                }
+            ],
+            "max_tokens": 2000,
+            "temperature": 0.1,
+            "top_p": 0.9,
+            "return_citations": True,
+            "search_domain_filters": urls_especificas if urls_especificas else None
+        }
+        
+        # Fazer a requisição
+        response = requests.post(url, json=payload, headers=headers, timeout=30)
+        
+        if response.status_code == 200:
+            data = response.json()
+            resposta = data['choices'][0]['message']['content']
+            
+            # Adicionar citações se disponíveis
+            if 'citations' in data and data['citations']:
+                resposta += "\n\n### 🔍 Fontes Consultadas:\n"
+                for i, citation in enumerate(data['citations'], 1):
+                    resposta += f"{i}. {citation}\n"
+            
+            return resposta
+        else:
+            return f"❌ Erro na API Perplexity: {response.status_code} - {response.text}"
+            
+    except Exception as e:
+        return f"❌ Erro ao fazer busca: {str(e)}"
+
+def analisar_urls_perplexity(urls, pergunta, contexto_agente=None):
+    """Analisa URLs específicas usando Perplexity"""
+    try:
+        if not perp_api_key:
+            return "❌ Erro: Chave da API Perplexity não configurada"
+        
+        # Construir prompt para análise de URLs
+        prompt = f"""
+        Analise as seguintes URLs e responda à pergunta com base no conteúdo delas:
+        
+        URLs para análise:
+        {chr(10).join([f'- {url}' for url in urls])}
+        
+        Pergunta: {pergunta}
+        """
+        
+        if contexto_agente:
+            prompt = f"""
+            Contexto do agente:
+            {contexto_agente}
+            
+            {prompt}
+            
+            Por favor, responda considerando o contexto do agente e as informações das URLs fornecidas.
+            """
+        
+        url = "https://api.perplexity.ai/chat/completions"
+        
+        headers = {
+            "Authorization": perp_api_key,
+            "Content-Type": "application/json"
+        }
+        
+        payload = {
+            "model": "sonar-medium-online",
+            "messages": [
+                {
+                    "role": "system",
+                    "content": "Analise o conteúdo das URLs fornecidas e responda com base nelas. Cite trechos específicos quando relevante."
+                },
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            "max_tokens": 2000,
+            "temperature": 0.1,
+            "top_p": 0.9,
+            "return_citations": True,
+            "search_domain_filters": urls
+        }
+        
+        response = requests.post(url, json=payload, headers=headers, timeout=30)
+        
+        if response.status_code == 200:
+            data = response.json()
+            resposta = data['choices'][0]['message']['content']
+            
+            if 'citations' in data and data['citations']:
+                resposta += "\n\n### 🔍 URLs Analisadas:\n"
+                for i, citation in enumerate(data['citations'], 1):
+                    resposta += f"{i}. {citation}\n"
+            
+            return resposta
+        else:
+            return f"❌ Erro na API Perplexity: {response.status_code} - {response.text}"
+            
+    except Exception as e:
+        return f"❌ Erro ao analisar URLs: {str(e)}"
+
 # --- Interface Principal ---
 st.sidebar.title(f"🤖 Bem-vindo, {st.session_state.user}!")
 
@@ -421,13 +569,14 @@ if "segmentos_selecionados" not in st.session_state:
     st.session_state.segmentos_selecionados = ["system_prompt", "base_conhecimento", "comments", "planejamento"]
 
 # Menu de abas
-tab_chat, tab_gerenciamento, tab_aprovacao, tab_video, tab_geracao, tab_resumo = st.tabs([
+tab_chat, tab_gerenciamento, tab_aprovacao, tab_video, tab_geracao, tab_resumo, tab_busca = st.tabs([
     "💬 Chat", 
     "⚙️ Gerenciar Agentes", 
     "✅ Validação", 
     "🎬 Validação de Vídeo",
     "✨ Geração de Conteúdo",
-    "📝 Resumo de Textos"
+    "📝 Resumo de Textos",
+    "🌐 Busca Web"
 ])
 
 with tab_gerenciamento:
@@ -474,12 +623,14 @@ with tab_gerenciamento:
                     herdar_elementos = []
                     
                     if criar_como_filho:
-                        agentes_mae = listar_agentes_mae()
+                        # Listar TODOS os agentes disponíveis para herança
+                        agentes_mae = listar_agentes_para_heranca()
                         if agentes_mae:
-                            agente_mae_options = {agente['nome']: agente['_id'] for agente in agentes_mae}
+                            agente_mae_options = {f"{agente['nome']} ({agente.get('categoria', 'Social')})": agente['_id'] for agente in agentes_mae}
                             agente_mae_selecionado = st.selectbox(
                                 "Agente Mãe:",
-                                list(agente_mae_options.keys())
+                                list(agente_mae_options.keys()),
+                                help="Selecione o agente do qual este agente irá herdar elementos"
                             )
                             agente_mae_id = agente_mae_options[agente_mae_selecionado]
                             
@@ -489,6 +640,8 @@ with tab_gerenciamento:
                                 ["system_prompt", "base_conhecimento", "comments", "planejamento"],
                                 help="Estes elementos serão herdados do agente mãe se não preenchidos abaixo"
                             )
+                        else:
+                            st.info("Nenhum agente disponível para herança. Crie primeiro um agente mãe.")
                     
                     system_prompt = st.text_area("Prompt de Sistema:", height=150, 
                                                 placeholder="Ex: Você é um assistente especializado em...",
@@ -565,13 +718,15 @@ with tab_gerenciamento:
                                 # Opção para adicionar herança
                                 adicionar_heranca = st.checkbox("Adicionar herança de agente mãe")
                                 if adicionar_heranca:
-                                    agentes_mae = listar_agentes_mae()
+                                    # Listar TODOS os agentes disponíveis para herança (excluindo o próprio)
+                                    agentes_mae = listar_agentes_para_heranca(agente['_id'])
                                     if agentes_mae:
-                                        agente_mae_options = {agente_mae['nome']: agente_mae['_id'] for agente_mae in agentes_mae if agente_mae['_id'] != agente['_id']}
+                                        agente_mae_options = {f"{agente_mae['nome']} ({agente_mae.get('categoria', 'Social')})": agente_mae['_id'] for agente_mae in agentes_mae}
                                         if agente_mae_options:
                                             agente_mae_selecionado = st.selectbox(
                                                 "Agente Mãe:",
-                                                list(agente_mae_options.keys())
+                                                list(agente_mae_options.keys()),
+                                                help="Selecione o agente do qual este agente irá herdar elementos"
                                             )
                                             agente_mae_id = agente_mae_options[agente_mae_selecionado]
                                             herdar_elementos = st.multiselect(
@@ -579,6 +734,10 @@ with tab_gerenciamento:
                                                 ["system_prompt", "base_conhecimento", "comments", "planejamento"],
                                                 default=herdar_elementos
                                             )
+                                        else:
+                                            st.info("Nenhum agente disponível para herança.")
+                                    else:
+                                        st.info("Nenhum agente disponível para herança.")
                             
                             novo_prompt = st.text_area("Prompt de Sistema:", value=agente['system_prompt'], height=150)
                             nova_base = st.text_area("Brand Guidelines:", value=agente.get('base_conhecimento', ''), height=200)
@@ -1214,6 +1373,204 @@ with tab_resumo:
                         except Exception as e:
                             st.error(f"Erro ao gerar resumo: {str(e)}")
 
+with tab_busca:
+    st.header("🌐 Busca Web com Perplexity")
+    
+    if not perp_api_key:
+        st.error("❌ Chave da API Perplexity não encontrada. Configure a variável de ambiente PERP_API_KEY.")
+    else:
+        st.success("✅ API Perplexity configurada com sucesso!")
+        
+        # Seleção de modo de busca
+        modo_busca = st.radio(
+            "Selecione o modo de busca:",
+            ["🔍 Busca Geral na Web", "📋 Análise de URLs Específicas"],
+            horizontal=True,
+            key="modo_busca"
+        )
+        
+        # Configurações comuns
+        col_config1, col_config2 = st.columns(2)
+        
+        with col_config1:
+            usar_agente = st.checkbox(
+                "Usar contexto do agente selecionado",
+                value=st.session_state.agente_selecionado is not None,
+                help="Utilizar o conhecimento do agente para contextualizar a busca",
+                key="usar_agente_busca"
+            )
+        
+        with col_config2:
+            if usar_agente and st.session_state.agente_selecionado:
+                agente = st.session_state.agente_selecionado
+                st.info(f"🎯 Usando: {agente['nome']}")
+            else:
+                st.info("🔍 Busca sem contexto específico")
+        
+        if modo_busca == "🔍 Busca Geral na Web":
+            st.subheader("Busca Geral na Web")
+            
+            pergunta = st.text_area(
+                "Digite sua pergunta para busca:",
+                placeholder="Ex: Quais são as últimas tendências em marketing digital para 2024?",
+                height=100,
+                key="pergunta_geral"
+            )
+            
+            # Configurações avançadas
+            with st.expander("⚙️ Configurações Avançadas"):
+                col_adv1, col_adv2 = st.columns(2)
+                
+                with col_adv1:
+                    max_tokens = st.slider(
+                        "Comprimento da resposta:",
+                        min_value=500,
+                        max_value=3000,
+                        value=1500,
+                        step=100,
+                        key="max_tokens_geral"
+                    )
+                
+                with col_adv2:
+                    temperatura = st.slider(
+                        "Criatividade:",
+                        min_value=0.0,
+                        max_value=1.0,
+                        value=0.1,
+                        step=0.1,
+                        key="temp_geral"
+                    )
+            
+            if st.button("🔎 Realizar Busca", type="primary", key="buscar_geral"):
+                if not pergunta.strip():
+                    st.warning("⚠️ Por favor, digite uma pergunta para busca.")
+                else:
+                    with st.spinner("🔄 Buscando informações na web..."):
+                        # Construir contexto do agente se selecionado
+                        contexto_agente = None
+                        if usar_agente and st.session_state.agente_selecionado:
+                            agente = st.session_state.agente_selecionado
+                            contexto_agente = construir_contexto(agente, st.session_state.segmentos_selecionados)
+                        
+                        resultado = buscar_perplexity(
+                            pergunta=pergunta,
+                            contexto_agente=contexto_agente
+                        )
+                        
+                        st.subheader("📋 Resultado da Busca")
+                        st.markdown(resultado)
+                        
+                        # Opção para download
+                        st.download_button(
+                            "💾 Baixar Resultado",
+                            data=resultado,
+                            file_name=f"busca_web_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+                            mime="text/plain",
+                            key="download_busca_geral"
+                        )
+        
+        else:  # Análise de URLs Específicas
+            st.subheader("Análise de URLs Específicas")
+            
+            urls_input = st.text_area(
+                "Cole as URLs para análise (uma por linha):",
+                placeholder="https://exemplo.com/artigo1\nhttps://exemplo.com/artigo2\nhttps://exemplo.com/noticia",
+                height=150,
+                key="urls_input",
+                help="Insira uma URL por linha. Máximo de 5 URLs por análise."
+            )
+            
+            pergunta_urls = st.text_area(
+                "Digite a pergunta específica para análise:",
+                placeholder="Ex: Com base nestas URLs, quais são os pontos principais discutidos?",
+                height=100,
+                key="pergunta_urls"
+            )
+            
+            if st.button("🔍 Analisar URLs", type="primary", key="analisar_urls"):
+                if not urls_input.strip() or not pergunta_urls.strip():
+                    st.warning("⚠️ Por favor, preencha tanto as URLs quanto a pergunta.")
+                else:
+                    # Processar URLs
+                    urls = [url.strip() for url in urls_input.split('\n') if url.strip()]
+                    
+                    if len(urls) > 5:
+                        st.warning("⚠️ Muitas URLs. Analisando apenas as primeiras 5.")
+                        urls = urls[:5]
+                    
+                    # Validar URLs
+                    urls_validas = []
+                    for url in urls:
+                        if url.startswith(('http://', 'https://')):
+                            urls_validas.append(url)
+                        else:
+                            st.warning(f"URL inválida (falta http:// ou https://): {url}")
+                    
+                    if not urls_validas:
+                        st.error("❌ Nenhuma URL válida encontrada.")
+                    else:
+                        with st.spinner(f"🔄 Analisando {len(urls_validas)} URL(s)..."):
+                            # Construir contexto do agente se selecionado
+                            contexto_agente = None
+                            if usar_agente and st.session_state.agente_selecionado:
+                                agente = st.session_state.agente_selecionado
+                                contexto_agente = construir_contexto(agente, st.session_state.segmentos_selecionados)
+                            
+                            resultado = analisar_urls_perplexity(
+                                urls=urls_validas,
+                                pergunta=pergunta_urls,
+                                contexto_agente=contexto_agente
+                            )
+                            
+                            st.subheader("📋 Resultado da Análise")
+                            st.markdown(resultado)
+                            
+                            # Mostrar URLs analisadas
+                            st.info("### 🌐 URLs Analisadas:")
+                            for i, url in enumerate(urls_validas, 1):
+                                st.write(f"{i}. {url}")
+                            
+                            # Opção para download
+                            st.download_button(
+                                "💾 Baixar Análise",
+                                data=resultado,
+                                file_name=f"analise_urls_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+                                mime="text/plain",
+                                key="download_analise_urls"
+                            )
+        
+        # Seção de informações
+        with st.expander("ℹ️ Informações sobre Busca Web"):
+            st.markdown("""
+            ### 🌐 Capacidades da Busca Web
+            
+            **Busca Geral:**
+            - Pesquisa em tempo real na web
+            - Informações atualizadas
+            - Citações de fontes confiáveis
+            - Respostas contextuais
+            
+            **Análise de URLs:**
+            - Leitura e análise de páginas específicas
+            - Comparação entre múltiplas fontes
+            - Extração de pontos principais
+            - Síntese de informações
+            
+            ### ⚡ Tecnologia Utilizada
+            
+            - **Motor**: Perplexity AI Sonar Medium Online
+            - **Atualização**: Dados em tempo real
+            - **Fontes**: Diversas fontes confiáveis da web
+            - **Citações**: Inclui referências às fontes
+            
+            ### 💡 Dicas de Uso
+            
+            - Para buscas gerais, seja específico na pergunta
+            - Use o contexto do agente para respostas mais relevantes
+            - Para URLs, prefira páginas com conteúdo textual
+            - Limite de 5 URLs por análise para melhor performance
+            """)
+
 # --- Estilização ---
 st.markdown("""
 <style>
@@ -1258,6 +1615,13 @@ st.markdown("""
         border-radius: 12px;
         font-size: 0.8rem;
         margin-left: 0.5rem;
+    }
+    .web-search-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 1.5rem;
+        border-radius: 10px;
+        margin: 1rem 0;
     }
 </style>
 """, unsafe_allow_html=True)
