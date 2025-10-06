@@ -440,7 +440,7 @@ def buscar_perplexity(pergunta, contexto_agente=None, focus=None, urls_especific
         
         # Configurar o payload
         payload = {
-            "model": "sonar-medium-online",
+            "model": "sonar",
             "messages": [
                 {
                     "role": "system",
