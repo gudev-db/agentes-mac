@@ -663,6 +663,68 @@ def gerar_analise_seo(conteudo, agente, palavra_chave_principal=None, tipo_conte
     except Exception as e:
         return f"❌ Erro ao gerar análise SEO: {str(e)}"
 
+# --- Função para Revisão Ortográfica ---
+def revisar_texto_ortografia(texto, agente, segmentos_selecionados):
+    """Faz revisão ortográfica e gramatical considerando as bases do agente"""
+    
+    # Construir contexto com segmentos selecionados
+    contexto = construir_contexto(agente, segmentos_selecionados)
+    
+    prompt = f"""
+    {contexto}
+    
+    ## 📝 REVISÃO ORTOGRÁFICA E GRAMATICAL
+    
+    Faça uma revisão completa do texto abaixo, considerando as diretrizes fornecidas:
+    
+    ### TEXTO ORIGINAL:
+    {texto}
+    
+    ### FORMATO DA RESPOSTA:
+    
+    ## 📊 RESUMO DA REVISÃO
+    [Resumo geral dos problemas encontrados e qualidade do texto]
+    
+    ## ✅ PONTOS FORTES
+    - [Listar aspectos positivos do texto]
+    
+    ## ⚠️ PROBLEMAS IDENTIFICADOS
+    
+    ### 🔤 Ortografia
+    - [Listar erros ortográficos encontrados]
+    
+    ### 📖 Gramática
+    - [Listar erros gramaticais]
+    
+    ### 🔠 Pontuação
+    - [Listar problemas de pontuação]
+    
+    ### 📝 Estilo e Clareza
+    - [Sugestões para melhorar clareza e estilo]
+    
+    ### 🎯 Adequação às Diretrizes
+    - [Avaliação de conformidade com as diretrizes fornecidas]
+    
+    ## 📋 TEXTO REVISADO
+    [Apresentar o texto completo com as correções aplicadas]
+    
+    ## 🔍 EXPLICAÇÃO DAS PRINCIPAIS ALTERAÇÕES
+    [Explicar as mudanças mais importantes realizadas]
+    
+    ## 📈 SCORE DE QUALIDADE
+    **Ortografia:** [0-10]
+    **Gramática:** [0-10]
+    **Clareza:** [0-10]
+    **Conformidade:** [0-10]
+    **Total:** [0-40]
+    """
+    
+    try:
+        resposta = modelo_texto.generate_content(prompt)
+        return resposta.text
+    except Exception as e:
+        return f"❌ Erro ao realizar revisão: {str(e)}"
+
 # --- Interface Principal ---
 st.sidebar.title(f"🤖 Bem-vindo, {st.session_state.user}!")
 
@@ -683,8 +745,8 @@ if "messages" not in st.session_state:
 if "segmentos_selecionados" not in st.session_state:
     st.session_state.segmentos_selecionados = ["system_prompt", "base_conhecimento", "comments", "planejamento"]
 
-# Menu de abas - ADICIONANDO A NOVA ABA SEO
-tab_chat, tab_gerenciamento, tab_aprovacao, tab_video, tab_geracao, tab_resumo, tab_busca, tab_seo = st.tabs([
+# Menu de abas - ADICIONANDO A NOVA ABA DE REVISÃO ORTOGRÁFICA
+tab_chat, tab_gerenciamento, tab_aprovacao, tab_video, tab_geracao, tab_resumo, tab_busca, tab_seo, tab_revisao = st.tabs([
     "💬 Chat", 
     "⚙️ Gerenciar Agentes", 
     "✅ Validação", 
@@ -692,7 +754,8 @@ tab_chat, tab_gerenciamento, tab_aprovacao, tab_video, tab_geracao, tab_resumo, 
     "✨ Geração de Conteúdo",
     "📝 Resumo de Textos",
     "🌐 Busca Web",
-    "🚀 Otimização SEO"  # NOVA ABA
+    "🚀 Otimização SEO",
+    "📝 Revisão Ortográfica"  # NOVA ABA
 ])
 
 with tab_gerenciamento:
@@ -1103,7 +1166,7 @@ with tab_video:
             
             if uploaded_video:
                 # Exibir informações do vídeo
-                st.info(f"📹 Arquivo: {uploaded_video.name}")
+                st.info(f"📹 Arquice: {uploaded_video.name}")
                 st.info(f"📏 Tamanho: {uploaded_video.size / (1024*1024):.2f} MB")
                 
                 # Exibir preview do vídeo
@@ -1687,7 +1750,7 @@ with tab_busca:
             - Limite de 5 URLs por análise para melhor performance
             """)
 
-# --- NOVA ABA: OTIMIZAÇÃO SEO ---
+# --- ABA: OTIMIZAÇÃO SEO ---
 with tab_seo:
     st.header("🚀 Otimização de Conteúdo SEO")
     
@@ -1862,6 +1925,191 @@ with tab_seo:
             4. **Implementação**: Siga o checklist gerado para otimização prática
             """)
 
+# --- NOVA ABA: REVISÃO ORTOGRÁFICA ---
+with tab_revisao:
+    st.header("📝 Revisão Ortográfica e Gramatical")
+    
+    if not st.session_state.agente_selecionado:
+        st.info("Selecione um agente primeiro na aba de Chat")
+    else:
+        agente = st.session_state.agente_selecionado
+        st.subheader(f"Revisão com: {agente['nome']}")
+        
+        # Configurações de segmentos para revisão
+        st.sidebar.subheader("🔧 Configurações de Revisão")
+        st.sidebar.write("Selecione bases para orientar a revisão:")
+        
+        segmentos_revisao = st.sidebar.multiselect(
+            "Bases para revisão:",
+            options=["system_prompt", "base_conhecimento", "comments", "planejamento"],
+            default=st.session_state.segmentos_selecionados,
+            key="revisao_segmentos"
+        )
+        
+        # Layout em colunas
+        col_original, col_resultado = st.columns(2)
+        
+        with col_original:
+            st.subheader("📄 Texto Original")
+            
+            texto_para_revisao = st.text_area(
+                "Cole o texto que deseja revisar:",
+                height=400,
+                placeholder="Cole aqui o texto que precisa de revisão ortográfica e gramatical...",
+                help="O texto será analisado considerando as diretrizes do agente selecionado",
+                key="texto_revisao"
+            )
+            
+            # Estatísticas do texto
+            if texto_para_revisao:
+                palavras = len(texto_para_revisao.split())
+                caracteres = len(texto_para_revisao)
+                paragrafos = texto_para_revisao.count('\n\n') + 1
+                
+                col_stats1, col_stats2, col_stats3 = st.columns(3)
+                with col_stats1:
+                    st.metric("📊 Palavras", palavras)
+                with col_stats2:
+                    st.metric("🔤 Caracteres", caracteres)
+                with col_stats3:
+                    st.metric("📄 Parágrafos", paragrafos)
+            
+            # Configurações de revisão
+            with st.expander("⚙️ Configurações da Revisão"):
+                revisao_estilo = st.checkbox(
+                    "Incluir revisão de estilo",
+                    value=True,
+                    help="Analisar clareza, coesão e adequação ao tom da marca",
+                    key="revisao_estilo"
+                )
+                
+                manter_estrutura = st.checkbox(
+                    "Manter estrutura original",
+                    value=True,
+                    help="Preservar a estrutura geral do texto quando possível",
+                    key="manter_estrutura"
+                )
+                
+                explicar_alteracoes = st.checkbox(
+                    "Explicar alterações principais",
+                    value=True,
+                    help="Incluir justificativa para as mudanças mais importantes",
+                    key="explicar_alteracoes"
+                )
+        
+        with col_resultado:
+            st.subheader("📋 Resultado da Revisão")
+            
+            if st.button("🔍 Realizar Revisão Completa", type="primary", key="revisar_texto"):
+                if not texto_para_revisao.strip():
+                    st.warning("⚠️ Por favor, cole o texto que deseja revisar.")
+                else:
+                    with st.spinner("🔄 Analisando texto e realizando revisão..."):
+                        try:
+                            resultado = revisar_texto_ortografia(
+                                texto=texto_para_revisao,
+                                agente=agente,
+                                segmentos_selecionados=segmentos_revisao
+                            )
+                            
+                            st.markdown(resultado)
+                            
+                            # Opções de download
+                            col_dl1, col_dl2, col_dl3 = st.columns(3)
+                            
+                            with col_dl1:
+                                st.download_button(
+                                    "💾 Baixar Relatório Completo",
+                                    data=resultado,
+                                    file_name=f"relatorio_revisao_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+                                    mime="text/plain",
+                                    key="download_revisao_completo"
+                                )
+                            
+                            with col_dl2:
+                                # Extrair apenas o texto revisado se disponível
+                                if "## 📋 TEXTO REVISADO" in resultado:
+                                    texto_revisado_start = resultado.find("## 📋 TEXTO REVISADO")
+                                    texto_revisado_end = resultado.find("##", texto_revisado_start + 1)
+                                    texto_revisado = resultado[texto_revisado_start:texto_revisado_end] if texto_revisado_end != -1 else resultado[texto_revisado_start:]
+                                    
+                                    st.download_button(
+                                        "📄 Baixar Texto Revisado",
+                                        data=texto_revisado,
+                                        file_name=f"texto_revisado_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+                                        mime="text/plain",
+                                        key="download_texto_revisado"
+                                    )
+                            
+                            with col_dl3:
+                                # Extrair apenas as explicações se disponível
+                                if "## 🔍 EXPLICAÇÃO DAS PRINCIPAIS ALTERAÇÕES" in resultado:
+                                    explicacoes_start = resultado.find("## 🔍 EXPLICAÇÃO DAS PRINCIPAIS ALTERAÇÕES")
+                                    explicacoes_end = resultado.find("##", explicacoes_start + 1)
+                                    explicacoes = resultado[explicacoes_start:explicacoes_end] if explicacoes_end != -1 else resultado[explicacoes_start:]
+                                    
+                                    st.download_button(
+                                        "📝 Baixar Explicações",
+                                        data=explicacoes,
+                                        file_name=f"explicacoes_revisao_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+                                        mime="text/plain",
+                                        key="download_explicacoes"
+                                    )
+                            
+                        except Exception as e:
+                            st.error(f"❌ Erro ao realizar revisão: {str(e)}")
+        
+        # Seção informativa
+        with st.expander("ℹ️ Sobre a Revisão Ortográfica"):
+            st.markdown("""
+            ### 🎯 O que é Analisado
+            
+            **🔤 Ortografia:**
+            - Erros de grafia e acentuação
+            - Uso correto de maiúsculas e minúsculas
+            - Escrita de números e datas
+            - Concordância nominal e verbal
+            
+            **📖 Gramática:**
+            - Estrutura sintática das frases
+            - Uso adequado de preposições
+            - Colocação pronominal
+            - Regência verbal e nominal
+            
+            **🔠 Pontuação:**
+            - Uso de vírgulas, pontos, dois-pontos
+            - Aplicação de travessões e parênteses
+            - Pontuação de citações e diálogos
+            
+            **📝 Estilo e Clareza:**
+            - Coesão e coerência textual
+            - Adequação ao tom da marca
+            - Clareza na comunicação
+            - Eliminação de vícios de linguagem
+            
+            ### 📊 Métricas de Qualidade
+            
+            - **Ortografia**: Correção gramatical (0-10)
+            - **Gramática**: Estrutura linguística (0-10)
+            - **Clareza**: Facilidade de compreensão (0-10)
+            - **Conformidade**: Adequação às diretrizes (0-10)
+            - **Total**: Pontuação geral (0-40)
+            
+            ### 💡 Dicas para Melhor Revisão
+            
+            1. **Texto Completo**: Cole o texto integral para análise detalhada
+            2. **Segmentos Relevantes**: Selecione as bases de conhecimento apropriadas
+            3. **Contexto Específico**: Use agentes especializados para cada tipo de conteúdo
+            4. **Implementação**: Aplique as sugestões sistematicamente
+            
+            ### 🎨 Benefícios da Revisão Contextual
+            
+            - **Consistência da Marca**: Mantém o tom e estilo adequados
+            - **Qualidade Profissional**: Elimina erros que prejudicam a credibilidade
+            - **Otimização de Conteúdo**: Melhora a clareza e impacto da comunicação
+            - **Eficiência**: Reduz tempo de revisão manual
+            """)
+
 # --- Estilização ---
 st.markdown("""
 <style>
@@ -1915,6 +2163,13 @@ st.markdown("""
         margin: 1rem 0;
     }
     .seo-analysis-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 1.5rem;
+        border-radius: 10px;
+        margin: 1rem 0;
+    }
+    .spelling-review-card {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
         padding: 1.5rem;
