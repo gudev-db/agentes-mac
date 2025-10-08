@@ -658,7 +658,19 @@ def gerar_analise_seo(conteudo, agente, palavra_chave_principal=None, tipo_conte
     """
     
     try:
-        resposta = modelo_texto.generate_content(prompt)
+        pre_resposta = modelo_texto.generate_content(prompt)
+        resposta = modelo_texto.generate_content(f'''Com base no, utilize como referência a análise de otimização de SEO e gere o conteúdo otimizado por INTEIRO
+            ###BEGIN CONTEUDO ORIGINAL A SER AJUSTADO###
+            {conteudo}
+            ###END CONTEUDO ORIGINAL A SER AJUSTADO###
+            
+            ###BEGIN ANALISE DE PONTOS DE MELHORIA###
+            {pre_resposta}
+            ###END ANALISE DE PONTOS DE MELHORIA###
+
+            
+            ''')
+        
         return resposta.text
     except Exception as e:
         return f"❌ Erro ao gerar análise SEO: {str(e)}"
