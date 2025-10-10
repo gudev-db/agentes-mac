@@ -10,6 +10,9 @@ from bson import ObjectId
 import json
 import hashlib
 from google.genai import types
+import PyPDF2
+from pptx import Presentation
+import docx
 
 # Configuração inicial
 st.set_page_config(
