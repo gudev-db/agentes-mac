@@ -13,7 +13,8 @@ from google.genai import types
 import PyPDF2
 from pptx import Presentation
 import docx
-import aba.mostrar_aba_gerenciamento
+from aba import mostrar_aba_gerenciamento
+
 
 # Configuração inicial
 st.set_page_config(
