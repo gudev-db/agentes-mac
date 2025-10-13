@@ -14,6 +14,78 @@ import PyPDF2
 from pptx import Presentation
 import docx
 
+
+def listar_agentes_para_heranca(agente_atual_id=None):
+    """Retorna todos os agentes ativos que podem ser usados como mãe"""
+    query = {"ativo": True}
+    if agente_atual_id:
+        # Excluir o próprio agente da lista de opções para evitar auto-herança
+        if isinstance(agente_atual_id, str):
+            agente_atual_id = ObjectId(agente_atual_id)
+        query["_id"] = {"$ne": agente_atual_id}
+    return list(collection_agentes.find(query).sort("data_criacao", -1))
+
+def obter_agente(agente_id):
+    """Obtém um agente específico pelo ID"""
+    if isinstance(agente_id, str):
+        agente_id = ObjectId(agente_id)
+    return collection_agentes.find_one({"_id": agente_id})
+
+def atualizar_agente(agente_id, nome, system_prompt, base_conhecimento, comments, planejamento, categoria, agente_mae_id=None, herdar_elementos=None):
+    """Atualiza um agente existente"""
+    if isinstance(agente_id, str):
+        agente_id = ObjectId(agente_id)
+    return collection_agentes.update_one(
+        {"_id": agente_id},
+        {
+            "$set": {
+                "nome": nome,
+                "system_prompt": system_prompt,
+                "base_conhecimento": base_conhecimento,
+                "comments": comments,
+                "planejamento": planejamento,
+                "categoria": categoria,
+                "agente_mae_id": agente_mae_id,
+                "herdar_elementos": herdar_elementos or [],
+                "data_atualizacao": datetime.datetime.now()
+            }
+        }
+    )
+
+def desativar_agente(agente_id):
+    """Desativa um agente (soft delete)"""
+    if isinstance(agente_id, str):
+        agente_id = ObjectId(agente_id)
+    return collection_agentes.update_one(
+        {"_id": agente_id},
+        {"$set": {"ativo": False, "data_desativacao": datetime.datetime.now()}}
+    )
+
+def obter_agente_com_heranca(agente_id):
+    """Obtém um agente com os elementos herdados aplicados"""
+    agente = obter_agente(agente_id)
+    if not agente or not agente.get('agente_mae_id'):
+        return agente
+    
+    agente_mae = obter_agente(agente['agente_mae_id'])
+    if not agente_mae:
+        return agente
+    
+    elementos_herdar = agente.get('herdar_elementos', [])
+    agente_completo = agente.copy()
+    
+    for elemento in elementos_herdar:
+        if elemento == 'system_prompt' and not agente_completo.get('system_prompt'):
+            agente_completo['system_prompt'] = agente_mae.get('system_prompt', '')
+        elif elemento == 'base_conhecimento' and not agente_completo.get('base_conhecimento'):
+            agente_completo['base_conhecimento'] = agente_mae.get('base_conhecimento', '')
+        elif elemento == 'comments' and not agente_completo.get('comments'):
+            agente_completo['comments'] = agente_mae.get('comments', '')
+        elif elemento == 'planejamento' and not agente_completo.get('planejamento'):
+            agente_completo['planejamento'] = agente_mae.get('planejamento', '')
+    
+    return agente_completo
+
 def listar_agentes():
     """Retorna todos os agentes ativos"""
     return list(collection_agentes.find({"ativo": True}).sort("data_criacao", -1))
