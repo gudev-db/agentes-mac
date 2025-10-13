@@ -14,6 +14,10 @@ import PyPDF2
 from pptx import Presentation
 import docx
 
+def listar_agentes():
+    """Retorna todos os agentes ativos"""
+    return list(collection_agentes.find({"ativo": True}).sort("data_criacao", -1))
+
 def mostrar_aba_gerenciamento():
     st.header("Gerenciamento de Agentes")
     
