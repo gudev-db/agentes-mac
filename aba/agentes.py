@@ -14,6 +14,12 @@ import PyPDF2
 from pptx import Presentation
 import docx
 
+# --- CONEXÃO MONGODB (após login) ---
+client = MongoClient("mongodb+srv://gustavoromao3345:RqWFPNOJQfInAW1N@cluster0.5iilj.mongodb.net/auto_doc?retryWrites=true&w=majority&ssl=true&ssl_cert_reqs=CERT_NONE&tlsAllowInvalidCertificates=true")
+db = client['agentes_personalizados']
+collection_agentes = db['agentes']
+collection_conversas = db['conversas']
+
 
 def listar_agentes_para_heranca(agente_atual_id=None):
     """Retorna todos os agentes ativos que podem ser usados como mãe"""
