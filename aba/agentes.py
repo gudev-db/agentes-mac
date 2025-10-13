@@ -21,31 +21,27 @@ def mostrar_aba_gerenciamento():
     if st.session_state.user != "admin":
         st.warning("Acesso restrito a administradores")
     else:
-        # Verificar senha de admin
-        if not check_admin_password():
-            st.warning("Digite a senha de administrador")
-        else:
-            # Mostra o botão de logout admin
-            if st.button("Logout Admin", key="admin_logout"):
-                if "admin_password_correct" in st.session_state:
-                    del st.session_state["admin_password_correct"]
-                if "admin_user" in st.session_state:
-                    del st.session_state["admin_user"]
-                st.rerun()
-            
-            st.write(f'Bem-vindo administrador!')
-            
-            # Subabas para gerenciamento
-            sub_tab1, sub_tab2, sub_tab3 = st.tabs(["Criar Agente", "Editar Agente", "Gerenciar Agentes"])
-            
-            with sub_tab1:
-                mostrar_subaba_criar_agente()
-            
-            with sub_tab2:
-                mostrar_subaba_editar_agente()
-            
-            with sub_tab3:
-                mostrar_subaba_gerenciar_agentes()
+        # Mostra o botão de logout admin
+        if st.button("Logout Admin", key="admin_logout"):
+            if "admin_password_correct" in st.session_state:
+                del st.session_state["admin_password_correct"]
+            if "admin_user" in st.session_state:
+                del st.session_state["admin_user"]
+            st.rerun()
+        
+        st.write(f'Bem-vindo administrador!')
+        
+        # Subabas para gerenciamento
+        sub_tab1, sub_tab2, sub_tab3 = st.tabs(["Criar Agente", "Editar Agente", "Gerenciar Agentes"])
+        
+        with sub_tab1:
+            mostrar_subaba_criar_agente()
+        
+        with sub_tab2:
+            mostrar_subaba_editar_agente()
+        
+        with sub_tab3:
+            mostrar_subaba_gerenciar_agentes()
 
 def mostrar_subaba_criar_agente():
     st.subheader("Criar Novo Agente")
