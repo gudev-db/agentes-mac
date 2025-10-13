@@ -13,7 +13,7 @@ from google.genai import types
 import PyPDF2
 from pptx import Presentation
 import docx
-from agentes import aba.mostrar_aba_gerenciamento  # Mude "aba" para "agentes"
+from agentes import mostrar_aba_gerenciamento  # Mude "aba" para "agentes"
 
 # Configuração inicial
 st.set_page_config(
