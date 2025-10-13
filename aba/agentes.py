@@ -1,3 +1,19 @@
+import streamlit as st
+import io
+import google.generativeai as genai
+from PIL import Image
+import requests
+import datetime
+import os
+from pymongo import MongoClient
+from bson import ObjectId
+import json
+import hashlib
+from google.genai import types
+import PyPDF2
+from pptx import Presentation
+import docx
+
 def mostrar_aba_gerenciamento():
     with tab_gerenciamento:
         st.header("Gerenciamento de Agentes")
