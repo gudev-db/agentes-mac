@@ -84,39 +84,8 @@ if not perp_api_key:
 
 # --- Configuração de Autenticação de Administrador ---
 def check_admin_password():
-    """Retorna True se o usuário fornecer a senha de admin correta."""
-    
-    def admin_password_entered():
-        """Verifica se a senha de admin está correta."""
-        if st.session_state["admin_password"] == "senha123":
-            st.session_state["admin_password_correct"] = True
-            st.session_state["admin_user"] = "admin"
-            del st.session_state["admin_password"]
-        else:
-            st.session_state["admin_password_correct"] = False
-
-    if "admin_password_correct" not in st.session_state:
-        # Mostra o input para senha de admin
-        st.text_input(
-            "Senha de Administrador", 
-            type="password", 
-            on_change=admin_password_entered, 
-            key="admin_password"
-        )
-        return False
-    elif not st.session_state["admin_password_correct"]:
-        # Senha incorreta, mostra input + erro
-        st.text_input(
-            "Senha de Administrador", 
-            type="password", 
-            on_change=admin_password_entered, 
-            key="admin_password"
-        )
-        st.error("😕 Senha de administrador incorreta")
-        return False
-    else:
-        # Senha correta
-        return True
+    """Retorna True para usuários admin sem verificação de senha."""
+    return st.session_state.user == "admin"
 
 # --- Funções CRUD para Agentes ---
 def criar_agente(nome, system_prompt, base_conhecimento, comments, planejamento, categoria, agente_mae_id=None, herdar_elementos=None):
