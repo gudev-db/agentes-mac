@@ -1083,7 +1083,8 @@ with tab_aprovacao:
                             
                             prompt_analise = f"""
                             {agente['system_prompt']}
-                            
+
+                            ###BEGIN ESPECIFICIDADES DO CLIENTE###
                             Brand Guidelines:
                             ###BEGIN Brand Guidelines###
                             {agente.get('base_conhecimento', '')}
@@ -1098,11 +1099,13 @@ with tab_aprovacao:
                             ###BEGIN PLANEJAMENTO###
                             {agente.get('planejamento', '')}
                             ###END PLANEJAMENTO###
+                            ###END ESPECIFICIDADES DO CLIENTE###
                             
                             Analise esta imagem e forneça um parecer detalhado com:
                             - ✅ Pontos positivos
                             - ❌ Pontos que precisam de ajuste
                             - 🛠 Recomendações específicas
+                            - Se houver algum texto na imagem, valide o alinhamento do texto com as especificidades do cliente
                             - Avaliação final (aprovado/reprovado/com observações)
                             """
                             
