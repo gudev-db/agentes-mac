@@ -14,7 +14,10 @@ import PyPDF2
 from pptx import Presentation
 import docx
 
-tab_chat, tab_gerenciamento, tab_aprovacao, tab_video, tab_geracao, tab_resumo, tab_busca, tab_seo, tab_revisao = st.tabs([
+
+
+def mostrar_aba_gerenciamento():
+    tab_chat, tab_gerenciamento, tab_aprovacao, tab_video, tab_geracao, tab_resumo, tab_busca, tab_seo, tab_revisao = st.tabs([
     "💬 Chat", 
     "⚙️ Gerenciar Agentes", 
     "✅ Validação", 
@@ -26,8 +29,6 @@ tab_chat, tab_gerenciamento, tab_aprovacao, tab_video, tab_geracao, tab_resumo, 
     "📝 Revisão Ortográfica"  # NOVA ABA
 ])
 
-
-def mostrar_aba_gerenciamento():
     with tab_gerenciamento:
         st.header("Gerenciamento de Agentes")
         
