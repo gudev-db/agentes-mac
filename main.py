@@ -13,7 +13,6 @@ from google.genai import types
 import PyPDF2
 from pptx import Presentation
 import docx
-from aba.agentes import mostrar_aba_gerenciamento  # Mude "aba" para "agentes"
 
 # Configuração inicial
 st.set_page_config(
@@ -75,8 +74,8 @@ if not gemini_api_key:
     st.stop()
 
 genai.configure(api_key=gemini_api_key)
-modelo_vision = genai.GenerativeModel("gemini-2.0-flash", generation_config={"temperature": 0.1})
-modelo_texto = genai.GenerativeModel("gemini-2.0-flash")
+modelo_vision = genai.GenerativeModel("gemini-2.5-flash", generation_config={"temperature": 0.1})
+modelo_texto = genai.GenerativeModel("gemini-2.5-flash")
 
 # Configuração da API do Perplexity
 perp_api_key = os.getenv("PERP_API_KEY")
@@ -751,7 +750,7 @@ if st.sidebar.button("🚪 Sair", key="logout_btn"):
             del st.session_state[key]
     st.rerun()
 
-st.title("Agente Social")
+st.title("🤖 Agente Generativo Personalizável")
 
 # Inicializar estado da sessão
 if "agente_selecionado" not in st.session_state:
@@ -761,19 +760,250 @@ if "messages" not in st.session_state:
 if "segmentos_selecionados" not in st.session_state:
     st.session_state.segmentos_selecionados = ["system_prompt", "base_conhecimento", "comments", "planejamento"]
 
-# Menu de abas - ABA DE VALIDAÇÃO UNIFICADA
-tab_chat, tab_gerenciamento, tab_validacao, tab_geracao, tab_resumo, tab_busca, tab_revisao = st.tabs([
+# Menu de abas - ADICIONANDO A NOVA ABA DE REVISÃO ORTOGRÁFICA
+tab_chat, tab_gerenciamento, tab_aprovacao, tab_video, tab_geracao, tab_resumo, tab_busca, tab_seo, tab_revisao = st.tabs([
     "💬 Chat", 
     "⚙️ Gerenciar Agentes", 
     "✅ Validação", 
+    "🎬 Validação de Vídeo",
     "✨ Geração de Conteúdo",
     "📝 Resumo de Textos",
     "🌐 Busca Web",
-    "📝 Revisão Ortográfica"
+    "🚀 Otimização SEO",
+    "📝 Revisão Ortográfica"  # NOVA ABA
 ])
 
 with tab_gerenciamento:
-    mostrar_aba_gerenciamento()
+    st.header("Gerenciamento de Agentes")
+    
+    # Verificar autenticação apenas para gerenciamento
+    if st.session_state.user != "admin":
+        st.warning("Acesso restrito a administradores")
+    else:
+        # Verificar senha de admin
+        if not check_admin_password():
+            st.warning("Digite a senha de administrador")
+        else:
+            # Mostra o botão de logout admin
+            if st.button("Logout Admin", key="admin_logout"):
+                if "admin_password_correct" in st.session_state:
+                    del st.session_state["admin_password_correct"]
+                if "admin_user" in st.session_state:
+                    del st.session_state["admin_user"]
+                st.rerun()
+            
+            st.write(f'Bem-vindo administrador!')
+            
+            # Subabas para gerenciamento
+            sub_tab1, sub_tab2, sub_tab3 = st.tabs(["Criar Agente", "Editar Agente", "Gerenciar Agentes"])
+            
+            with sub_tab1:
+                st.subheader("Criar Novo Agente")
+                
+                with st.form("form_criar_agente"):
+                    nome_agente = st.text_input("Nome do Agente:")
+                    
+                    # Seleção de categoria
+                    categoria = st.selectbox(
+                        "Categoria:",
+                        ["Social", "SEO", "Conteúdo"],
+                        help="Organize o agente por área de atuação"
+                    )
+                    
+                    # Opção para criar como agente filho
+                    criar_como_filho = st.checkbox("Criar como agente filho (herdar elementos)")
+                    
+                    agente_mae_id = None
+                    herdar_elementos = []
+                    
+                    if criar_como_filho:
+                        # Listar TODOS os agentes disponíveis para herança
+                        agentes_mae = listar_agentes_para_heranca()
+                        if agentes_mae:
+                            agente_mae_options = {f"{agente['nome']} ({agente.get('categoria', 'Social')})": agente['_id'] for agente in agentes_mae}
+                            agente_mae_selecionado = st.selectbox(
+                                "Agente Mãe:",
+                                list(agente_mae_options.keys()),
+                                help="Selecione o agente do qual este agente irá herdar elementos"
+                            )
+                            agente_mae_id = agente_mae_options[agente_mae_selecionado]
+                            
+                            st.subheader("Elementos para Herdar")
+                            herdar_elementos = st.multiselect(
+                                "Selecione os elementos a herdar do agente mãe:",
+                                ["system_prompt", "base_conhecimento", "comments", "planejamento"],
+                                help="Estes elementos serão herdados do agente mãe se não preenchidos abaixo"
+                            )
+                        else:
+                            st.info("Nenhum agente disponível para herança. Crie primeiro um agente mãe.")
+                    
+                    system_prompt = st.text_area("Prompt de Sistema:", height=150, 
+                                                placeholder="Ex: Você é um assistente especializado em...",
+                                                help="Deixe vazio se for herdar do agente mãe")
+                    base_conhecimento = st.text_area("Brand Guidelines:", height=200,
+                                                   placeholder="Cole aqui informações, diretrizes, dados...",
+                                                   help="Deixe vazio se for herdar do agente mãe")
+                    comments = st.text_area("Comentários do cliente:", height=200,
+                                                   placeholder="Cole aqui os comentários de ajuste do cliente (Se houver)",
+                                                   help="Deixe vazio se for herdar do agente mãe")
+                    planejamento = st.text_area("Planejamento:", height=200,
+                                               placeholder="Estratégias, planejamentos, cronogramas...",
+                                               help="Deixe vazio se for herdar do agente mãe")
+                    
+                    submitted = st.form_submit_button("Criar Agente")
+                    if submitted:
+                        if nome_agente:
+                            agente_id = criar_agente(
+                                nome_agente, 
+                                system_prompt, 
+                                base_conhecimento, 
+                                comments, 
+                                planejamento,
+                                categoria,
+                                agente_mae_id if criar_como_filho else None,
+                                herdar_elementos if criar_como_filho else []
+                            )
+                            st.success(f"Agente '{nome_agente}' criado com sucesso na categoria {categoria}!")
+                        else:
+                            st.error("Nome é obrigatório!")
+            
+            with sub_tab2:
+                st.subheader("Editar Agente Existente")
+                
+                agentes = listar_agentes()
+                if agentes:
+                    agente_options = {agente['nome']: agente for agente in agentes}
+                    agente_selecionado_nome = st.selectbox("Selecione o agente para editar:", 
+                                                         list(agente_options.keys()))
+                    
+                    if agente_selecionado_nome:
+                        agente = agente_options[agente_selecionado_nome]
+                        
+                        with st.form("form_editar_agente"):
+                            novo_nome = st.text_input("Nome do Agente:", value=agente['nome'])
+                            
+                            # Categoria
+                            nova_categoria = st.selectbox(
+                                "Categoria:",
+                                ["Social", "SEO", "Conteúdo"],
+                                index=["Social", "SEO", "Conteúdo"].index(agente.get('categoria', 'Social')),
+                                help="Organize o agente por área de atuação"
+                            )
+                            
+                            # Informações de herança
+                            if agente.get('agente_mae_id'):
+                                agente_mae = obter_agente(agente['agente_mae_id'])
+                                if agente_mae:
+                                    st.info(f"🔗 Este agente é filho de: {agente_mae['nome']}")
+                                    st.write(f"Elementos herdados: {', '.join(agente.get('herdar_elementos', []))}")
+                            
+                            # Opção para tornar independente
+                            if agente.get('agente_mae_id'):
+                                tornar_independente = st.checkbox("Tornar agente independente (remover herança)")
+                                if tornar_independente:
+                                    agente_mae_id = None
+                                    herdar_elementos = []
+                                else:
+                                    agente_mae_id = agente.get('agente_mae_id')
+                                    herdar_elementos = agente.get('herdar_elementos', [])
+                            else:
+                                agente_mae_id = None
+                                herdar_elementos = []
+                                # Opção para adicionar herança
+                                adicionar_heranca = st.checkbox("Adicionar herança de agente mãe")
+                                if adicionar_heranca:
+                                    # Listar TODOS os agentes disponíveis para herança (excluindo o próprio)
+                                    agentes_mae = listar_agentes_para_heranca(agente['_id'])
+                                    if agentes_mae:
+                                        agente_mae_options = {f"{agente_mae['nome']} ({agente_mae.get('categoria', 'Social')})": agente_mae['_id'] for agente_mae in agentes_mae}
+                                        if agente_mae_options:
+                                            agente_mae_selecionado = st.selectbox(
+                                                "Agente Mãe:",
+                                                list(agente_mae_options.keys()),
+                                                help="Selecione o agente do qual este agente irá herdar elementos"
+                                            )
+                                            agente_mae_id = agente_mae_options[agente_mae_selecionado]
+                                            herdar_elementos = st.multiselect(
+                                                "Elementos para herdar:",
+                                                ["system_prompt", "base_conhecimento", "comments", "planejamento"],
+                                                default=herdar_elementos
+                                            )
+                                        else:
+                                            st.info("Nenhum agente disponível para herança.")
+                                    else:
+                                        st.info("Nenhum agente disponível para herança.")
+                            
+                            novo_prompt = st.text_area("Prompt de Sistema:", value=agente['system_prompt'], height=150)
+                            nova_base = st.text_area("Brand Guidelines:", value=agente.get('base_conhecimento', ''), height=200)
+                            nova_comment = st.text_area("Comentários:", value=agente.get('comments', ''), height=200)
+                            novo_planejamento = st.text_area("Planejamento:", value=agente.get('planejamento', ''), height=200)
+                            
+                            submitted = st.form_submit_button("Atualizar Agente")
+                            if submitted:
+                                if novo_nome:
+                                    atualizar_agente(
+                                        agente['_id'], 
+                                        novo_nome, 
+                                        novo_prompt, 
+                                        nova_base, 
+                                        nova_comment, 
+                                        novo_planejamento,
+                                        nova_categoria,
+                                        agente_mae_id,
+                                        herdar_elementos
+                                    )
+                                    st.success(f"Agente '{novo_nome}' atualizado com sucesso!")
+                                    st.rerun()
+                                else:
+                                    st.error("Nome é obrigatório!")
+                else:
+                    st.info("Nenhum agente criado ainda.")
+            
+            with sub_tab3:
+                st.subheader("Gerenciar Agentes")
+                
+                # Filtros por categoria
+                categorias = ["Todos", "Social", "SEO", "Conteúdo"]
+                categoria_filtro = st.selectbox("Filtrar por categoria:", categorias)
+                
+                agentes = listar_agentes()
+                
+                # Aplicar filtro
+                if categoria_filtro != "Todos":
+                    agentes = [agente for agente in agentes if agente.get('categoria') == categoria_filtro]
+                
+                if agentes:
+                    for i, agente in enumerate(agentes):
+                        with st.expander(f"{agente['nome']} - {agente.get('categoria', 'Social')} - Criado em {agente['data_criacao'].strftime('%d/%m/%Y')}"):
+                            
+                            # Mostrar informações de herança
+                            if agente.get('agente_mae_id'):
+                                agente_mae = obter_agente(agente['agente_mae_id'])
+                                if agente_mae:
+                                    st.write(f"**🔗 Herda de:** {agente_mae['nome']}")
+                                    st.write(f"**Elementos herdados:** {', '.join(agente.get('herdar_elementos', []))}")
+                            
+                            st.write(f"**Prompt de Sistema:** {agente['system_prompt'][:100]}..." if agente['system_prompt'] else "**Prompt de Sistema:** (herdado ou vazio)")
+                            if agente.get('base_conhecimento'):
+                                st.write(f"**Brand Guidelines:** {agente['base_conhecimento'][:200]}...")
+                            if agente.get('comments'):
+                                st.write(f"**Comentários do cliente:** {agente['comments'][:200]}...")
+                            if agente.get('planejamento'):
+                                st.write(f"**Planejamento:** {agente['planejamento'][:200]}...")
+                            
+                            col1, col2 = st.columns(2)
+                            with col1:
+                                if st.button("Selecionar para Chat", key=f"select_{i}"):
+                                    st.session_state.agente_selecionado = obter_agente_com_heranca(agente['_id'])
+                                    st.session_state.messages = []
+                                    st.success(f"Agente '{agente['nome']}' selecionado!")
+                            with col2:
+                                if st.button("Desativar", key=f"delete_{i}"):
+                                    desativar_agente(agente['_id'])
+                                    st.success(f"Agente '{agente['nome']}' desativado!")
+                                    st.rerun()
+                else:
+                    st.info("Nenhum agente encontrado para esta categoria.")
 
 with tab_chat:
     st.header("💬 Chat com Agente")
@@ -888,9 +1118,8 @@ with tab_chat:
                     except Exception as e:
                         st.error(f"Erro ao gerar resposta: {str(e)}")
 
-# --- ABA DE VALIDAÇÃO UNIFICADA ---
-with tab_validacao:
-    st.header("✅ Validação de Conteúdo")
+with tab_video:
+    st.header("🎬 Validação de Vídeos")
     
     if not st.session_state.agente_selecionado:
         st.info("Selecione um agente primeiro na aba de Chat")
@@ -898,86 +1127,109 @@ with tab_validacao:
         agente = st.session_state.agente_selecionado
         st.subheader(f"Validação com: {agente['nome']}")
         
-        # Controles de segmentos para validação
-        st.sidebar.subheader("🔧 Configurações de Validação")
+        # Controles de segmentos para validação de vídeo
+        st.sidebar.subheader("🔧 Configurações de Validação de Vídeo")
         st.sidebar.write("Selecione bases para validação:")
         
-        segmentos_validacao = st.sidebar.multiselect(
-            "Bases para validação:",
+        segmentos_video = st.sidebar.multiselect(
+            "Bases para validação de vídeo:",
             options=["system_prompt", "base_conhecimento", "comments", "planejamento"],
             default=st.session_state.segmentos_selecionados,
-            key="validacao_segmentos"
+            key="video_segmentos"
         )
         
-        # Subtabs para diferentes tipos de validação
-        subtab_video, subtab_imagem, subtab_texto = st.tabs(["🎬 Validação de Vídeo", "🖼️ Validação de Imagem", "✍️ Validação de Texto"])
+        # Seleção do tipo de entrada
+        entrada_tipo = st.radio(
+            "Escolha o tipo de entrada:",
+            ["Upload de Arquivo", "URL do YouTube"],
+            horizontal=True,
+            key="video_input_type"
+        )
         
-        # --- VALIDAÇÃO DE VÍDEO ---
-        with subtab_video:
-            st.subheader("🎬 Validação de Vídeo")
+        # Configurações de análise
+        col_config1, col_config2 = st.columns(2)
+        
+        with col_config1:
+            tipo_analise = st.selectbox(
+                "Tipo de Análise:",
+                ["completa", "rapida", "tecnica"],
+                format_func=lambda x: {
+                    "completa": "📊 Análise Completa",
+                    "rapida": "⚡ Análise Rápida", 
+                    "tecnica": "🛠️ Análise Técnica"
+                }[x],
+                key="tipo_analise"
+            )
+        
+        with col_config2:
+            if tipo_analise == "completa":
+                st.info("Análise detalhada de todos os aspectos")
+            elif tipo_analise == "rapida":
+                st.info("Foco nos pontos mais críticos")
+            else:
+                st.info("Análise técnica e de qualidade")
+        
+        if entrada_tipo == "Upload de Arquivo":
+            st.subheader("📤 Upload de Vídeo")
             
-            # Seleção do tipo de entrada
-            entrada_tipo = st.radio(
-                "Escolha o tipo de entrada:",
-                ["Upload de Arquivo", "URL do YouTube"],
-                horizontal=True,
-                key="video_input_type"
+            uploaded_video = st.file_uploader(
+                "Carregue o vídeo para análise",
+                type=["mp4", "mpeg", "mov", "avi", "flv", "mpg", "webm", "wmv", "3gpp"],
+                help="Formatos suportados: MP4, MPEG, MOV, AVI, FLV, MPG, WEBM, WMV, 3GPP",
+                key="video_uploader"
             )
             
-            # Configurações de análise
-            col_config1, col_config2 = st.columns(2)
-            
-            with col_config1:
-                tipo_analise = st.selectbox(
-                    "Tipo de Análise:",
-                    ["completa", "rapida", "tecnica"],
-                    format_func=lambda x: {
-                        "completa": "📊 Análise Completa",
-                        "rapida": "⚡ Análise Rápida", 
-                        "tecnica": "🛠️ Análise Técnica"
-                    }[x],
-                    key="tipo_analise"
-                )
-            
-            with col_config2:
-                if tipo_analise == "completa":
-                    st.info("Análise detalhada de todos os aspectos")
-                elif tipo_analise == "rapida":
-                    st.info("Foco nos pontos mais críticos")
-                else:
-                    st.info("Análise técnica e de qualidade")
-            
-            if entrada_tipo == "Upload de Arquivo":
-                st.subheader("📤 Upload de Vídeo")
+            if uploaded_video:
+                # Exibir informações do vídeo
+                st.info(f"📹 Arquice: {uploaded_video.name}")
+                st.info(f"📏 Tamanho: {uploaded_video.size / (1024*1024):.2f} MB")
                 
-                # Configuração para permitir vídeos maiores
-                st.info("💡 **Suporte a vídeos grandes**: Agora é possível fazer upload de vídeos maiores que 200MB")
+                # Exibir preview do vídeo
+                st.video(uploaded_video)
                 
-                uploaded_video = st.file_uploader(
-                    "Carregue o vídeo para análise",
-                    type=["mp4", "mpeg", "mov", "avi", "flv", "mpg", "webm", "wmv", "3gpp"],
-                    help="Formatos suportados: MP4, MPEG, MOV, AVI, FLV, MPG, WEBM, WMV, 3GPP. Tamanho máximo: 2GB",
-                    key="video_uploader"
-                )
-                
-                if uploaded_video:
-                    # Exibir informações do vídeo
-                    file_size_mb = uploaded_video.size / (1024*1024)
-                    st.info(f"📹 Arquivo: {uploaded_video.name}")
-                    st.info(f"📏 Tamanho: {file_size_mb:.2f} MB")
-                    
-                    # Verificar se o arquivo é muito grande para preview
-                    if file_size_mb < 50:  # Apenas mostra preview para arquivos menores que 50MB
-                        st.video(uploaded_video)
-                    else:
-                        st.warning("⚠️ Preview do vídeo desabilitado para arquivos grandes. A análise será realizada normalmente.")
+                # Botão de análise
+                if st.button("🎬 Iniciar Análise do Vídeo", type="primary", key="analise_upload"):
+                    with st.spinner('Analisando vídeo... Isso pode levar alguns minutos'):
+                        resultado = processar_video_upload(
+                            uploaded_video, 
+                            segmentos_video, 
+                            agente, 
+                            tipo_analise
+                        )
+                        
+                        st.subheader("📋 Resultado da Análise")
+                        st.markdown(resultado)
+                        
+                        # Opção para download do relatório
+                        st.download_button(
+                            "💾 Baixar Relatório",
+                            data=resultado,
+                            file_name=f"relatorio_video_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+                            mime="text/plain",
+                            key="download_upload"
+                        )
+        
+        else:  # URL do YouTube
+            st.subheader("🔗 URL do YouTube")
+            
+            youtube_url = st.text_input(
+                "Cole a URL do vídeo do YouTube:",
+                placeholder="https://www.youtube.com/watch?v=...",
+                help="A URL deve ser pública (não privada ou não listada)",
+                key="youtube_url"
+            )
+            
+            if youtube_url:
+                # Validar URL do YouTube
+                if "youtube.com" in youtube_url or "youtu.be" in youtube_url:
+                    st.success("✅ URL do YouTube válida detectada")
                     
                     # Botão de análise
-                    if st.button("🎬 Iniciar Análise do Vídeo", type="primary", key="analise_upload"):
-                        with st.spinner('Analisando vídeo... Isso pode levar alguns minutos'):
-                            resultado = processar_video_upload(
-                                uploaded_video, 
-                                segmentos_validacao, 
+                    if st.button("🎬 Iniciar Análise do Vídeo", type="primary", key="analise_youtube"):
+                        with st.spinner('Analisando vídeo do YouTube... Isso pode levar alguns minutos'):
+                            resultado = processar_url_youtube(
+                                youtube_url, 
+                                segmentos_video, 
                                 agente, 
                                 tipo_analise
                             )
@@ -989,277 +1241,155 @@ with tab_validacao:
                             st.download_button(
                                 "💾 Baixar Relatório",
                                 data=resultado,
-                                file_name=f"relatorio_video_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+                                file_name=f"relatorio_youtube_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
                                 mime="text/plain",
-                                key="download_upload"
+                                key="download_youtube"
                             )
-            
-            else:  # URL do YouTube
-                st.subheader("🔗 URL do YouTube")
-                
-                youtube_url = st.text_input(
-                    "Cole a URL do vídeo do YouTube:",
-                    placeholder="https://www.youtube.com/watch?v=...",
-                    help="A URL deve ser pública (não privada ou não listada)",
-                    key="youtube_url"
-                )
-                
-                if youtube_url:
-                    # Validar URL do YouTube
-                    if "youtube.com" in youtube_url or "youtu.be" in youtube_url:
-                        st.success("✅ URL do YouTube válida detectada")
-                        
-                        # Botão de análise
-                        if st.button("🎬 Iniciar Análise do Vídeo", type="primary", key="analise_youtube"):
-                            with st.spinner('Analisando vídeo do YouTube... Isso pode levar alguns minutos'):
-                                resultado = processar_url_youtube(
-                                    youtube_url, 
-                                    segmentos_validacao, 
-                                    agente, 
-                                    tipo_analise
-                                )
-                                
-                                st.subheader("📋 Resultado da Análise")
-                                st.markdown(resultado)
-                                
-                                # Opção para download do relatório
-                                st.download_button(
-                                    "💾 Baixar Relatório",
-                                    data=resultado,
-                                    file_name=f"relatorio_youtube_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
-                                    mime="text/plain",
-                                    key="download_youtube"
-                                )
-                    else:
-                        st.error("❌ Por favor, insira uma URL válida do YouTube")
-            
-            # Seção de informações sobre análise de vídeos
-            with st.expander("ℹ️ Informações sobre Análise de Vídeos"):
-                st.markdown("""
-                ### 📹 Capacidades de Análise
-                
-                O agente pode analisar vídeos considerando:
-                
-                **🎯 Conteúdo e Mensagem:**
-                - Alinhamento com diretrizes da marca
-                - Clareza da mensagem principal
-                - Tom e linguagem apropriados
-                - Valores e posicionamento
-                
-                **🎨 Aspectos Visuais:**
-                - Identidade visual (cores, logos, tipografia)
-                - Qualidade de produção
-                - Consistência da marca
-                - Enquadramento e composição
-                
-                **🔊 Aspectos de Áudio:**
-                - Qualidade do áudio
-                - Trilha sonora adequada
-                - Narração/diálogo claro
-                - Mixagem e balanceamento
-                
-                **📊 Estrutura e Engajamento:**
-                - Ritmo e duração apropriados
-                - Manutenção do interesse
-                - Chamadas para ação eficazes
-                - Progressão lógica
-                
-                ### ⚠️ Limitações Técnicas
-                
-                - **Duração**: Recomendado até 2 horas para análise completa
-                - **Formato**: Formatos comuns de vídeo suportados
-                - **Qualidade**: Análise em 1 frame por segundo padrão
-                - **YouTube**: Apenas vídeos públicos
-                """)
+                else:
+                    st.error("❌ Por favor, insira uma URL válida do YouTube")
         
-        # --- VALIDAÇÃO DE IMAGEM ---
-        with subtab_imagem:
-            st.subheader("🖼️ Validação de Imagem")
+        # Seção de informações
+        with st.expander("ℹ️ Informações sobre Análise de Vídeos"):
+            st.markdown("""
+            ### 📹 Capacidades de Análise
             
-            uploaded_image = st.file_uploader(
-                "Carregue imagem para análise (.jpg, .png, .jpeg)", 
-                type=["jpg", "jpeg", "png"], 
-                key="image_upload"
-            )
+            O agente pode analisar vídeos considerando:
             
+            **🎯 Conteúdo e Mensagem:**
+            - Alinhamento com diretrizes da marca
+            - Clareza da mensagem principal
+            - Tom e linguagem apropriados
+            - Valores e posicionamento
+            
+            **🎨 Aspectos Visuais:**
+            - Identidade visual (cores, logos, tipografia)
+            - Qualidade de produção
+            - Consistência da marca
+            - Enquadramento e composição
+            
+            **🔊 Aspectos de Áudio:**
+            - Qualidade do áudio
+            - Trilha sonora adequada
+            - Narração/diálogo claro
+            - Mixagem e balanceamento
+            
+            **📊 Estrutura e Engajamento:**
+            - Ritmo e duração apropriados
+            - Manutenção do interesse
+            - Chamadas para ação eficazes
+            - Progressão lógica
+            
+            ### ⚠️ Limitações Técnicas
+            
+            - **Duração**: Recomendado até 2 horas para análise completa
+            - **Formato**: Formatos comuns de vídeo suportados
+            - **Qualidade**: Análise em 1 frame por segundo padrão
+            - **YouTube**: Apenas vídeos públicos
+            """)
+
+with tab_aprovacao:
+    st.header("✅ Validação de Conteúdo")
+    
+    if not st.session_state.agente_selecionado:
+        st.info("Selecione um agente primeiro na aba de Chat")
+    else:
+        agente = st.session_state.agente_selecionado
+        st.subheader(f"Validação com: {agente['nome']}")
+        
+        subtab1, subtab2 = st.tabs(["🖼️ Análise de Imagens", "✍️ Revisão de Textos"])
+        
+        with subtab1:
+            uploaded_image = st.file_uploader("Carregue imagem para análise (.jpg, .png)", type=["jpg", "jpeg", "png"], key="image_upload")
             if uploaded_image:
-                st.image(uploaded_image, use_column_width=True, caption="Pré-visualização da imagem")
-                
-                # Configurações de análise de imagem
-                col_img1, col_img2 = st.columns(2)
-                
-                with col_img1:
-                    analise_detalhada = st.checkbox(
-                        "Análise detalhada", 
-                        value=True,
-                        help="Incluir análise de cores, composição e elementos visuais",
-                        key="analise_detalhada"
-                    )
-                
-                with col_img2:
-                    validar_texto_imagem = st.checkbox(
-                        "Validar texto na imagem",
-                        value=True,
-                        help="Analisar texto presente na imagem",
-                        key="validar_texto_imagem"
-                    )
-                
-                if st.button("🔍 Validar Imagem", type="primary", key="analyze_img"):
+                st.image(uploaded_image, use_column_width=True, caption="Pré-visualização")
+                if st.button("Validar Imagem", key="analyze_img"):
                     with st.spinner('Analisando imagem...'):
                         try:
                             image = Image.open(uploaded_image)
                             img_bytes = io.BytesIO()
                             image.save(img_bytes, format=image.format)
                             
-                            # Construir contexto com segmentos selecionados
-                            contexto = construir_contexto(agente, segmentos_validacao)
-                            
                             prompt_analise = f"""
-                            {contexto}
+                            {agente['system_prompt']}
+                            
+                            Brand Guidelines:
+                            ###BEGIN Brand Guidelines###
+                            {agente.get('base_conhecimento', '')}
+                            ###END Brand Guidelines###
+
+                            Comentários de observação de conteúdo do cliente:
+                            ###BEGIN COMMENTS FROM CLIENT###
+                            {agente.get('comments', '')}
+                            ###END COMMENTS FROM CLIENT###
+                            
+                            Planejamento:
+                            ###BEGIN PLANEJAMENTO###
+                            {agente.get('planejamento', '')}
+                            ###END PLANEJAMENTO###
                             
                             Analise esta imagem e forneça um parecer detalhado com:
-                            
-                            ## 📊 RESUMO EXECUTIVO
-                            [Avaliação geral da imagem]
-                            
-                            ## 🎨 ANÁLISE VISUAL
-                            - **Identidade Visual**: [Cores, logos, tipografia]
-                            - **Composição**: [Enquadramento, balanceamento]
-                            - **Qualidade Técnica**: [Resolução, nitidez, iluminação]
-                            - **Consistência da Marca**: [Alinhamento com diretrizes]
-                            
-                            ## 📝 ANÁLISE DE CONTEÚDO
-                            - **Mensagem**: [Clareza e adequação]
-                            - **Tom Visual**: [Profissionalismo, emoção transmitida]
-                            - **Público-alvo**: [Adequação ao público pretendido]
-                            
-                            {"## 🔤 ANÁLISE DE TEXTO" if validar_texto_imagem else ""}
-                            {"- Legibilidade do texto" if validar_texto_imagem else ""}
-                            {"- Adequação da mensagem textual" if validar_texto_imagem else ""}
-                            {"- Alinhamento com diretrizes de comunicação" if validar_texto_imagem else ""}
-                            
-                            ## ✅ PONTOS POSITIVOS
-                            - [Listar aspectos que estão em conformidade]
-                            
-                            ## ⚠️ PONTOS DE ATENÇÃO
-                            - [Listar aspectos que precisam de ajustes]
-                            
-                            ## 🛠️ RECOMENDAÇÕES
-                            - [Ações específicas para melhorias]
-                            
-                            ## 🏆 AVALIAÇÃO FINAL
-                            [Aprovado/Reprovado/Com ajustes] - [Justificativa]
+                            - ✅ Pontos positivos
+                            - ❌ Pontos que precisam de ajuste
+                            - 🛠 Recomendações específicas
+                            - Avaliação final (aprovado/reprovado/com observações)
                             """
                             
                             resposta = modelo_vision.generate_content([
                                 prompt_analise,
                                 {"mime_type": "image/jpeg", "data": img_bytes.getvalue()}
                             ])
-                            
-                            st.subheader("📋 Resultado da Análise")
+                            st.subheader("Resultado da Análise")
                             st.markdown(resposta.text)
-                            
-                            # Opção para download do relatório
-                            st.download_button(
-                                "💾 Baixar Relatório da Imagem",
-                                data=resposta.text,
-                                file_name=f"relatorio_imagem_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
-                                mime="text/plain",
-                                key="download_imagem"
-                            )
-                            
                         except Exception as e:
-                            st.error(f"❌ Falha na análise: {str(e)}")
-        
-        # --- VALIDAÇÃO DE TEXTO ---
-        with subtab_texto:
-            st.subheader("✍️ Validação de Texto")
-            
-            texto_input = st.text_area(
-                "Insira o texto para validação:", 
-                height=300, 
-                placeholder="Cole aqui o texto que deseja validar...",
-                key="texto_validacao"
-            )
-            
-            # Configurações de análise de texto
-            col_txt1, col_txt2 = st.columns(2)
-            
-            with col_txt1:
-                analise_estrutura = st.checkbox(
-                    "Análise de estrutura",
-                    value=True,
-                    help="Avaliar organização e hierarquia do texto",
-                    key="analise_estrutura"
-                )
-            
-            with col_txt2:
-                sugestoes_melhoria = st.checkbox(
-                    "Sugerir versão melhorada",
-                    value=True,
-                    help="Fornecer versão otimizada do texto",
-                    key="sugestoes_melhoria"
-                )
-            
-            if st.button("📝 Validar Texto", type="primary", key="validate_text"):
-                if not texto_input.strip():
-                    st.warning("⚠️ Por favor, insira um texto para validação")
-                else:
-                    with st.spinner('Analisando texto...'):
-                        # Construir contexto com segmentos selecionados
-                        contexto = construir_contexto(agente, segmentos_validacao)
-                        
-                        prompt_analise = f"""
-                        {contexto}
-                        
-                        Analise este texto e forneça um parecer detalhado:
-                        
-                        Texto a ser analisado:
-                        {texto_input}
-                        
-                        ## 📊 ANÁLISE GERAL
-                        [Resumo da análise e conformidade com as diretrizes]
-                        
-                        {"## 🏗️ ANÁLISE DE ESTRUTURA" if analise_estrutura else ""}
-                        {"- Organização e hierarquia" if analise_estrutura else ""}
-                        {"- Progressão lógica" if analise_estrutura else ""}
-                        {"- Clareza na apresentação de ideias" if analise_estrutura else ""}
-                        
-                        ## 🎯 CONTEÚDO E MENSAGEM
-                        - **Clareza**: [Facilidade de compreensão]
-                        - **Relevância**: [Adequação ao propósito]
-                        - **Tom e Voz**: [Alinhamento com a identidade da marca]
-                        - **Engajamento**: [Capacidade de capturar interesse]
-                        
-                        ## ✅ PONTOS FORTES
-                        - [Listar aspectos positivos do texto]
-                        
-                        ## ⚠️ PONTOS A MELHORAR
-                        - [Listar sugestões de aprimoramento]
-                        
-                        ## 🛠️ RECOMENDAÇÕES
-                        - [Ações específicas para otimização]
-                        
-                        {"## 📝 VERSÃO OTIMIZADA" if sugestoes_melhoria else ""}
-                        {"[Fornecer versão melhorada do texto quando aplicável]" if sugestoes_melhoria else ""}
-                        
-                        ## 🏆 AVALIAÇÃO FINAL
-                        [Status e justificativa da validação]
-                        """
-                        
-                        resposta = modelo_texto.generate_content(prompt_analise)
-                        
-                        st.subheader("📋 Resultado da Análise")
-                        st.markdown(resposta.text)
-                        
-                        # Opção para download do relatório
-                        st.download_button(
-                            "💾 Baixar Relatório do Texto",
-                            data=resposta.text,
-                            file_name=f"relatorio_texto_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
-                            mime="text/plain",
-                            key="download_texto"
-                        )
+                            st.error(f"Falha na análise: {str(e)}")
+
+        with subtab2:
+            texto_input = st.text_area("Insira o texto para validação:", height=200, key="texto_validacao")
+            if st.button("Validar Texto", key="validate_text"):
+                with st.spinner('Analisando texto...'):
+                    prompt_analise = f"""
+                    {agente['system_prompt']}
+                    
+                            Brand Guidelines:
+                            ###BEGIN Brand Guidelines###
+                            {agente.get('base_conhecimento', '')}
+                            ###END Brand Guidelines###
+
+                            Comentários de observação de conteúdo do cliente:
+                            ###BEGIN COMMENTS FROM CLIENT###
+                            {agente.get('comments', '')}
+                            ###END COMMENTS FROM CLIENT###
+                    
+                            Planejamento:
+                            ###BEGIN PLANEJAMENTO###
+                            {agente.get('planejamento', '')}
+                            ###END PLANEJAMENTO###
+                    
+                    Analise este texto e forneça um parecer detalhado:
+                    
+                    Texto a ser analisado:
+                    {texto_input}
+                    
+                    Formato da resposta:
+                    ### Análise Geral
+                    [resumo da análise]
+                    
+                    ### Pontos Fortes
+                    - [lista de pontos positivos]
+                    
+                    ### Pontos a Melhorar
+                    - [lista de sugestões]
+                    
+                    ### Recomendações
+                    - [ações recomendadas]
+                    
+                    ### Versão Ajustada (se necessário)
+                    [texto revisado]
+                    """
+                    
+                    resposta = modelo_texto.generate_content(prompt_analise)
+                    st.subheader("Resultado da Análise")
+                    st.markdown(resposta.text)
 
 # ========== ABA: GERAÇÃO DE CONTEÚDO ==========
 with tab_geracao:
@@ -1333,7 +1463,7 @@ with tab_geracao:
             return f"Erro na leitura do PowerPoint: {str(e)}"
 
     def extrair_texto_docx(arquivo):
-        """Extrais texto de arquivos Word"""
+        """Extrai texto de arquivos Word"""
         try:
             import docx
             import io
@@ -1918,6 +2048,180 @@ with tab_busca:
             - Limite de 5 URLs por análise para melhor performance
             """)
 
+# --- ABA: OTIMIZAÇÃO SEO ---
+with tab_seo:
+    st.header("🚀 Otimização de Conteúdo SEO")
+    
+    if not st.session_state.agente_selecionado:
+        st.info("Selecione um agente primeiro na aba de Chat")
+    else:
+        agente = st.session_state.agente_selecionado
+        
+        # Verificar se o agente selecionado é da categoria SEO
+        if agente.get('categoria') != 'SEO':
+            st.warning("⚠️ Esta funcionalidade é otimizada para agentes da categoria SEO.")
+            st.info("💡 Para melhor desempenho, selecione um agente específico para SEO na aba de Chat.")
+        
+        st.subheader(f"Otimização com: {agente['nome']}")
+        
+        # Layout em colunas para organização
+        col_config, col_conteudo = st.columns([1, 2])
+        
+        with col_config:
+            st.subheader("⚙️ Configurações SEO")
+            
+            # Tipo de conteúdo
+            tipo_conteudo = st.selectbox(
+                "Tipo de Conteúdo:",
+                ["blog", "landing page", "página de produto", "artigo", "notícia", "guia"],
+                help="Selecione o tipo de conteúdo para análise específica",
+                key="tipo_conteudo_seo"
+            )
+            
+            # Palavra-chave principal
+            palavra_chave_principal = st.text_input(
+                "Palavra-chave Principal (opcional):",
+                placeholder="Ex: marketing digital",
+                help="Deixe em branco para o agente identificar automaticamente",
+                key="palavra_chave_seo"
+            )
+            
+            # Configurações de análise
+            with st.expander("🔧 Configurações Avançadas"):
+                analise_competitiva = st.checkbox(
+                    "Incluir análise competitiva",
+                    value=True,
+                    help="Sugerir estratégias baseadas em concorrentes",
+                    key="analise_competitiva"
+                )
+                
+                sugestoes_conteudo = st.checkbox(
+                    "Gerar sugestões de conteúdo relacionado",
+                    value=True,
+                    help="Sugerir tópicos relacionados para pillar content",
+                    key="sugestoes_conteudo"
+                )
+                
+                checklist_acao = st.checkbox(
+                    "Incluir checklist de ações",
+                    value=True,
+                    help="Gerar lista de tarefas para implementação",
+                    key="checklist_acao"
+                )
+        
+        with col_conteudo:
+            st.subheader("📝 Conteúdo para Otimização")
+            
+            conteudo_para_analise = st.text_area(
+                "Cole o conteúdo que deseja otimizar para SEO:",
+                height=400,
+                placeholder="Cole aqui o texto completo do seu conteúdo...\n\nInclua títulos, subtítulos e corpo do texto.",
+                help="Quanto mais completo o conteúdo, mais detalhada será a análise SEO",
+                key="conteudo_seo"
+            )
+            
+            # Estatísticas do conteúdo
+            if conteudo_para_analise:
+                palavras = len(conteudo_para_analise.split())
+                caracteres = len(conteudo_para_analise)
+                paragrafos = conteudo_para_analise.count('\n\n') + 1
+                
+                col_stats1, col_stats2, col_stats3 = st.columns(3)
+                with col_stats1:
+                    st.metric("📊 Palavras", palavras)
+                with col_stats2:
+                    st.metric("🔤 Caracteres", caracteres)
+                with col_stats3:
+                    st.metric("📄 Parágrafos", paragrafos)
+            
+            # Botão de análise
+            if st.button("🚀 Gerar Análise SEO Completa", type="primary", key="analise_seo"):
+                if not conteudo_para_analise.strip():
+                    st.warning("⚠️ Por favor, cole o conteúdo que deseja otimizar.")
+                else:
+                    with st.spinner("🔄 Analisando conteúdo e gerando relatório SEO..."):
+                        try:
+                            resultado = gerar_analise_seo(
+                                conteudo=conteudo_para_analise,
+                                agente=agente,
+                                palavra_chave_principal=palavra_chave_principal if palavra_chave_principal else None,
+                                tipo_conteudo=tipo_conteudo
+                            )
+                            
+                            st.subheader("📋 Relatório de Otimização SEO")
+                            st.markdown(resultado)
+                            
+                            # Opções de download
+                            col_dl1, col_dl2 = st.columns(2)
+                            
+                            with col_dl1:
+                                st.download_button(
+                                    "💾 Baixar Relatório Completo",
+                                    data=resultado,
+                                    file_name=f"relatorio_seo_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+                                    mime="text/plain",
+                                    key="download_seo_completo"
+                                )
+                            
+                            with col_dl2:
+                                # Extrair apenas o checklist se disponível
+                                if "### 📋 CHECKLIST DE OTIMIZAÇÃO" in resultado:
+                                    checklist_start = resultado.find("### 📋 CHECKLIST DE OTIMIZAÇÃO")
+                                    checklist_end = resultado.find("###", checklist_start + 1)
+                                    checklist = resultado[checklist_start:checklist_end] if checklist_end != -1 else resultado[checklist_start:]
+                                    
+                                    st.download_button(
+                                        "📋 Baixar Checklist",
+                                        data=checklist,
+                                        file_name=f"checklist_seo_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+                                        mime="text/plain",
+                                        key="download_checklist_seo"
+                                    )
+                            
+                        except Exception as e:
+                            st.error(f"❌ Erro ao gerar análise SEO: {str(e)}")
+        
+        # Seção informativa
+        with st.expander("ℹ️ Sobre a Análise SEO"):
+            st.markdown("""
+            ### 🎯 O que é Analisado
+            
+            **🔍 Análise de Palavras-chave:**
+            - Identificação de palavras-chave principais e secundárias
+            - Densidade e distribuição no conteúdo
+            - Sugestões de palavras-chave LSI (Latent Semantic Indexing)
+            
+            **📝 Otimização On-Page:**
+            - Meta título e description
+            - Estrutura de headings (H1, H2, H3)
+            - Comprimento e qualidade do conteúdo
+            - Legibilidade e engajamento
+            
+            **🔗 Elementos Técnicos:**
+            - Estrutura de URLs
+            - Otimização de imagens (alt text)
+            - Links internos e externos
+            - Chamadas para ação (CTAs)
+            
+            **📈 Estratégias Off-Page:**
+            - Link building
+            - Compartilhamento em redes sociais
+            - Conteúdo relacionado
+            
+            ### 📊 Métricas de Qualidade
+            
+            - **Score SEO**: Pontuação geral de 0-40
+            - **Conteúdo**: Valor, profundidade e originalidade
+            - **Técnico**: Elementos técnicos de SEO
+            - **Experiência do Usuário**: Engajamento e usabilidade
+            
+            ### 💡 Dicas para Melhor Análise
+            
+            1. **Conteúdo Completo**: Cole o texto integral para análise detalhada
+            2. **Palavra-chave**: Especifique a palavra-chave principal quando possível
+            3. **Contexto**: Use agentes da categoria SEO para melhores resultados
+            4. **Implementação**: Siga o checklist gerado para otimização prática
+            """)
 
 # --- NOVA ABA: REVISÃO ORTOGRÁFICA ---
 with tab_revisao:
@@ -2037,7 +2341,7 @@ with tab_revisao:
                             
                             with col_dl3:
                                 # Extrair apenas as explicações se disponível
-                                if "## 🔍 EXPLICAÇÃO DAS PRINCIPAIS ALTERAÇÃOES" in resultado:
+                                if "## 🔍 EXPLICAÇÃO DAS PRINCIPAIS ALTERAÇÕES" in resultado:
                                     explicacoes_start = resultado.find("## 🔍 EXPLICAÇÃO DAS PRINCIPAIS ALTERAÇÕES")
                                     explicacoes_end = resultado.find("##", explicacoes_start + 1)
                                     explicacoes = resultado[explicacoes_start:explicacoes_end] if explicacoes_end != -1 else resultado[explicacoes_start:]
@@ -2164,13 +2468,6 @@ st.markdown("""
         margin: 1rem 0;
     }
     .spelling-review-card {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        padding: 1.5rem;
-        border-radius: 10px;
-        margin: 1rem 0;
-    }
-    .validation-card {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
         padding: 1.5rem;
