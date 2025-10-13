@@ -750,7 +750,7 @@ if st.sidebar.button("🚪 Sair", key="logout_btn"):
             del st.session_state[key]
     st.rerun()
 
-st.title("🤖 Agente Generativo Personalizável")
+st.title("Agente Social")
 
 # Inicializar estado da sessão
 if "agente_selecionado" not in st.session_state:
