@@ -774,7 +774,8 @@ tab_chat, tab_gerenciamento, tab_aprovacao, tab_video, tab_geracao, tab_resumo, 
     "📝 Revisão Ortográfica"  # NOVA ABA
 ])
 
-mostrar_aba_gerenciamento()
+with tab_gerenciamento:
+    mostrar_aba_gerenciamento()
 
 with tab_chat:
     st.header("💬 Chat com Agente")
