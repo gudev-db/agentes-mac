@@ -274,6 +274,12 @@ def processar_video_upload(video_file, segmentos_selecionados, agente, tipo_anal
             
             ### 🏆 Avaliação Final
             [Aprovado/Reprovado/Com ajustes] - [Justificativa]
+            
+            ### 🔤 ANÁLISE DE TEXTO EM VÍDEO
+            - **Textos Visíveis**: Analise todos os textos que aparecem no vídeo (legendas, títulos, gráficos, etc.)
+            - **Conformidade Textual**: Verifique se os textos seguem as diretrizes da base de conhecimento
+            - **Erros Ortográficos**: Identifique possíveis erros em textos inseridos
+            - **Consistência de Mensagem**: Avalie se o texto visual reforça a mensagem principal
             """
         elif tipo_analise == "rapida":
             prompt = f"""
@@ -286,6 +292,7 @@ def processar_video_upload(video_file, segmentos_selecionados, agente, tipo_anal
             - **Principais Pontos Positivos**: [2-3 pontos]
             - **Principais Problemas**: [2-3 pontos críticos]
             - **Recomendação Imediata**: [Aprovar/Reprovar/Ajustar]
+            - **Textos em Vídeo**: [Análise rápida de textos visíveis e conformidade]
             """
         else:  # análise técnica
             prompt = f"""
@@ -300,6 +307,7 @@ def processar_video_upload(video_file, segmentos_selecionados, agente, tipo_anal
             - **Aspectos Técnicos Conformes**: 
             - **Problemas Técnicos Identificados**:
             - **Recomendações Técnicas**:
+            - **Textos e Legibilidade**: [Qualidade de textos inseridos, legibilidade, conformidade]
             """
         
         # Processar vídeo com a API Gemini
@@ -323,7 +331,7 @@ def processar_video_upload(video_file, segmentos_selecionados, agente, tipo_anal
 def processar_url_youtube(youtube_url, segmentos_selecionados, agente, tipo_analise="completa"):
     """Processa URL do YouTube e retorna análise"""
     try:
-        # Construir contexto com segmentos selecionados
+        # Construir contexto com segmentos selelecionados
         contexto = construir_contexto(agente, segmentos_selecionados)
         
         # Definir prompt baseado no tipo de análise
@@ -363,6 +371,12 @@ def processar_url_youtube(youtube_url, segmentos_selecionados, agente, tipo_anal
             
             ### ⚠️ Pontos de Melhoria
             - [Liste sugestões de melhoria]
+            
+            ### 🔤 Análise de Textos no Vídeo
+            - **Textos Visíveis**: Analise legendas, títulos, descrições na tela
+            - **Conformidade Textual**: Verifique alinhamento com base de conhecimento
+            - **Qualidade dos Textos**: Avalie clareza, ortografia, adequação
+            - **Consistência**: Verifique se textos reforçam mensagem principal
             
             ### 🏆 Recomendação Final
             [Status e justificativa]
@@ -709,6 +723,69 @@ def revisar_texto_ortografia(texto, agente, segmentos_selecionados):
     except Exception as e:
         return f"❌ Erro ao realizar revisão: {str(e)}"
 
+# --- Função para processar imagem com análise de texto ---
+def processar_imagem_upload(imagem_file, segmentos_selecionados, agente):
+    """Processa imagem upload e retorna análise detalhada incluindo textos na imagem"""
+    try:
+        # Abrir e processar imagem
+        image = Image.open(imagem_file)
+        
+        # Construir contexto com segmentos selecionados
+        contexto = construir_contexto(agente, segmentos_selecionados)
+        
+        prompt = f"""
+        {contexto}
+        
+        Analise esta imagem considerando as diretrizes fornecidas e forneça um relatório detalhado:
+        
+        ## 🖼️ ANÁLISE DA IMAGEM
+        
+        ### 📊 Resumo Executivo
+        [Avaliação geral da conformidade da imagem com as diretrizes]
+        
+        ### 🎨 Análise Visual
+        - **Identidade Visual**: [Cores, logos, tipografia, elementos de marca]
+        - **Qualidade Técnica**: [Resolução, nitidez, composição]
+        - **Consistência com Diretrizes**: [Aderência às especificações da marca]
+        
+        ### 🔤 ANÁLISE DE TEXTOS NA IMAGEM
+        **Textos Identificados:**
+        - [Listar todos os textos visíveis na imagem]
+        
+        **Conformidade Textual:**
+        - [Verificar se os textos seguem as diretrizes da base de conhecimento]
+        - [Identificar possíveis erros ortográficos em textos inseridos]
+        - [Avaliar adequação da linguagem e tom]
+        - [Verificar consistência com mensagem da marca]
+        
+        **Recomendações para Textos:**
+        - [Sugerir ajustes em textos quando necessário]
+        - [Otimizar mensagens textuais conforme diretrizes]
+        
+        ### ✅ Pontos de Conformidade
+        - [Liste os aspectos que estão em conformidade]
+        
+        ### ⚠️ Pontos de Atenção
+        - [Liste os aspectos que precisam de ajustes]
+        
+        ### 📋 Recomendações Específicas
+        [Liste recomendações práticas para melhorias]
+        
+        ### 🏆 Avaliação Final
+        [Aprovado/Reprovado/Com ajustes] - [Justificativa]
+        """
+        
+        # Processar imagem com a API Gemini
+        response = modelo_vision.generate_content([
+            prompt,
+            {"mime_type": "image/jpeg", "data": imagem_file.getvalue()}
+        ])
+        
+        return response.text
+        
+    except Exception as e:
+        return f"Erro ao processar imagem: {str(e)}"
+
 # --- Interface Principal ---
 st.sidebar.title(f"🤖 Bem-vindo, {st.session_state.user}!")
 
@@ -729,17 +806,15 @@ if "messages" not in st.session_state:
 if "segmentos_selecionados" not in st.session_state:
     st.session_state.segmentos_selecionados = ["system_prompt", "base_conhecimento", "comments", "planejamento"]
 
-# Menu de abas - ADICIONANDO A NOVA ABA DE REVISÃO ORTOGRÁFICA
-tab_chat, tab_gerenciamento, tab_aprovacao, tab_video, tab_geracao, tab_resumo, tab_busca, tab_seo, tab_revisao = st.tabs([
+# Menu de abas - ABA UNIFICADA DE VALIDAÇÃO
+tab_chat, tab_gerenciamento, tab_validacao, tab_geracao, tab_resumo, tab_busca, tab_revisao = st.tabs([
     "💬 Chat", 
     "⚙️ Gerenciar Agentes", 
-    "✅ Validação", 
-    "🎬 Validação de Vídeo",
+    "✅ Validação Unificada",  # ABA UNIFICADA
     "✨ Geração de Conteúdo",
     "📝 Resumo de Textos",
     "🌐 Busca Web",
-    "🚀 Otimização SEO",
-    "📝 Revisão Ortográfica"  # NOVA ABA
+    "📝 Revisão Ortográfica"
 ])
 
 with tab_gerenciamento:
@@ -1087,8 +1162,9 @@ with tab_chat:
                     except Exception as e:
                         st.error(f"Erro ao gerar resposta: {str(e)}")
 
-with tab_video:
-    st.header("🎬 Validação de Vídeos")
+# --- ABA UNIFICADA DE VALIDAÇÃO ---
+with tab_validacao:
+    st.header("✅ Validação Unificada de Conteúdo")
     
     if not st.session_state.agente_selecionado:
         st.info("Selecione um agente primeiro na aba de Chat")
@@ -1096,109 +1172,78 @@ with tab_video:
         agente = st.session_state.agente_selecionado
         st.subheader(f"Validação com: {agente['nome']}")
         
-        # Controles de segmentos para validação de vídeo
-        st.sidebar.subheader("🔧 Configurações de Validação de Vídeo")
+        # Controles de segmentos para validação
+        st.sidebar.subheader("🔧 Configurações de Validação")
         st.sidebar.write("Selecione bases para validação:")
         
-        segmentos_video = st.sidebar.multiselect(
-            "Bases para validação de vídeo:",
+        segmentos_validacao = st.sidebar.multiselect(
+            "Bases para validação:",
             options=["system_prompt", "base_conhecimento", "comments", "planejamento"],
             default=st.session_state.segmentos_selecionados,
-            key="video_segmentos"
+            key="validacao_segmentos"
         )
         
-        # Seleção do tipo de entrada
-        entrada_tipo = st.radio(
-            "Escolha o tipo de entrada:",
-            ["Upload de Arquivo", "URL do YouTube"],
-            horizontal=True,
-            key="video_input_type"
-        )
+        # Subabas para diferentes tipos de validação
+        subtab_video, subtab_imagem, subtab_texto = st.tabs(["🎬 Validação de Vídeo", "🖼️ Validação de Imagem", "✍️ Validação de Texto"])
         
-        # Configurações de análise
-        col_config1, col_config2 = st.columns(2)
-        
-        with col_config1:
-            tipo_analise = st.selectbox(
-                "Tipo de Análise:",
-                ["completa", "rapida", "tecnica"],
-                format_func=lambda x: {
-                    "completa": "📊 Análise Completa",
-                    "rapida": "⚡ Análise Rápida", 
-                    "tecnica": "🛠️ Análise Técnica"
-                }[x],
-                key="tipo_analise"
-            )
-        
-        with col_config2:
-            if tipo_analise == "completa":
-                st.info("Análise detalhada de todos os aspectos")
-            elif tipo_analise == "rapida":
-                st.info("Foco nos pontos mais críticos")
-            else:
-                st.info("Análise técnica e de qualidade")
-        
-        if entrada_tipo == "Upload de Arquivo":
-            st.subheader("📤 Upload de Vídeo")
+        with subtab_video:
+            st.subheader("🎬 Validação de Vídeos")
             
-            uploaded_video = st.file_uploader(
-                "Carregue o vídeo para análise",
-                type=["mp4", "mpeg", "mov", "avi", "flv", "mpg", "webm", "wmv", "3gpp"],
-                help="Formatos suportados: MP4, MPEG, MOV, AVI, FLV, MPG, WEBM, WMV, 3GPP",
-                key="video_uploader"
+            # Seleção do tipo de entrada
+            entrada_tipo = st.radio(
+                "Escolha o tipo de entrada:",
+                ["Upload de Arquivo", "URL do YouTube"],
+                horizontal=True,
+                key="video_input_type"
             )
             
-            if uploaded_video:
-                # Exibir informações do vídeo
-                st.info(f"📹 Arquice: {uploaded_video.name}")
-                st.info(f"📏 Tamanho: {uploaded_video.size / (1024*1024):.2f} MB")
+            # Configurações de análise
+            col_config1, col_config2 = st.columns(2)
+            
+            with col_config1:
+                tipo_analise = st.selectbox(
+                    "Tipo de Análise:",
+                    ["completa", "rapida", "tecnica"],
+                    format_func=lambda x: {
+                        "completa": "📊 Análise Completa",
+                        "rapida": "⚡ Análise Rápida", 
+                        "tecnica": "🛠️ Análise Técnica"
+                    }[x],
+                    key="tipo_analise"
+                )
+            
+            with col_config2:
+                if tipo_analise == "completa":
+                    st.info("Análise detalhada de todos os aspectos")
+                elif tipo_analise == "rapida":
+                    st.info("Foco nos pontos mais críticos")
+                else:
+                    st.info("Análise técnica e de qualidade")
+            
+            if entrada_tipo == "Upload de Arquivo":
+                st.subheader("📤 Upload de Vídeo")
                 
-                # Exibir preview do vídeo
-                st.video(uploaded_video)
+                uploaded_video = st.file_uploader(
+                    "Carregue o vídeo para análise",
+                    type=["mp4", "mpeg", "mov", "avi", "flv", "mpg", "webm", "wmv", "3gpp"],
+                    help="Formatos suportados: MP4, MPEG, MOV, AVI, FLV, MPG, WEBM, WMV, 3GPP. Suporte para vídeos maiores que 200MB.",
+                    key="video_uploader"
+                )
                 
-                # Botão de análise
-                if st.button("🎬 Iniciar Análise do Vídeo", type="primary", key="analise_upload"):
-                    with st.spinner('Analisando vídeo... Isso pode levar alguns minutos'):
-                        resultado = processar_video_upload(
-                            uploaded_video, 
-                            segmentos_video, 
-                            agente, 
-                            tipo_analise
-                        )
-                        
-                        st.subheader("📋 Resultado da Análise")
-                        st.markdown(resultado)
-                        
-                        # Opção para download do relatório
-                        st.download_button(
-                            "💾 Baixar Relatório",
-                            data=resultado,
-                            file_name=f"relatorio_video_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
-                            mime="text/plain",
-                            key="download_upload"
-                        )
-        
-        else:  # URL do YouTube
-            st.subheader("🔗 URL do YouTube")
-            
-            youtube_url = st.text_input(
-                "Cole a URL do vídeo do YouTube:",
-                placeholder="https://www.youtube.com/watch?v=...",
-                help="A URL deve ser pública (não privada ou não listada)",
-                key="youtube_url"
-            )
-            
-            if youtube_url:
-                # Validar URL do YouTube
-                if "youtube.com" in youtube_url or "youtu.be" in youtube_url:
-                    st.success("✅ URL do YouTube válida detectada")
+                if uploaded_video:
+                    # Exibir informações do vídeo
+                    st.info(f"📹 Arquivo: {uploaded_video.name}")
+                    st.info(f"📏 Tamanho: {uploaded_video.size / (1024*1024):.2f} MB")
+                    
+                    # Exibir preview do vídeo
+                    st.video(uploaded_video)
                     
                     # Botão de análise
-                    if st.button("🎬 Iniciar Análise do Vídeo", type="primary", key="analise_youtube"):
-                        with st.spinner('Analisando vídeo do YouTube... Isso pode levar alguns minutos'):
-                            resultado = processar_url_youtube(
-                                youtube_url, 
-                                segmentos_video, 
+                    if st.button("🎬 Iniciar Análise do Vídeo", type="primary", key="analise_upload"):
+                        with st.spinner('Analisando vídeo... Isso pode levar alguns minutos para vídeos maiores'):
+                            resultado = processar_video_upload(
+                                uploaded_video, 
+                                segmentos_validacao, 
                                 agente, 
                                 tipo_analise
                             )
@@ -1210,155 +1255,285 @@ with tab_video:
                             st.download_button(
                                 "💾 Baixar Relatório",
                                 data=resultado,
-                                file_name=f"relatorio_youtube_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+                                file_name=f"relatorio_video_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
                                 mime="text/plain",
-                                key="download_youtube"
+                                key="download_upload"
                             )
-                else:
-                    st.error("❌ Por favor, insira uma URL válida do YouTube")
+            
+            else:  # URL do YouTube
+                st.subheader("🔗 URL do YouTube")
+                
+                youtube_url = st.text_input(
+                    "Cole a URL do vídeo do YouTube:",
+                    placeholder="https://www.youtube.com/watch?v=...",
+                    help="A URL deve ser pública (não privada ou não listada)",
+                    key="youtube_url"
+                )
+                
+                if youtube_url:
+                    # Validar URL do YouTube
+                    if "youtube.com" in youtube_url or "youtu.be" in youtube_url:
+                        st.success("✅ URL do YouTube válida detectada")
+                        
+                        # Botão de análise
+                        if st.button("🎬 Iniciar Análise do Vídeo", type="primary", key="analise_youtube"):
+                            with st.spinner('Analisando vídeo do YouTube... Isso pode levar alguns minutos'):
+                                resultado = processar_url_youtube(
+                                    youtube_url, 
+                                    segmentos_validacao, 
+                                    agente, 
+                                    tipo_analise
+                                )
+                                
+                                st.subheader("📋 Resultado da Análise")
+                                st.markdown(resultado)
+                                
+                                # Opção para download do relatório
+                                st.download_button(
+                                    "💾 Baixar Relatório",
+                                    data=resultado,
+                                    file_name=f"relatorio_youtube_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+                                    mime="text/plain",
+                                    key="download_youtube"
+                                )
+                    else:
+                        st.error("❌ Por favor, insira uma URL válida do YouTube")
+            
+            # Seção de informações
+            with st.expander("ℹ️ Informações sobre Análise de Vídeos"):
+                st.markdown("""
+                ### 📹 Capacidades de Análise
+                
+                O agente pode analisar vídeos considerando:
+                
+                **🎯 Conteúdo e Mensagem:**
+                - Alinhamento com diretrizes da marca
+                - Clareza da mensagem principal
+                - Tom e linguagem apropriados
+                - Valores e posicionamento
+                
+                **🎨 Aspectos Visuais:**
+                - Identidade visual (cores, logos, tipografia)
+                - Qualidade de produção
+                - Consistência da marca
+                - Enquadramento e composição
+                
+                **🔊 Aspectos de Áudio:**
+                - Qualidade do áudio
+                - Trilha sonora adequada
+                - Narração/diálogo claro
+                - Mixagem e balanceamento
+                
+                **📊 Estrutura e Engajamento:**
+                - Ritmo e duração apropriados
+                - Manutenção do interesse
+                - Chamadas para ação eficazes
+                - Progressão lógica
+                
+                **🔤 Análise de Textos em Vídeo:**
+                - Identificação de textos visíveis (legendas, títulos, gráficos)
+                - Conformidade textual com diretrizes da marca
+                - Verificação de erros ortográficos em textos inseridos
+                - Adequação da linguagem e tom
+                
+                ### ⚠️ Limitações Técnicas
+                
+                - **Duração**: Recomendado até 2 horas para análise completa
+                - **Formato**: Formatos comuns de vídeo suportados
+                - **Qualidade**: Análise em 1 frame por segundo padrão
+                - **YouTube**: Apenas vídeos públicos
+                - **Tamanho**: Suporte para vídeos maiores que 200MB
+                """)
         
-        # Seção de informações
-        with st.expander("ℹ️ Informações sobre Análise de Vídeos"):
-            st.markdown("""
-            ### 📹 Capacidades de Análise
+        with subtab_imagem:
+            st.subheader("🖼️ Validação de Imagens")
             
-            O agente pode analisar vídeos considerando:
+            uploaded_image = st.file_uploader(
+                "Carregue imagem para análise (.jpg, .png, .jpeg)", 
+                type=["jpg", "jpeg", "png"], 
+                key="image_upload_validacao",
+                help="Formatos suportados: JPG, JPEG, PNG. A análise incluirá textos visíveis na imagem."
+            )
             
-            **🎯 Conteúdo e Mensagem:**
-            - Alinhamento com diretrizes da marca
-            - Clareza da mensagem principal
-            - Tom e linguagem apropriados
-            - Valores e posicionamento
-            
-            **🎨 Aspectos Visuais:**
-            - Identidade visual (cores, logos, tipografia)
-            - Qualidade de produção
-            - Consistência da marca
-            - Enquadramento e composição
-            
-            **🔊 Aspectos de Áudio:**
-            - Qualidade do áudio
-            - Trilha sonora adequada
-            - Narração/diálogo claro
-            - Mixagem e balanceamento
-            
-            **📊 Estrutura e Engajamento:**
-            - Ritmo e duração apropriados
-            - Manutenção do interesse
-            - Chamadas para ação eficazes
-            - Progressão lógica
-            
-            ### ⚠️ Limitações Técnicas
-            
-            - **Duração**: Recomendado até 2 horas para análise completa
-            - **Formato**: Formatos comuns de vídeo suportados
-            - **Qualidade**: Análise em 1 frame por segundo padrão
-            - **YouTube**: Apenas vídeos públicos
-            """)
-
-with tab_aprovacao:
-    st.header("✅ Validação de Conteúdo")
-    
-    if not st.session_state.agente_selecionado:
-        st.info("Selecione um agente primeiro na aba de Chat")
-    else:
-        agente = st.session_state.agente_selecionado
-        st.subheader(f"Validação com: {agente['nome']}")
-        
-        subtab1, subtab2 = st.tabs(["🖼️ Análise de Imagens", "✍️ Revisão de Textos"])
-        
-        with subtab1:
-            uploaded_image = st.file_uploader("Carregue imagem para análise (.jpg, .png)", type=["jpg", "jpeg", "png"], key="image_upload")
             if uploaded_image:
-                st.image(uploaded_image, use_column_width=True, caption="Pré-visualização")
-                if st.button("Validar Imagem", key="analyze_img"):
-                    with st.spinner('Analisando imagem...'):
+                st.image(uploaded_image, use_column_width=True, caption="Pré-visualização da Imagem")
+                
+                # Informações da imagem
+                image = Image.open(uploaded_image)
+                col_info1, col_info2, col_info3 = st.columns(3)
+                with col_info1:
+                    st.metric("📐 Dimensões", f"{image.width} x {image.height}")
+                with col_info2:
+                    st.metric("📊 Formato", uploaded_image.type)
+                with col_info3:
+                    st.metric("💾 Tamanho", f"{uploaded_image.size / (1024*1024):.2f} MB")
+                
+                if st.button("🔍 Validar Imagem", type="primary", key="validar_imagem"):
+                    with st.spinner('Analisando imagem e textos visíveis...'):
                         try:
-                            image = Image.open(uploaded_image)
-                            img_bytes = io.BytesIO()
-                            image.save(img_bytes, format=image.format)
+                            resultado = processar_imagem_upload(
+                                uploaded_image, 
+                                segmentos_validacao, 
+                                agente
+                            )
+                            
+                            st.subheader("📋 Resultado da Análise da Imagem")
+                            st.markdown(resultado)
+                            
+                            # Opção para download do relatório
+                            st.download_button(
+                                "💾 Baixar Relatório da Imagem",
+                                data=resultado,
+                                file_name=f"relatorio_imagem_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+                                mime="text/plain",
+                                key="download_imagem"
+                            )
+                            
+                        except Exception as e:
+                            st.error(f"❌ Erro ao processar imagem: {str(e)}")
+            
+            # Seção informativa
+            with st.expander("ℹ️ Sobre Análise de Imagens"):
+                st.markdown("""
+                ### 🖼️ Capacidades de Análise de Imagens
+                
+                **🎨 Análise Visual:**
+                - Identidade visual e elementos de marca
+                - Cores, logos e tipografia
+                - Qualidade técnica e composição
+                - Consistência com diretrizes
+                
+                **🔤 Análise de Textos na Imagem:**
+                - Identificação de todos os textos visíveis
+                - Verificação de conformidade com base de conhecimento
+                - Detecção de erros ortográficos em textos inseridos
+                - Avaliação de adequação da linguagem
+                - Consistência com mensagem da marca
+                
+                **✅ Pontos Verificados:**
+                - Conformidade com brand guidelines
+                - Qualidade técnica da imagem
+                - Legibilidade de textos
+                - Adequação ao público-alvo
+                - Consistência com valores da marca
+                
+                ### 💡 Dicas para Melhor Análise
+                
+                1. **Imagens de Alta Qualidade**: Use imagens com boa resolução
+                2. **Textos Legíveis**: Certifique-se que textos estejam claros
+                3. **Elementos de Marca**: Inclua logos e elementos visuais da marca
+                4. **Contexto Completo**: Forneça informações sobre o uso pretendido
+                """)
+        
+        with subtab_texto:
+            st.subheader("✍️ Validação de Textos")
+            
+            texto_input = st.text_area(
+                "Insira o texto para validação:", 
+                height=300, 
+                key="texto_validacao",
+                placeholder="Cole aqui o texto que deseja validar...",
+                help="O texto será analisado considerando as diretrizes do agente selecionado"
+            )
+            
+            if st.button("✅ Validar Texto", type="primary", key="validate_text"):
+                if not texto_input.strip():
+                    st.warning("⚠️ Por favor, insira um texto para validação.")
+                else:
+                    with st.spinner('Analisando texto...'):
+                        try:
+                            # Construir contexto com segmentos selecionados
+                            contexto = construir_contexto(agente, segmentos_validacao)
                             
                             prompt_analise = f"""
-                            {agente['system_prompt']}
+                            {contexto}
                             
-                            Brand Guidelines:
-                            ###BEGIN Brand Guidelines###
-                            {agente.get('base_conhecimento', '')}
-                            ###END Brand Guidelines###
-
-                            Comentários de observação de conteúdo do cliente:
-                            ###BEGIN COMMENTS FROM CLIENT###
-                            {agente.get('comments', '')}
-                            ###END COMMENTS FROM CLIENT###
+                            Analise este texto e forneça um parecer detalhado considerando as diretrizes fornecidas:
                             
-                            Planejamento:
-                            ###BEGIN PLANEJAMENTO###
-                            {agente.get('planejamento', '')}
-                            ###END PLANEJAMENTO###
+                            ## TEXTO PARA ANÁLISE:
+                            {texto_input}
                             
-                            Analise esta imagem e forneça um parecer detalhado com:
-                            - ✅ Pontos positivos
-                            - ❌ Pontos que precisam de ajuste
-                            - 🛠 Recomendações específicas
-                            - Avaliação final (aprovado/reprovado/com observações)
+                            ## FORMATO DA RESPOSTA:
+                            
+                            ### 📊 Análise Geral
+                            [Resumo da análise e conformidade geral]
+                            
+                            ### ✅ Pontos Fortes
+                            - [Lista de aspectos positivos e em conformidade]
+                            
+                            ### ⚠️ Pontos de Atenção
+                            - [Lista de aspectos que precisam de ajustes]
+                            
+                            ### 🔤 Análise Textual Detalhada
+                            - **Ortografia e Gramática**: [Avaliação de correção linguística]
+                            - **Tom e Linguagem**: [Adequação ao tom da marca]
+                            - **Clareza e Objetividade**: [Facilidade de compreensão]
+                            - **Conformidade com Diretrizes**: [Alinhamento com base de conhecimento]
+                            
+                            ### 📋 Recomendações Específicas
+                            - [Ações recomendadas para melhorias]
+                            
+                            ### 🏆 Avaliação Final
+                            [Status: Aprovado/Reprovado/Com ajustes necessários]
+                            [Justificativa detalhada]
+                            
+                            ### ✍️ Versão Ajustada (se aplicável)
+                            [Texto revisado e otimizado quando necessário]
                             """
                             
-                            resposta = modelo_vision.generate_content([
-                                prompt_analise,
-                                {"mime_type": "image/jpeg", "data": img_bytes.getvalue()}
-                            ])
-                            st.subheader("Resultado da Análise")
+                            resposta = modelo_texto.generate_content(prompt_analise)
+                            st.subheader("📋 Resultado da Análise Textual")
                             st.markdown(resposta.text)
+                            
+                            # Opção para download
+                            st.download_button(
+                                "💾 Baixar Relatório de Texto",
+                                data=resposta.text,
+                                file_name=f"relatorio_texto_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+                                mime="text/plain",
+                                key="download_texto_validacao"
+                            )
+                            
                         except Exception as e:
-                            st.error(f"Falha na análise: {str(e)}")
-
-        with subtab2:
-            texto_input = st.text_area("Insira o texto para validação:", height=200, key="texto_validacao")
-            if st.button("Validar Texto", key="validate_text"):
-                with st.spinner('Analisando texto...'):
-                    prompt_analise = f"""
-                    {agente['system_prompt']}
-                    
-                            Brand Guidelines:
-                            ###BEGIN Brand Guidelines###
-                            {agente.get('base_conhecimento', '')}
-                            ###END Brand Guidelines###
-
-                            Comentários de observação de conteúdo do cliente:
-                            ###BEGIN COMMENTS FROM CLIENT###
-                            {agente.get('comments', '')}
-                            ###END COMMENTS FROM CLIENT###
-                    
-                            Planejamento:
-                            ###BEGIN PLANEJAMENTO###
-                            {agente.get('planejamento', '')}
-                            ###END PLANEJAMENTO###
-                    
-                    Analise este texto e forneça um parecer detalhado:
-                    
-                    Texto a ser analisado:
-                    {texto_input}
-                    
-                    Formato da resposta:
-                    ### Análise Geral
-                    [resumo da análise]
-                    
-                    ### Pontos Fortes
-                    - [lista de pontos positivos]
-                    
-                    ### Pontos a Melhorar
-                    - [lista de sugestões]
-                    
-                    ### Recomendações
-                    - [ações recomendadas]
-                    
-                    ### Versão Ajustada (se necessário)
-                    [texto revisado]
-                    """
-                    
-                    resposta = modelo_texto.generate_content(prompt_analise)
-                    st.subheader("Resultado da Análise")
-                    st.markdown(resposta.text)
+                            st.error(f"❌ Erro ao validar texto: {str(e)}")
+            
+            # Seção informativa
+            with st.expander("ℹ️ Sobre Validação de Textos"):
+                st.markdown("""
+                ### ✍️ Capacidades de Análise de Textos
+                
+                **🔤 Análise Linguística:**
+                - Ortografia e gramática
+                - Pontuação e estrutura
+                - Clareza e coerência
+                - Objetividade e concisão
+                
+                **🎯 Conformidade com Diretrizes:**
+                - Alinhamento com tom de voz da marca
+                - Adequação ao público-alvo
+                - Consistência com valores da empresa
+                - Seguimento de guidelines específicas
+                
+                **💡 Análise de Conteúdo:**
+                - Relevância da mensagem
+                - Eficácia na comunicação
+                - Chamadas para ação adequadas
+                - Engajamento do leitor
+                
+                ### 📊 Critérios de Avaliação
+                
+                - **Conformidade Total**: Texto totalmente alinhado com diretrizes
+                - **Ajustes Menores**: Pequenas correções necessárias
+                - **Revisão Significativa**: Mudanças estruturais recomendadas
+                - **Não Conforme**: Texto precisa ser reescrito
+                
+                ### 💪 Benefícios da Validação
+                
+                - Garantia de consistência da marca
+                - Melhoria na qualidade da comunicação
+                - Redução de retrabalho
+                - Fortalecimento da identidade visual
+                """)
 
 # ========== ABA: GERAÇÃO DE CONTEÚDO ==========
 with tab_geracao:
@@ -2017,182 +2192,9 @@ with tab_busca:
             - Limite de 5 URLs por análise para melhor performance
             """)
 
-# --- ABA: OTIMIZAÇÃO SEO ---
-with tab_seo:
-    st.header("🚀 Otimização de Conteúdo SEO")
-    
-    if not st.session_state.agente_selecionado:
-        st.info("Selecione um agente primeiro na aba de Chat")
-    else:
-        agente = st.session_state.agente_selecionado
-        
-        # Verificar se o agente selecionado é da categoria SEO
-        if agente.get('categoria') != 'SEO':
-            st.warning("⚠️ Esta funcionalidade é otimizada para agentes da categoria SEO.")
-            st.info("💡 Para melhor desempenho, selecione um agente específico para SEO na aba de Chat.")
-        
-        st.subheader(f"Otimização com: {agente['nome']}")
-        
-        # Layout em colunas para organização
-        col_config, col_conteudo = st.columns([1, 2])
-        
-        with col_config:
-            st.subheader("⚙️ Configurações SEO")
-            
-            # Tipo de conteúdo
-            tipo_conteudo = st.selectbox(
-                "Tipo de Conteúdo:",
-                ["blog", "landing page", "página de produto", "artigo", "notícia", "guia"],
-                help="Selecione o tipo de conteúdo para análise específica",
-                key="tipo_conteudo_seo"
-            )
-            
-            # Palavra-chave principal
-            palavra_chave_principal = st.text_input(
-                "Palavra-chave Principal (opcional):",
-                placeholder="Ex: marketing digital",
-                help="Deixe em branco para o agente identificar automaticamente",
-                key="palavra_chave_seo"
-            )
-            
-            # Configurações de análise
-            with st.expander("🔧 Configurações Avançadas"):
-                analise_competitiva = st.checkbox(
-                    "Incluir análise competitiva",
-                    value=True,
-                    help="Sugerir estratégias baseadas em concorrentes",
-                    key="analise_competitiva"
-                )
-                
-                sugestoes_conteudo = st.checkbox(
-                    "Gerar sugestões de conteúdo relacionado",
-                    value=True,
-                    help="Sugerir tópicos relacionados para pillar content",
-                    key="sugestoes_conteudo"
-                )
-                
-                checklist_acao = st.checkbox(
-                    "Incluir checklist de ações",
-                    value=True,
-                    help="Gerar lista de tarefas para implementação",
-                    key="checklist_acao"
-                )
-        
-        with col_conteudo:
-            st.subheader("📝 Conteúdo para Otimização")
-            
-            conteudo_para_analise = st.text_area(
-                "Cole o conteúdo que deseja otimizar para SEO:",
-                height=400,
-                placeholder="Cole aqui o texto completo do seu conteúdo...\n\nInclua títulos, subtítulos e corpo do texto.",
-                help="Quanto mais completo o conteúdo, mais detalhada será a análise SEO",
-                key="conteudo_seo"
-            )
-            
-            # Estatísticas do conteúdo
-            if conteudo_para_analise:
-                palavras = len(conteudo_para_analise.split())
-                caracteres = len(conteudo_para_analise)
-                paragrafos = conteudo_para_analise.count('\n\n') + 1
-                
-                col_stats1, col_stats2, col_stats3 = st.columns(3)
-                with col_stats1:
-                    st.metric("📊 Palavras", palavras)
-                with col_stats2:
-                    st.metric("🔤 Caracteres", caracteres)
-                with col_stats3:
-                    st.metric("📄 Parágrafos", paragrafos)
-            
-            # Botão de análise
-            if st.button("🚀 Gerar Análise SEO Completa", type="primary", key="analise_seo"):
-                if not conteudo_para_analise.strip():
-                    st.warning("⚠️ Por favor, cole o conteúdo que deseja otimizar.")
-                else:
-                    with st.spinner("🔄 Analisando conteúdo e gerando relatório SEO..."):
-                        try:
-                            resultado = gerar_analise_seo(
-                                conteudo=conteudo_para_analise,
-                                agente=agente,
-                                palavra_chave_principal=palavra_chave_principal if palavra_chave_principal else None,
-                                tipo_conteudo=tipo_conteudo
-                            )
-                            
-                            st.subheader("📋 Relatório de Otimização SEO")
-                            st.markdown(resultado)
-                            
-                            # Opções de download
-                            col_dl1, col_dl2 = st.columns(2)
-                            
-                            with col_dl1:
-                                st.download_button(
-                                    "💾 Baixar Relatório Completo",
-                                    data=resultado,
-                                    file_name=f"relatorio_seo_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
-                                    mime="text/plain",
-                                    key="download_seo_completo"
-                                )
-                            
-                            with col_dl2:
-                                # Extrair apenas o checklist se disponível
-                                if "### 📋 CHECKLIST DE OTIMIZAÇÃO" in resultado:
-                                    checklist_start = resultado.find("### 📋 CHECKLIST DE OTIMIZAÇÃO")
-                                    checklist_end = resultado.find("###", checklist_start + 1)
-                                    checklist = resultado[checklist_start:checklist_end] if checklist_end != -1 else resultado[checklist_start:]
-                                    
-                                    st.download_button(
-                                        "📋 Baixar Checklist",
-                                        data=checklist,
-                                        file_name=f"checklist_seo_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
-                                        mime="text/plain",
-                                        key="download_checklist_seo"
-                                    )
-                            
-                        except Exception as e:
-                            st.error(f"❌ Erro ao gerar análise SEO: {str(e)}")
-        
-        # Seção informativa
-        with st.expander("ℹ️ Sobre a Análise SEO"):
-            st.markdown("""
-            ### 🎯 O que é Analisado
-            
-            **🔍 Análise de Palavras-chave:**
-            - Identificação de palavras-chave principais e secundárias
-            - Densidade e distribuição no conteúdo
-            - Sugestões de palavras-chave LSI (Latent Semantic Indexing)
-            
-            **📝 Otimização On-Page:**
-            - Meta título e description
-            - Estrutura de headings (H1, H2, H3)
-            - Comprimento e qualidade do conteúdo
-            - Legibilidade e engajamento
-            
-            **🔗 Elementos Técnicos:**
-            - Estrutura de URLs
-            - Otimização de imagens (alt text)
-            - Links internos e externos
-            - Chamadas para ação (CTAs)
-            
-            **📈 Estratégias Off-Page:**
-            - Link building
-            - Compartilhamento em redes sociais
-            - Conteúdo relacionado
-            
-            ### 📊 Métricas de Qualidade
-            
-            - **Score SEO**: Pontuação geral de 0-40
-            - **Conteúdo**: Valor, profundidade e originalidade
-            - **Técnico**: Elementos técnicos de SEO
-            - **Experiência do Usuário**: Engajamento e usabilidade
-            
-            ### 💡 Dicas para Melhor Análise
-            
-            1. **Conteúdo Completo**: Cole o texto integral para análise detalhada
-            2. **Palavra-chave**: Especifique a palavra-chave principal quando possível
-            3. **Contexto**: Use agentes da categoria SEO para melhores resultados
-            4. **Implementação**: Siga o checklist gerado para otimização prática
-            """)
 
-# --- NOVA ABA: REVISÃO ORTOGRÁFICA ---
+
+# --- ABA: REVISÃO ORTOGRÁFICA ---
 with tab_revisao:
     st.header("📝 Revisão Ortográfica e Gramatical")
     
@@ -2311,7 +2313,7 @@ with tab_revisao:
                             with col_dl3:
                                 # Extrair apenas as explicações se disponível
                                 if "## 🔍 EXPLICAÇÃO DAS PRINCIPAIS ALTERAÇÕES" in resultado:
-                                    explicacoes_start = resultado.find("## 🔍 EXPLICAÇÃO DAS PRINCIPAIS ALTERAÇÕES")
+                                    explicacoes_start = resultado.find("## 🔍 EXPLICAÇÃO DAS PRINCIPAIS ALTERAÇões")
                                     explicacoes_end = resultado.find("##", explicacoes_start + 1)
                                     explicacoes = resultado[explicacoes_start:explicacoes_end] if explicacoes_end != -1 else resultado[explicacoes_start:]
                                     
@@ -2437,6 +2439,13 @@ st.markdown("""
         margin: 1rem 0;
     }
     .spelling-review-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 1.5rem;
+        border-radius: 10px;
+        margin: 1rem 0;
+    }
+    .validation-unified-card {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
         padding: 1.5rem;
