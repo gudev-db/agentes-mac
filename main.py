@@ -1179,7 +1179,7 @@ with tab_validacao:
         segmentos_validacao = st.sidebar.multiselect(
             "Bases para validação:",
             options=["system_prompt", "base_conhecimento", "comments", "planejamento"],
-            default=st.session_state.segmentos_selecionados,
+            default=st.session_state.get('segmentos_selecionados', ["system_prompt"]),
             key="validacao_segmentos"
         )
         
@@ -1198,27 +1198,79 @@ with tab_validacao:
             )
             
             # Configurações de análise
-            col_config1, col_config2 = st.columns(2)
+            tipo_analise = st.selectbox(
+                "Tipo de Análise:",
+                ["completa", "rapida", "tecnica", "transcricao"],
+                format_func=lambda x: {
+                    "completa": "📊 Análise Completa",
+                    "rapida": "⚡ Análise Rápida", 
+                    "tecnica": "🛠️ Análise Técnica",
+                    "transcricao": "🎙️ Transcrição + Análise"
+                }[x],
+                key="tipo_analise"
+            )
             
-            with col_config1:
-                tipo_analise = st.selectbox(
-                    "Tipo de Análise:",
-                    ["completa", "rapida", "tecnica"],
-                    format_func=lambda x: {
-                        "completa": "📊 Análise Completa",
-                        "rapida": "⚡ Análise Rápida", 
-                        "tecnica": "🛠️ Análise Técnica"
-                    }[x],
-                    key="tipo_analise"
-                )
-            
-            with col_config2:
-                if tipo_analise == "completa":
-                    st.info("Análise detalhada de todos os aspectos")
-                elif tipo_analise == "rapida":
-                    st.info("Foco nos pontos mais críticos")
-                else:
-                    st.info("Análise técnica e de qualidade")
+            # Prompt personalizado baseado no tipo de análise
+            prompts_analise = {
+                "completa": """
+                Analise este vídeo COMPLETAMENTE considerando:
+                
+                1. **CONTEÚDO E MENSAGEM:**
+                   - Tema principal e mensagem central
+                   - Clareza da comunicação
+                   - Tom e linguagem utilizados
+                   - Alinhamento com diretrizes da marca
+                
+                2. **ASPECTOS VISUAIS:**
+                   - Qualidade de produção visual
+                   - Composição e enquadramento
+                   - Identidade visual (cores, logos, tipografia)
+                   - Consistência da marca
+                
+                3. **ASPECTOS DE ÁUDIO:**
+                   - Qualidade do áudio e mixagem
+                   - Trilha sonora adequação
+                   - Clareza de narração/diálogos
+                
+                4. **ESTRUTURA E ENGAJAMENTO:**
+                   - Ritmo e duração apropriados
+                   - Progressão lógica do conteúdo
+                   - Manutenção do interesse
+                   - Chamadas para ação eficazes
+                
+                5. **TEXTOS VISÍVEIS:**
+                   - Legendas, títulos e gráficos
+                   - Erros ortográficos em textos inseridos
+                   - Adequação da linguagem textual
+                
+                Forneça timestamps específicos para pontos importantes.
+                """,
+                
+                "rapida": """
+                Faça uma análise RÁPIDA focando nos pontos mais críticos:
+                
+                - Principais pontos positivos e negativos
+                - Conformidade geral com diretrizes
+                - Problemas mais graves identificados
+                - Recomendações prioritárias
+                """,
+                
+                "tecnica": """
+                Foco em ASPECTOS TÉCNICOS:
+                
+                - Qualidade técnica de vídeo e áudio
+                - Aspectos de produção
+                - Elementos técnicos visíveis
+                - Problemas técnicos identificados
+                """,
+                
+                "transcricao": """
+                TRANSCREVA o áudio do vídeo com timestamps para eventos importantes.
+                Além disso, forneça descrições visuais detalhadas.
+                
+                Inclua também uma análise geral do conteúdo.
+                """
+            }
             
             if entrada_tipo == "Upload de Arquivo":
                 st.subheader("📤 Upload de Vídeo")
@@ -1226,39 +1278,102 @@ with tab_validacao:
                 uploaded_video = st.file_uploader(
                     "Carregue o vídeo para análise",
                     type=["mp4", "mpeg", "mov", "avi", "flv", "mpg", "webm", "wmv", "3gpp"],
-                    help="Formatos suportados: MP4, MPEG, MOV, AVI, FLV, MPG, WEBM, WMV, 3GPP. Suporte para vídeos maiores que 200MB.",
+                    help="Formatos suportados: MP4, MPEG, MOV, AVI, FLV, MPG, WEBM, WMV, 3GPP. Máximo 20MB para upload direto.",
                     key="video_uploader"
                 )
                 
                 if uploaded_video:
-                    # Exibir informações do vídeo
-                    st.info(f"📹 Arquivo: {uploaded_video.name}")
-                    st.info(f"📏 Tamanho: {uploaded_video.size / (1024*1024):.2f} MB")
-                    
-                    # Exibir preview do vídeo
-                    st.video(uploaded_video)
-                    
-                    # Botão de análise
-                    if st.button("🎬 Iniciar Análise do Vídeo", type="primary", key="analise_upload"):
-                        with st.spinner('Analisando vídeo... Isso pode levar alguns minutos para vídeos maiores'):
-                            resultado = processar_video_upload(
-                                uploaded_video, 
-                                segmentos_validacao, 
-                                agente, 
-                                tipo_analise
-                            )
-                            
-                            st.subheader("📋 Resultado da Análise")
-                            st.markdown(resultado)
-                            
-                            # Opção para download do relatório
-                            st.download_button(
-                                "💾 Baixar Relatório",
-                                data=resultado,
-                                file_name=f"relatorio_video_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
-                                mime="text/plain",
-                                key="download_upload"
-                            )
+                    # Verificar tamanho do arquivo
+                    if uploaded_video.size > 20 * 1024 * 1024:  # 20MB
+                        st.error("❌ Arquivo muito grande para upload direto. Use a opção URL do YouTube ou reduza o tamanho do vídeo.")
+                    else:
+                        # Exibir informações do vídeo
+                        col_info1, col_info2 = st.columns(2)
+                        with col_info1:
+                            st.info(f"📹 Arquivo: {uploaded_video.name}")
+                        with col_info2:
+                            st.info(f"📏 Tamanho: {uploaded_video.size / (1024*1024):.2f} MB")
+                        
+                        # Exibir preview do vídeo
+                        st.video(uploaded_video)
+                        
+                        # Botão de análise
+                        if st.button("🎬 Iniciar Análise do Vídeo", type="primary", key="analise_upload"):
+                            with st.spinner('Analisando vídeo com Gemini... Isso pode levar alguns minutos'):
+                                try:
+                                    # Ler bytes do vídeo
+                                    video_bytes = uploaded_video.read()
+                                    
+                                    # Construir contexto com segmentos selecionados
+                                    contexto = construir_contexto(agente, segmentos_validacao)
+                                    
+                                    # Preparar prompt para análise
+                                    prompt_analise = f"""
+                                    {contexto}
+                                    
+                                    {prompts_analise[tipo_analise]}
+                                    
+                                    Forneça a análise no seguinte formato:
+                                    
+                                    ## 📋 RELATÓRIO DE ANÁLISE DE VÍDEO
+                                    **Arquivo:** {uploaded_video.name}
+                                    **Tipo de Análise:** {tipo_analise}
+                                    **Agente Validador:** {agente['nome']}
+                                    
+                                    ### 🎯 RESUMO EXECUTIVO
+                                    [Resumo geral da análise]
+                                    
+                                    ### 📊 ANÁLISE DETALHADA
+                                    [Análise completa conforme solicitado]
+                                    
+                                    ### ✅ PONTOS FORTES
+                                    - [Lista de aspectos positivos]
+                                    
+                                    ### ⚠️ PONTOS DE ATENÇÃO
+                                    - [Lista de aspectos que precisam de melhoria]
+                                    
+                                    ### 📋 RECOMENDAÇÕES
+                                    - [Ações recomendadas]
+                                    
+                                    ### 🏆 AVALIAÇÃO FINAL
+                                    [Status e justificativa]
+                                    """
+                                    
+                                    # Fazer requisição para Gemini com vídeo inline
+                                    from google.genai import types
+                                    
+                                    response = client.models.generate_content(
+                                        model='gemini-2.0-flash',
+                                        contents=[
+                                            types.Content(
+                                                parts=[
+                                                    types.Part(
+                                                        inline_data=types.Blob(
+                                                            data=video_bytes,
+                                                            mime_type=uploaded_video.type
+                                                        )
+                                                    ),
+                                                    types.Part(text=prompt_analise)
+                                                ]
+                                            )
+                                        ]
+                                    )
+                                    
+                                    st.subheader("📋 Resultado da Análise")
+                                    st.markdown(response.text)
+                                    
+                                    # Opção para download do relatório
+                                    st.download_button(
+                                        "💾 Baixar Relatório",
+                                        data=response.text,
+                                        file_name=f"relatorio_video_{uploaded_video.name}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+                                        mime="text/plain",
+                                        key="download_upload"
+                                    )
+                                    
+                                except Exception as e:
+                                    st.error(f"❌ Erro ao analisar vídeo: {str(e)}")
+                                    st.info("💡 Dica: Verifique se o vídeo está em formato suportado e tente novamente.")
             
             else:  # URL do YouTube
                 st.subheader("🔗 URL do YouTube")
@@ -1277,263 +1392,108 @@ with tab_validacao:
                         
                         # Botão de análise
                         if st.button("🎬 Iniciar Análise do Vídeo", type="primary", key="analise_youtube"):
-                            with st.spinner('Analisando vídeo do YouTube... Isso pode levar alguns minutos'):
-                                resultado = processar_url_youtube(
-                                    youtube_url, 
-                                    segmentos_validacao, 
-                                    agente, 
-                                    tipo_analise
-                                )
-                                
-                                st.subheader("📋 Resultado da Análise")
-                                st.markdown(resultado)
-                                
-                                # Opção para download do relatório
-                                st.download_button(
-                                    "💾 Baixar Relatório",
-                                    data=resultado,
-                                    file_name=f"relatorio_youtube_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
-                                    mime="text/plain",
-                                    key="download_youtube"
-                                )
+                            with st.spinner('Analisando vídeo do YouTube com Gemini...'):
+                                try:
+                                    # Construir contexto com segmentos selecionados
+                                    contexto = construir_contexto(agente, segmentos_validacao)
+                                    
+                                    # Preparar prompt para análise
+                                    prompt_analise = f"""
+                                    {contexto}
+                                    
+                                    {prompts_analise[tipo_analise]}
+                                    
+                                    Forneça a análise no seguinte formato:
+                                    
+                                    ## 📋 RELATÓRIO DE ANÁLISE DE VÍDEO
+                                    **URL:** {youtube_url}
+                                    **Tipo de Análise:** {tipo_analise}
+                                    **Agente Validador:** {agente['nome']}
+                                    
+                                    ### 🎯 RESUMO EXECUTIVO
+                                    [Resumo geral da análise]
+                                    
+                                    ### 📊 ANÁLISE DETALHADA
+                                    [Análise completa conforme solicitado]
+                                    
+                                    ### ✅ PONTOS FORTES
+                                    - [Lista de aspectos positivos]
+                                    
+                                    ### ⚠️ PONTOS DE ATENÇÃO
+                                    - [Lista de aspectos que precisam de melhoria]
+                                    
+                                    ### 📋 RECOMENDAÇÕES
+                                    - [Ações recomendadas]
+                                    
+                                    ### 🏆 AVALIAÇÃO FINAL
+                                    [Status e justificativa]
+                                    """
+                                    
+                                    # Fazer requisição para Gemini com URL do YouTube
+                                    from google.genai import types
+                                    
+                                    response = client.models.generate_content(
+                                        model='gemini-2.0-flash',
+                                        contents=[
+                                            types.Content(
+                                                parts=[
+                                                    types.Part(
+                                                        file_data=types.FileData(
+                                                            file_uri=youtube_url
+                                                        )
+                                                    ),
+                                                    types.Part(text=prompt_analise)
+                                                ]
+                                            )
+                                        ]
+                                    )
+                                    
+                                    st.subheader("📋 Resultado da Análise")
+                                    st.markdown(response.text)
+                                    
+                                    # Opção para download do relatório
+                                    st.download_button(
+                                        "💾 Baixar Relatório",
+                                        data=response.text,
+                                        file_name=f"relatorio_youtube_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+                                        mime="text/plain",
+                                        key="download_youtube"
+                                    )
+                                    
+                                except Exception as e:
+                                    st.error(f"❌ Erro ao analisar vídeo do YouTube: {str(e)}")
+                                    st.info("💡 Dica: Verifique se o vídeo é público e a URL está correta.")
                     else:
                         st.error("❌ Por favor, insira uma URL válida do YouTube")
             
             # Seção de informações
-            with st.expander("ℹ️ Informações sobre Análise de Vídeos"):
+            with st.expander("ℹ️ Informações sobre Análise de Vídeos com Gemini"):
                 st.markdown("""
-                ### 📹 Capacidades de Análise
+                ### 🎬 Capacidades do Gemini 2.0 Flash
                 
-                O agente pode analisar vídeos considerando:
+                **📹 Processamento de Vídeo:**
+                - Análise de frames a 1 FPS (padrão)
+                - Transcrição de áudio automática
+                - Descrições visuais detalhadas
+                - Referência a timestamps específicos (MM:SS)
                 
-                **🎯 Conteúdo e Mensagem:**
-                - Alinhamento com diretrizes da marca
-                - Clareza da mensagem principal
-                - Tom e linguagem apropriados
-                - Valores e posicionamento
+                **🔍 Análises Suportadas:**
+                - Conteúdo e contexto do vídeo
+                - Elementos visuais e identidade visual
+                - Qualidade de áudio e produção
+                - Textos visíveis (legendas, títulos)
+                - Consistência com diretrizes da marca
                 
-                **🎨 Aspectos Visuais:**
-                - Identidade visual (cores, logos, tipografia)
-                - Qualidade de produção
-                - Consistência da marca
-                - Enquadramento e composição
+                **📊 Limitações Técnicas:**
+                - Upload direto: máximo 20MB por vídeo
+                - YouTube: apenas vídeos públicos
+                - FPS padrão: 1 frame por segundo
+                - Duração: suporte a vídeos longos via URL
                 
-                **🔊 Aspectos de Áudio:**
-                - Qualidade do áudio
-                - Trilha sonora adequada
-                - Narração/diálogo claro
-                - Mixagem e balanceamento
-                
-                **📊 Estrutura e Engajamento:**
-                - Ritmo e duração apropriados
-                - Manutenção do interesse
-                - Chamadas para ação eficazes
-                - Progressão lógica
-                
-                **🔤 Análise de Textos em Vídeo:**
-                - Identificação de textos visíveis (legendas, títulos, gráficos)
-                - Conformidade textual com diretrizes da marca
-                - Verificação de erros ortográficos em textos inseridos
-                - Adequação da linguagem e tom
-                
-                ### ⚠️ Limitações Técnicas
-                
-                - **Duração**: Recomendado até 2 horas para análise completa
-                - **Formato**: Formatos comuns de vídeo suportados
-                - **Qualidade**: Análise em 1 frame por segundo padrão
-                - **YouTube**: Apenas vídeos públicos
-                - **Tamanho**: Suporte para vídeos maiores que 200MB
+                **🎯 Formatos Suportados:**
+                MP4, MPEG, MOV, AVI, FLV, MPG, WEBM, WMV, 3GPP
                 """)
-        
-        with subtab_imagem:
-            st.subheader("🖼️ Validação de Imagens")
-            
-            uploaded_image = st.file_uploader(
-                "Carregue imagem para análise (.jpg, .png, .jpeg)", 
-                type=["jpg", "jpeg", "png"], 
-                key="image_upload_validacao",
-                help="Formatos suportados: JPG, JPEG, PNG. A análise incluirá textos visíveis na imagem."
-            )
-            
-            if uploaded_image:
-                st.image(uploaded_image, use_column_width=True, caption="Pré-visualização da Imagem")
-                
-                # Informações da imagem
-                image = Image.open(uploaded_image)
-                col_info1, col_info2, col_info3 = st.columns(3)
-                with col_info1:
-                    st.metric("📐 Dimensões", f"{image.width} x {image.height}")
-                with col_info2:
-                    st.metric("📊 Formato", uploaded_image.type)
-                with col_info3:
-                    st.metric("💾 Tamanho", f"{uploaded_image.size / (1024*1024):.2f} MB")
-                
-                if st.button("🔍 Validar Imagem", type="primary", key="validar_imagem"):
-                    with st.spinner('Analisando imagem e textos visíveis...'):
-                        try:
-                            resultado = processar_imagem_upload(
-                                uploaded_image, 
-                                segmentos_validacao, 
-                                agente
-                            )
-                            
-                            st.subheader("📋 Resultado da Análise da Imagem")
-                            st.markdown(resultado)
-                            
-                            # Opção para download do relatório
-                            st.download_button(
-                                "💾 Baixar Relatório da Imagem",
-                                data=resultado,
-                                file_name=f"relatorio_imagem_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
-                                mime="text/plain",
-                                key="download_imagem"
-                            )
-                            
-                        except Exception as e:
-                            st.error(f"❌ Erro ao processar imagem: {str(e)}")
-            
-            # Seção informativa
-            with st.expander("ℹ️ Sobre Análise de Imagens"):
-                st.markdown("""
-                ### 🖼️ Capacidades de Análise de Imagens
-                
-                **🎨 Análise Visual:**
-                - Identidade visual e elementos de marca
-                - Cores, logos e tipografia
-                - Qualidade técnica e composição
-                - Consistência com diretrizes
-                
-                **🔤 Análise de Textos na Imagem:**
-                - Identificação de todos os textos visíveis
-                - Verificação de conformidade com base de conhecimento
-                - Detecção de erros ortográficos em textos inseridos
-                - Avaliação de adequação da linguagem
-                - Consistência com mensagem da marca
-                
-                **✅ Pontos Verificados:**
-                - Conformidade com brand guidelines
-                - Qualidade técnica da imagem
-                - Legibilidade de textos
-                - Adequação ao público-alvo
-                - Consistência com valores da marca
-                
-                ### 💡 Dicas para Melhor Análise
-                
-                1. **Imagens de Alta Qualidade**: Use imagens com boa resolução
-                2. **Textos Legíveis**: Certifique-se que textos estejam claros
-                3. **Elementos de Marca**: Inclua logos e elementos visuais da marca
-                4. **Contexto Completo**: Forneça informações sobre o uso pretendido
-                """)
-        
-        with subtab_texto:
-            st.subheader("✍️ Validação de Textos")
-            
-            texto_input = st.text_area(
-                "Insira o texto para validação:", 
-                height=300, 
-                key="texto_validacao",
-                placeholder="Cole aqui o texto que deseja validar...",
-                help="O texto será analisado considerando as diretrizes do agente selecionado"
-            )
-            
-            if st.button("✅ Validar Texto", type="primary", key="validate_text"):
-                if not texto_input.strip():
-                    st.warning("⚠️ Por favor, insira um texto para validação.")
-                else:
-                    with st.spinner('Analisando texto...'):
-                        try:
-                            # Construir contexto com segmentos selecionados
-                            contexto = construir_contexto(agente, segmentos_validacao)
-                            
-                            prompt_analise = f"""
-                            {contexto}
-                            
-                            Analise este texto e forneça um parecer detalhado considerando as diretrizes fornecidas:
-                            
-                            ## TEXTO PARA ANÁLISE:
-                            {texto_input}
-                            
-                            ## FORMATO DA RESPOSTA:
-                            
-                            ### 📊 Análise Geral
-                            [Resumo da análise e conformidade geral]
-                            
-                            ### ✅ Pontos Fortes
-                            - [Lista de aspectos positivos e em conformidade]
-                            
-                            ### ⚠️ Pontos de Atenção
-                            - [Lista de aspectos que precisam de ajustes]
-                            
-                            ### 🔤 Análise Textual Detalhada
-                            - **Ortografia e Gramática**: [Avaliação de correção linguística]
-                            - **Tom e Linguagem**: [Adequação ao tom da marca]
-                            - **Clareza e Objetividade**: [Facilidade de compreensão]
-                            - **Conformidade com Diretrizes**: [Alinhamento com base de conhecimento]
-                            
-                            ### 📋 Recomendações Específicas
-                            - [Ações recomendadas para melhorias]
-                            
-                            ### 🏆 Avaliação Final
-                            [Status: Aprovado/Reprovado/Com ajustes necessários]
-                            [Justificativa detalhada]
-                            
-                            ### ✍️ Versão Ajustada (se aplicável)
-                            [Texto revisado e otimizado quando necessário]
-                            """
-                            
-                            resposta = modelo_texto.generate_content(prompt_analise)
-                            st.subheader("📋 Resultado da Análise Textual")
-                            st.markdown(resposta.text)
-                            
-                            # Opção para download
-                            st.download_button(
-                                "💾 Baixar Relatório de Texto",
-                                data=resposta.text,
-                                file_name=f"relatorio_texto_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
-                                mime="text/plain",
-                                key="download_texto_validacao"
-                            )
-                            
-                        except Exception as e:
-                            st.error(f"❌ Erro ao validar texto: {str(e)}")
-            
-            # Seção informativa
-            with st.expander("ℹ️ Sobre Validação de Textos"):
-                st.markdown("""
-                ### ✍️ Capacidades de Análise de Textos
-                
-                **🔤 Análise Linguística:**
-                - Ortografia e gramática
-                - Pontuação e estrutura
-                - Clareza e coerência
-                - Objetividade e concisão
-                
-                **🎯 Conformidade com Diretrizes:**
-                - Alinhamento com tom de voz da marca
-                - Adequação ao público-alvo
-                - Consistência com valores da empresa
-                - Seguimento de guidelines específicas
-                
-                **💡 Análise de Conteúdo:**
-                - Relevância da mensagem
-                - Eficácia na comunicação
-                - Chamadas para ação adequadas
-                - Engajamento do leitor
-                
-                ### 📊 Critérios de Avaliação
-                
-                - **Conformidade Total**: Texto totalmente alinhado com diretrizes
-                - **Ajustes Menores**: Pequenas correções necessárias
-                - **Revisão Significativa**: Mudanças estruturais recomendadas
-                - **Não Conforme**: Texto precisa ser reescrito
-                
-                ### 💪 Benefícios da Validação
-                
-                - Garantia de consistência da marca
-                - Melhoria na qualidade da comunicação
-                - Redução de retrabalho
-                - Fortalecimento da identidade visual
-                """)
+
 
 # ========== ABA: GERAÇÃO DE CONTEÚDO ==========
 with tab_geracao:
