@@ -1166,11 +1166,11 @@ with tab_chat:
 with tab_validacao:
     st.header("✅ Validação Unificada de Conteúdo")
     
-    if not st.session_state.agente_selecionado:
+    if not st.session_state.get('agente_selecionado'):
         st.info("Selecione um agente primeiro na aba de Chat")
     else:
         agente = st.session_state.agente_selecionado
-        st.subheader(f"Validação com: {agente['nome']}")
+        st.subheader(f"Validação com: {agente.get('nome', 'Agente')}")
         
         # Controles de segmentos para validação
         st.sidebar.subheader("🔧 Configurações de Validação")
@@ -1222,18 +1222,23 @@ with tab_validacao:
                 
                 if uploaded_video:
                     # Verificar tamanho do arquivo
-                    if uploaded_video.size > 20 * 1024 * 1024:  # 20MB
+                    file_size = getattr(uploaded_video, 'size', 0)
+                    if file_size > 20 * 1024 * 1024:  # 20MB
                         st.error("❌ Arquivo muito grande para upload direto. Use a opção URL do YouTube ou reduza o tamanho do vídeo.")
                     else:
                         # Exibir informações do vídeo
                         col_info1, col_info2 = st.columns(2)
                         with col_info1:
-                            st.info(f"📹 Arquivo: {uploaded_video.name}")
+                            st.info(f"📹 Arquivo: {getattr(uploaded_video, 'name', 'N/A')}")
                         with col_info2:
-                            st.info(f"📏 Tamanho: {uploaded_video.size / (1024*1024):.2f} MB")
+                            size_mb = file_size / (1024*1024) if file_size else 0
+                            st.info(f"📏 Tamanho: {size_mb:.2f} MB")
                         
                         # Exibir preview do vídeo
-                        st.video(uploaded_video)
+                        try:
+                            st.video(uploaded_video)
+                        except Exception as e:
+                            st.warning(f"⚠️ Não foi possível exibir preview do vídeo: {str(e)}")
                         
                         # Botão de análise
                         if st.button("🎬 Iniciar Análise do Vídeo", type="primary", key="analise_upload"):
@@ -1255,9 +1260,9 @@ with tab_validacao:
                                         Forneça a análise no seguinte formato:
                                         
                                         ## 📋 RELATÓRIO DE ANÁLISE DE VÍDEO
-                                        **Arquivo:** {uploaded_video.name}
+                                        **Arquivo:** {getattr(uploaded_video, 'name', 'N/A')}
                                         **Tipo de Análise:** Análise Completa
-                                        **Agente Validador:** {agente['nome']}
+                                        **Agente Validador:** {agente.get('nome', 'Agente')}
                                         **Segmentos Utilizados:** {', '.join(segmentos_validacao)}
                                         
                                         ### 🎯 RESUMO EXECUTIVO
@@ -1301,8 +1306,8 @@ with tab_validacao:
                                         Faça uma análise RÁPIDA deste vídeo focando nos aspectos mais críticos de conformidade com as diretrizes fornecidas.
                                         
                                         ## 📋 RELATÓRIO RÁPIDO DE CONFORMIDADE
-                                        **Arquivo:** {uploaded_video.name}
-                                        **Agente Validador:** {agente['nome']}
+                                        **Arquivo:** {getattr(uploaded_video, 'name', 'N/A')}
+                                        **Agente Validador:** {agente.get('nome', 'Agente')}
                                         
                                         ### 🔍 ANÁLISE RÁPIDA
                                         - **Conformidade Geral**: [Avaliação geral com diretrizes]
@@ -1317,8 +1322,8 @@ with tab_validacao:
                                         Faça uma análise TÉCNICA detalhada do vídeo considerando os padrões técnicos das diretrizes.
                                         
                                         ## 🛠️ RELATÓRIO TÉCNICO
-                                        **Arquivo:** {uploaded_video.name}
-                                        **Agente Validador:** {agente['nome']}
+                                        **Arquivo:** {getattr(uploaded_video, 'name', 'N/A')}
+                                        **Agente Validador:** {agente.get('nome', 'Agente')}
                                         
                                         ### 📊 ANÁLISE TÉCNICA
                                         - **Qualidade de Vídeo**: [Avalie conforme padrões técnicos das diretrizes]
@@ -1334,8 +1339,8 @@ with tab_validacao:
                                         TRANSCREVA o áudio deste vídeo e forneça uma análise de conformidade com as diretrizes fornecidas.
                                         
                                         ## 🎙️ TRANSCRIÇÃO E ANÁLISE
-                                        **Arquivo:** {uploaded_video.name}
-                                        **Agente Validador:** {agente['nome']}
+                                        **Arquivo:** {getattr(uploaded_video, 'name', 'N/A')}
+                                        **Agente Validador:** {agente.get('nome', 'Agente')}
                                         
                                         ### 📝 TRANSCRIÇÃO COMPLETA
                                         [Transcreva todo o áudio com timestamps]
@@ -1352,7 +1357,7 @@ with tab_validacao:
                                             types.Part(
                                                 inline_data=types.Blob(
                                                     data=video_bytes,
-                                                    mime_type=uploaded_video.type
+                                                    mime_type=getattr(uploaded_video, 'type', 'video/mp4')
                                                 )
                                             ),
                                             types.Part(text=prompt_analise)
@@ -1366,7 +1371,7 @@ with tab_validacao:
                                     st.download_button(
                                         "💾 Baixar Relatório",
                                         data=response.text,
-                                        file_name=f"relatorio_video_{uploaded_video.name}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+                                        file_name=f"relatorio_video_{getattr(uploaded_video, 'name', 'video')}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
                                         mime="text/plain",
                                         key="download_upload"
                                     )
@@ -1406,7 +1411,7 @@ with tab_validacao:
                                     ## 📋 RELATÓRIO DE ANÁLISE - YOUTUBE
                                     **URL:** {youtube_url}
                                     **Tipo de Análise:** {tipo_analise}
-                                    **Agente Validador:** {agente['nome']}
+                                    **Agente Validador:** {agente.get('nome', 'Agente')}
                                     **Segmentos Utilizados:** {', '.join(segmentos_validacao)}
                                     
                                     ### 🎯 ANÁLISE DE CONFORMIDADE
@@ -1468,7 +1473,7 @@ with tab_validacao:
             # Seção de informações
             with st.expander("ℹ️ Informações sobre Análise de Vídeos"):
                 st.markdown(f"""
-                ### 🎬 Análise com {agente['nome']}
+                ### 🎬 Análise com {agente.get('nome', 'Agente')}
                 
                 **Diretrizes Aplicadas:**
                 - System Prompt: {"✅" if "system_prompt" in segmentos_validacao else "❌"}
@@ -1497,17 +1502,22 @@ with tab_validacao:
             )
             
             if uploaded_image:
-                st.image(uploaded_image, use_column_width=True, caption="Pré-visualização da Imagem")
-                
-                # Informações da imagem
-                image = Image.open(uploaded_image)
-                col_info1, col_info2, col_info3 = st.columns(3)
-                with col_info1:
-                    st.metric("📐 Dimensões", f"{image.width} x {image.height}")
-                with col_info2:
-                    st.metric("📊 Formato", uploaded_image.type)
-                with col_info3:
-                    st.metric("💾 Tamanho", f"{uploaded_video.size / (1024*1024):.2f} MB")
+                try:
+                    st.image(uploaded_image, use_column_width=True, caption="Pré-visualização da Imagem")
+                    
+                    # Informações da imagem
+                    image = Image.open(uploaded_image)
+                    col_info1, col_info2, col_info3 = st.columns(3)
+                    with col_info1:
+                        st.metric("📐 Dimensões", f"{getattr(image, 'width', 'N/A')} x {getattr(image, 'height', 'N/A')}")
+                    with col_info2:
+                        st.metric("📊 Formato", getattr(uploaded_image, 'type', 'N/A'))
+                    with col_info3:
+                        file_size = getattr(uploaded_image, 'size', 0)
+                        size_mb = file_size / (1024*1024) if file_size else 0
+                        st.metric("💾 Tamanho", f"{size_mb:.2f} MB")
+                except Exception as e:
+                    st.error(f"❌ Erro ao carregar imagem: {str(e)}")
                 
                 if st.button("🔍 Validar Imagem", type="primary", key="validar_imagem"):
                     with st.spinner('Analisando imagem conforme diretrizes do agente...'):
@@ -1521,7 +1531,7 @@ with tab_validacao:
                             Analise esta imagem considerando as diretrizes fornecidas acima.
                             
                             ## 🖼️ RELATÓRIO DE ANÁLISE DE IMAGEM
-                            **Agente Validador:** {agente['nome']}
+                            **Agente Validador:** {agente.get('nome', 'Agente')}
                             **Segmentos Utilizados:** {', '.join(segmentos_validacao)}
                             
                             ### 📊 RESUMO DE CONFORMIDADE
@@ -1575,6 +1585,25 @@ with tab_validacao:
                             
                         except Exception as e:
                             st.error(f"❌ Erro ao processar imagem: {str(e)}")
+            
+            # Seção informativa
+            with st.expander("ℹ️ Sobre Análise de Imagens"):
+                st.markdown(f"""
+                ### 🖼️ Análise com {agente.get('nome', 'Agente')}
+                
+                **Diretrizes Aplicadas:**
+                - System Prompt: {"✅" if "system_prompt" in segmentos_validacao else "❌"}
+                - Base de Conhecimento: {"✅" if "base_conhecimento" in segmentos_validacao else "❌"}
+                - Comentários: {"✅" if "comments" in segmentos_validacao else "❌"}
+                - Planejamento: {"✅" if "planejamento" in segmentos_validacao else "❌"}
+                
+                **Capacidades de Análise:**
+                - Verificação de conformidade visual com brand guidelines
+                - Análise de textos visíveis na imagem
+                - Validação de elementos de marca
+                - Checagem de qualidade técnica
+                - Avaliação de composição e layout
+                """)
         
         with subtab_texto:
             st.subheader("✍️ Validação de Textos")
@@ -1588,7 +1617,7 @@ with tab_validacao:
             )
             
             if st.button("✅ Validar Texto", type="primary", key="validate_text"):
-                if not texto_input.strip():
+                if not texto_input or not texto_input.strip():
                     st.warning("⚠️ Por favor, insira um texto para validação.")
                 else:
                     with st.spinner('Analisando texto conforme diretrizes do agente...'):
@@ -1607,7 +1636,7 @@ with tab_validacao:
                             ## FORMATO DA RESPOSTA:
                             
                             ### 📊 ANÁLISE DE CONFORMIDADE
-                            **Agente Validador:** {agente['nome']}
+                            **Agente Validador:** {agente.get('nome', 'Agente')}
                             **Segmentos Utilizados:** {', '.join(segmentos_validacao)}
                             
                             [Resumo da análise e conformidade geral com as diretrizes]
@@ -1654,7 +1683,7 @@ with tab_validacao:
             # Seção informativa
             with st.expander("ℹ️ Sobre Validação de Textos"):
                 st.markdown(f"""
-                ### ✍️ Validação com {agente['nome']}
+                ### ✍️ Validação com {agente.get('nome', 'Agente')}
                 
                 **Diretrizes Aplicadas:**
                 - System Prompt: {"✅" if "system_prompt" in segmentos_validacao else "❌"}
