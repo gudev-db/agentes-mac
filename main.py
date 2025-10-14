@@ -17,7 +17,7 @@ import docx
 # Configuração inicial
 st.set_page_config(
     layout="wide",
-    page_title="Agente Generativo",
+    page_title="Agente Social",
     page_icon="🤖"
 )
 
@@ -37,7 +37,7 @@ users = {
 
 def login():
     """Formulário de login"""
-    st.title("🔒 Agente Generativo - Login")
+    st.title("🔒 Agente Social - Login")
     
     with st.form("login_form"):
         username = st.text_input("Usuário")
