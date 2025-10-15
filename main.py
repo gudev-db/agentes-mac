@@ -1250,11 +1250,10 @@ with tab_validacao:
                 st.success(f"✅ {len(uploaded_images)} imagem(ns) carregada(s)")
                 
                 # Opções de análise
-                col_opcoes1, col_opcoes2 = st.columns(2)
+                col_opcoes1 = st.columns(1)
                 with col_opcoes1:
                     analise_individual = st.checkbox("Análise individual detalhada", value=True)
-                with col_opcoes2:
-                    analise_comparativa = st.checkbox("Incluir análise comparativa", value=False)
+                
                 
                 # Botão para validar todas as imagens
                 if st.button("🔍 Validar Todas as Imagens", type="primary", key="validar_imagens_multiplas"):
