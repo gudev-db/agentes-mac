@@ -1223,7 +1223,7 @@ with tab_validacao:
                 if uploaded_video:
                     # Verificar tamanho do arquivo
                     file_size = getattr(uploaded_video, 'size', 0)
-                    if file_size > 20 * 1024 * 1024:  # 20MB
+                    if file_size > 200 * 1024 * 1024:  # 20MB
                         st.error("❌ Arquivo muito grande para upload direto. Use a opção URL do YouTube ou reduza o tamanho do vídeo.")
                     else:
                         # Exibir informações do vídeo
