@@ -1343,73 +1343,210 @@ with tab_validacao:
         with subtab_imagem:
             st.subheader("🖼️ Validação de Imagem")
             
-            uploaded_image = st.file_uploader(
-                "Carregue imagem para análise", 
+            uploaded_images = st.file_uploader(
+                "Carregue uma ou mais imagens para análise", 
                 type=["jpg", "jpeg", "png", "webp"], 
                 key="image_upload_validacao",
-                help="A imagem será analisada conforme as diretrizes de branding do agente"
+                accept_multiple_files=True,
+                help="As imagens serão analisadas individualmente conforme as diretrizes de branding do agente"
             )
             
-            if uploaded_image:
-                try:
-                    st.image(uploaded_image, use_column_width=True, caption="Imagem para análise")
-                    
-                    # Informações da imagem
-                    image = Image.open(uploaded_image)
-                    col_info1, col_info2 = st.columns(2)
-                    with col_info1:
-                        st.metric("📐 Dimensões", f"{image.width} x {image.height}")
-                    with col_info2:
-                        st.metric("📊 Formato", uploaded_image.type)
-                except Exception as e:
-                    st.error(f"❌ Erro ao carregar imagem: {str(e)}")
+            if uploaded_images:
+                st.success(f"✅ {len(uploaded_images)} imagem(ns) carregada(s)")
                 
-                if st.button("🔍 Validar Imagem", type="primary", key="validar_imagem"):
-                    with st.spinner('Analisando imagem conforme diretrizes de branding...'):
+                # Opções de análise
+                col_opcoes1, col_opcoes2 = st.columns(2)
+                with col_opcoes1:
+                    analise_individual = st.checkbox("Análise individual detalhada", value=True)
+                with col_opcoes2:
+                    analise_comparativa = st.checkbox("Incluir análise comparativa", value=False)
+                
+                # Botão para validar todas as imagens
+                if st.button("🔍 Validar Todas as Imagens", type="primary", key="validar_imagens_multiplas"):
+                    
+                    # Lista para armazenar resultados
+                    resultados_analise = []
+                    
+                    # Loop através de cada imagem
+                    for idx, uploaded_image in enumerate(uploaded_images):
+                        with st.spinner(f'Analisando imagem {idx+1} de {len(uploaded_images)}: {uploaded_image.name}...'):
+                            try:
+                                # Criar container para cada imagem
+                                with st.container():
+                                    st.markdown("---")
+                                    col_img, col_info = st.columns([2, 1])
+                                    
+                                    with col_img:
+                                        # Exibir imagem
+                                        image = Image.open(uploaded_image)
+                                        st.image(image, use_column_width=True, caption=f"Imagem {idx+1}: {uploaded_image.name}")
+                                    
+                                    with col_info:
+                                        # Informações da imagem
+                                        st.metric("📐 Dimensões", f"{image.width} x {image.height}")
+                                        st.metric("📊 Formato", uploaded_image.type)
+                                        st.metric("📁 Tamanho", f"{uploaded_image.size / 1024:.1f} KB")
+                                    
+                                    # Análise individual
+                                    if analise_individual:
+                                        with st.expander(f"📋 Análise Detalhada - Imagem {idx+1}", expanded=True):
+                                            try:
+                                                # Construir contexto com base de conhecimento do agente
+                                                contexto = ""
+                                                if "base_conhecimento" in agente:
+                                                    contexto = f"""
+                                                    DIRETRIZES DE BRANDING DO AGENTE:
+                                                    {agente['base_conhecimento']}
+                                                    
+                                                    Analise esta imagem e verifique se está alinhada com as diretrizes de branding acima.
+                                                    """
+                                                
+                                                prompt_analise = f"""
+                                                {contexto}
+                                                
+                                                Analise esta imagem e verifique o alinhamento com as diretrizes de branding.
+                                                
+                                                Forneça a análise em formato claro:
+                                                
+                                                ## 🖼️ RELATÓRIO DE ALINHAMENTO - IMAGEM {idx+1}
+                                                
+                                                **Arquivo:** {uploaded_image.name}
+                                                **Dimensões:** {image.width} x {image.height}
+                                                
+                                                ### 🎯 RESUMO DA IMAGEM
+                                                [Avaliação geral de conformidade]
+                                                
+                                                ### ✅ ELEMENTOS ALINHADOS
+                                                - [Itens que seguem as diretrizes]
+                                                
+                                                ### ⚠️ ELEMENTOS FORA DO PADRÃO
+                                                - [Itens que não seguem as diretrizes]
+                                                
+                                                ### 💡 RECOMENDAÇÕES
+                                                - [Sugestões para melhorar o alinhamento]
+                                                
+                                                ### 🎨 ASPECTOS TÉCNICOS
+                                                - [Composição, cores, tipografia, etc.]
+                                                """
+                                                
+                                                # Processar imagem
+                                                response = modelo_vision.generate_content([
+                                                    prompt_analise,
+                                                    {"mime_type": "image/jpeg", "data": uploaded_image.getvalue()}
+                                                ])
+                                                
+                                                st.markdown(response.text)
+                                                
+                                                # Armazenar resultado para análise comparativa
+                                                resultados_analise.append({
+                                                    'nome': uploaded_image.name,
+                                                    'indice': idx,
+                                                    'analise': response.text,
+                                                    'dimensoes': f"{image.width}x{image.height}",
+                                                    'tamanho': uploaded_image.size
+                                                })
+                                                
+                                            except Exception as e:
+                                                st.error(f"❌ Erro ao processar imagem {uploaded_image.name}: {str(e)}")
+                                                resultados_analise.append({
+                                                    'nome': uploaded_image.name,
+                                                    'indice': idx,
+                                                    'analise': f"Erro na análise: {str(e)}",
+                                                    'dimensoes': f"{image.width}x{image.height}",
+                                                    'tamanho': uploaded_image.size
+                                                })
+                                    
+                                    # Separador visual entre imagens
+                                    if idx < len(uploaded_images) - 1:
+                                        st.markdown("---")
+                                        
+                            except Exception as e:
+                                st.error(f"❌ Erro ao carregar imagem {uploaded_image.name}: {str(e)}")
+                    
+                    # Análise comparativa se solicitada
+                    if analise_comparativa and len(resultados_analise) > 1:
+                        st.markdown("---")
+                        st.subheader("📊 Análise Comparativa")
+                        
                         try:
-                            # Construir contexto com base de conhecimento do agente
-                            contexto = ""
+                            # Preparar prompt para análise comparativa
+                            contexto_comparativo = ""
                             if "base_conhecimento" in agente:
-                                contexto = f"""
+                                contexto_comparativo = f"""
                                 DIRETRIZES DE BRANDING DO AGENTE:
                                 {agente['base_conhecimento']}
-                                
-                                Analise esta imagem e verifique se está alinhada com as diretrizes de branding acima.
                                 """
                             
-                            prompt_analise = f"""
-                            {contexto}
+                            prompt_comparativo = f"""
+                            {contexto_comparativo}
                             
-                            Analise esta imagem e verifique o alinhamento com as diretrizes de branding.
+                            ## ANÁLISE COMPARATIVA DE IMAGENS
                             
-                            Forneça a análise em formato claro:
+                            Você analisou {len(resultados_analise)} imagens individualmente. Agora forneça uma análise comparativa:
                             
-                            ## 🖼️ RELATÓRIO DE ALINHAMENTO DE IMAGEM
+                            ### 📈 RESUMO COMPARATIVO
+                            - Qual imagem tem melhor alinhamento com o branding?
+                            - Quais padrões comuns foram identificados?
+                            - Quais problemas se repetem nas imagens?
                             
-                            ### 🎯 RESUMO DA IMAGEM
-                            [Avaliação geral de conformidade]
+                            ### 🏆 RANKING DE ALINHAMENTO
+                            [Classifique as imagens da mais alinhada para a menos alinhada]
                             
-                            ### ✅ ELEMENTOS ALINHADOS
-                            - [Itens que seguem as diretrizes]
+                            ### 🔍 TENDÊNCIAS IDENTIFICADAS
+                            - Pontos fortes consistentes
+                            - Problemas recorrentes
+                            - Oportunidades de melhoria
                             
-                            ### ⚠️ ELEMENTOS FORA DO PADRÃO
-                            - [Itens que não seguem as diretrizes]
+                            ### 💡 RECOMENDAÇÕES GERAIS
+                            [Sugestões para todo o conjunto de imagens]
                             
-                            ### 💡 RECOMENDAÇÕES
-                            - [Sugestões para melhorar o alinhamento]
+                            Dados das imagens analisadas:
+                            {chr(10).join([f"- {res['nome']} ({res['dimensoes']})" for res in resultados_analise])}
                             """
                             
-                            # Processar imagem
-                            response = modelo_vision.generate_content([
-                                prompt_analise,
-                                {"mime_type": "image/jpeg", "data": uploaded_image.getvalue()}
-                            ])
-                            
-                            st.subheader("📋 Resultado da Análise")
-                            st.markdown(response.text)
+                            resposta_comparativa = modelo_texto.generate_content(prompt_comparativo)
+                            st.markdown(resposta_comparativa.text)
                             
                         except Exception as e:
-                            st.error(f"❌ Erro ao processar imagem: {str(e)}")
+                            st.error(f"❌ Erro na análise comparativa: {str(e)}")
+                    
+                    # Resumo executivo
+                    st.markdown("---")
+                    st.subheader("📋 Resumo Executivo")
+                    
+                    col_resumo1, col_resumo2, col_resumo3 = st.columns(3)
+                    with col_resumo1:
+                        st.metric("📊 Total de Imagens", len(uploaded_images))
+                    with col_resumo2:
+                        st.metric("✅ Análises Concluídas", len(resultados_analise))
+                    with col_resumo3:
+                        st.metric("🖼️ Média por Imagem", f"{len(uploaded_images)} análises")
+                    
+                    # Botão para download do relatório consolidado
+                    if st.button("📥 Exportar Relatório Completo", key="exportar_relatorio"):
+                        relatorio = f"""
+                        # RELATÓRIO DE VALIDAÇÃO DE IMAGENS
+                        
+                        **Agente:** {agente.get('nome', 'N/A')}
+                        **Data:** {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}
+                        **Total de Imagens:** {len(uploaded_images)}
+                        
+                        ## RESUMO EXECUTIVO
+                        {chr(10).join([f"{idx+1}. {img.name}" for idx, img in enumerate(uploaded_images)])}
+                        
+                        ## ANÁLISES INDIVIDUAIS
+                        {chr(10).join([f'### {res["nome"]} {chr(10)}{res["analise"]}' for res in resultados_analise])}
+                        """
+                        
+                        st.download_button(
+                            "💾 Baixar Relatório em TXT",
+                            data=relatorio,
+                            file_name=f"relatorio_validacao_imagens_{datetime.datetime.now().strftime('%Y%m%d_%H%M')}.txt",
+                            mime="text/plain"
+                        )
+            
+            else:
+                st.info("📁 Carregue uma ou mais imagens para iniciar a validação de branding")
         
         with subtab_texto:
             st.subheader("✍️ Validação de Texto")
@@ -1422,9 +1559,49 @@ with tab_validacao:
                 help="O texto será analisado conforme as diretrizes de branding do agente"
             )
             
+            # Opção para upload de arquivos de texto
+            st.write("**📎 Ou carregue arquivos de texto:**")
+            arquivos_texto = st.file_uploader(
+                "Arquivos de texto (TXT, PDF, DOCX)",
+                type=['txt', 'pdf', 'docx'],
+                accept_multiple_files=True,
+                key="arquivos_texto_validacao",
+                help="Arquivos serão convertidos para texto e validados"
+            )
+            
+            # Processar arquivos de texto se houver
+            textos_arquivos = ""
+            if arquivos_texto:
+                st.success(f"✅ {len(arquivos_texto)} arquivo(s) de texto carregado(s)")
+                
+                for arquivo in arquivos_texto:
+                    with st.spinner(f"Processando {arquivo.name}..."):
+                        texto_extraido = extrair_texto_arquivo(arquivo)
+                        textos_arquivos += f"\n\n--- CONTEÚDO DE {arquivo.name.upper()} ---\n{texto_extraido}"
+                
+                # Mostrar preview dos textos
+                with st.expander("📋 Visualizar Conteúdo dos Arquivos", expanded=False):
+                    for i, arquivo in enumerate(arquivos_texto):
+                        texto_preview = textos_arquivos.split(f"--- CONTEÚDO DE {arquivo.name.upper()} ---")[1].split("--- CONTEÚDO DE")[0] if len(arquivos_texto) > 1 else textos_arquivos
+                        if len(texto_preview) > 500:
+                            st.text_area(f"Preview - {arquivo.name}", 
+                                       value=texto_preview[:500] + "...", 
+                                       height=150,
+                                       key=f"preview_texto_{i}")
+                        else:
+                            st.text_area(f"Preview - {arquivo.name}", 
+                                       value=texto_preview, 
+                                       height=150,
+                                       key=f"preview_texto_{i}")
+            
+            # Combinar texto manual com arquivos
+            texto_completo = texto_input
+            if textos_arquivos:
+                texto_completo += f"\n\n{textos_arquivos}"
+            
             if st.button("✅ Validar Texto", type="primary", key="validate_text"):
-                if not texto_input or not texto_input.strip():
-                    st.warning("⚠️ Por favor, insira um texto para validação.")
+                if not texto_completo or not texto_completo.strip():
+                    st.warning("⚠️ Por favor, insira um texto ou carregue arquivos para validação.")
                 else:
                     with st.spinner('Analisando texto conforme diretrizes de branding...'):
                         try:
@@ -1442,7 +1619,7 @@ with tab_validacao:
                             {contexto}
                             
                             TEXTO PARA ANÁLISE:
-                            {texto_input}
+                            {texto_completo}
                             
                             Analise este texto e verifique o alinhamento com as diretrizes de branding.
                             
@@ -1464,11 +1641,26 @@ with tab_validacao:
                             
                             ### ✨ TEXTO SUGERIDO (se necessário)
                             [Versão ajustada para melhor alinhamento]
+                            
+                            ### 📊 ESTATÍSTICAS
+                            - Tom geral identificado
+                            - Consistência com a voz da marca
+                            - Adequação ao público-alvo
                             """
                             
                             resposta = modelo_texto.generate_content(prompt_analise)
                             st.subheader("📋 Resultado da Análise")
                             st.markdown(resposta.text)
+                            
+                            # Estatísticas adicionais
+                            palavras_count = len(texto_completo.split())
+                            col_stat1, col_stat2, col_stat3 = st.columns(3)
+                            with col_stat1:
+                                st.metric("📝 Palavras Analisadas", palavras_count)
+                            with col_stat2:
+                                st.metric("📎 Arquivos Processados", len(arquivos_texto) if arquivos_texto else 0)
+                            with col_stat3:
+                                st.metric("🔍 Nível de Conformidade", "Ver relatório")
                             
                         except Exception as e:
                             st.error(f"❌ Erro ao validar texto: {str(e)}")
