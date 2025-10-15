@@ -21,6 +21,63 @@ st.set_page_config(
     page_icon="🤖"
 )
 
+# --- FUNÇÃO PARA EXTRAIR FRAMES DO VÍDEO ---
+def extrair_frames_video(video_path, num_frames=5):
+    """
+    Extrai frames equidistantes de um vídeo
+    """
+    try:
+        import cv2
+        import numpy as np
+        
+        # Abrir o vídeo
+        cap = cv2.VideoCapture(video_path)
+        
+        if not cap.isOpened():
+            st.error("❌ Não foi possível abrir o vídeo")
+            return []
+        
+        # Obter informações do vídeo
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        duration = total_frames / fps if fps > 0 else 0
+        
+        st.info(f"📊 Informações do vídeo: {total_frames} frames, {duration:.1f} segundos, {fps:.1f} FPS")
+        
+        # Calcular intervalos para frames equidistantes
+        frame_interval = max(1, total_frames // num_frames)
+        frames_to_capture = [min(i * frame_interval, total_frames - 1) for i in range(num_frames)]
+        
+        frames = []
+        for frame_num in frames_to_capture:
+            cap.set(cv2.CAP_PROP_POS_FRAMES, frame_num)
+            ret, frame = cap.read()
+            
+            if ret:
+                # Converter BGR para RGB
+                frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                
+                # Converter para PIL Image
+                from PIL import Image
+                pil_image = Image.fromarray(frame_rgb)
+                
+                # Redimensionar se muito grande (para economia de tokens)
+                max_size = (800, 600)
+                pil_image.thumbnail(max_size, Image.Resampling.LANCZOS)
+                
+                frames.append(pil_image)
+        
+        cap.release()
+        
+        if len(frames) < num_frames:
+            st.warning(f"⚠️ Apenas {len(frames)} frames puderam ser extraídos")
+        
+        return frames
+        
+    except Exception as e:
+        st.error(f"❌ Erro ao extrair frames: {str(e)}")
+        return []
+
 # --- Sistema de Autenticação ---
 def make_hashes(password):
     return hashlib.sha256(str.encode(password)).hexdigest()
@@ -1172,397 +1229,174 @@ with tab_validacao:
         agente = st.session_state.agente_selecionado
         st.subheader(f"Validação com: {agente.get('nome', 'Agente')}")
         
-        # Controles de segmentos para validação
-        st.sidebar.subheader("🔧 Configurações de Validação")
-        st.sidebar.write("Selecione bases para validação:")
-        
-        segmentos_validacao = st.sidebar.multiselect(
-            "Bases para validação:",
-            options=["system_prompt", "base_conhecimento", "comments", "planejamento"],
-            default=st.session_state.get('segmentos_selecionados', ["system_prompt"]),
-            key="validacao_segmentos"
-        )
-        
         # Subabas para diferentes tipos de validação
         subtab_video, subtab_imagem, subtab_texto = st.tabs(["🎬 Validação de Vídeo", "🖼️ Validação de Imagem", "✍️ Validação de Texto"])
         
         with subtab_video:
-            st.subheader("🎬 Validação de Vídeos")
+            st.subheader("🎬 Validação de Vídeo")
             
-            # Seleção do tipo de entrada
-            entrada_tipo = st.radio(
-                "Escolha o tipo de entrada:",
-                ["Upload de Arquivo", "URL do YouTube"],
-                horizontal=True,
-                key="video_input_type"
+            uploaded_video = st.file_uploader(
+                "Carregue o vídeo para análise",
+                type=["mp4", "mpeg", "mov", "avi", "flv", "mpg", "webm", "wmv", "3gpp"],
+                help="Formatos suportados: MP4, MPEG, MOV, AVI, FLV, MPG, WEBM, WMV, 3GPP",
+                key="video_uploader"
             )
             
-            # Configurações de análise
-            tipo_analise = st.selectbox(
-                "Tipo de Análise:",
-                ["completa", "rapida", "tecnica", "transcricao"],
-                format_func=lambda x: {
-                    "completa": "📊 Análise Completa",
-                    "rapida": "⚡ Análise Rápida", 
-                    "tecnica": "🛠️ Análise Técnica",
-                    "transcricao": "🎙️ Transcrição + Análise"
-                }[x],
-                key="tipo_analise"
-            )
-            
-            if entrada_tipo == "Upload de Arquivo":
-                st.subheader("📤 Upload de Vídeo")
-                
-                uploaded_video = st.file_uploader(
-                    "Carregue o vídeo para análise",
-                    type=["mp4", "mpeg", "mov", "avi", "flv", "mpg", "webm", "wmv", "3gpp"],
-                    help="Formatos suportados: MP4, MPEG, MOV, AVI, FLV, MPG, WEBM, WMV, 3GPP. Máximo 20MB para upload direto.",
-                    key="video_uploader"
-                )
-                
-                if uploaded_video:
-                    # Verificar tamanho do arquivo
+            if uploaded_video:
+                # Exibir informações do vídeo
+                col_info1, col_info2 = st.columns(2)
+                with col_info1:
+                    st.info(f"📹 Arquivo: {getattr(uploaded_video, 'name', 'N/A')}")
+                with col_info2:
                     file_size = getattr(uploaded_video, 'size', 0)
-                    if file_size > 200 * 1024 * 1024:  # 20MB
-                        st.error("❌ Arquivo muito grande para upload direto. Use a opção URL do YouTube ou reduza o tamanho do vídeo.")
-                    else:
-                        # Exibir informações do vídeo
-                        col_info1, col_info2 = st.columns(2)
-                        with col_info1:
-                            st.info(f"📹 Arquivo: {getattr(uploaded_video, 'name', 'N/A')}")
-                        with col_info2:
-                            size_mb = file_size / (1024*1024) if file_size else 0
-                            st.info(f"📏 Tamanho: {size_mb:.2f} MB")
-                        
-                        # Exibir preview do vídeo
-                        try:
-                            st.video(uploaded_video)
-                        except Exception as e:
-                            st.warning(f"⚠️ Não foi possível exibir preview do vídeo: {str(e)}")
-                        
-                        # Botão de análise
-                        if st.button("🎬 Iniciar Análise do Vídeo", type="primary", key="analise_upload"):
-                            with st.spinner('Analisando vídeo com Gemini... Isso pode levar alguns minutos'):
-                                try:
-                                    # Ler bytes do vídeo
-                                    video_bytes = uploaded_video.read()
-                                    
-                                    # Construir contexto com segmentos selecionados
-                                    contexto = construir_contexto(agente, segmentos_validacao)
-                                    
-                                    # Preparar prompt para análise baseado no tipo
-                                    if tipo_analise == "completa":
-                                        prompt_analise = f"""
-                                        {contexto}
-                                        
-                                        Analise este vídeo COMPLETAMENTE considerando as diretrizes fornecidas acima.
-                                        
-                                        Forneça a análise no seguinte formato:
-                                        
-                                        ## 📋 RELATÓRIO DE ANÁLISE DE VÍDEO
-                                        **Arquivo:** {getattr(uploaded_video, 'name', 'N/A')}
-                                        **Tipo de Análise:** Análise Completa
-                                        **Agente Validador:** {agente.get('nome', 'Agente')}
-                                        **Segmentos Utilizados:** {', '.join(segmentos_validacao)}
-                                        
-                                        ### 🎯 RESUMO EXECUTIVO
-                                        [Avaliação geral de conformidade com as diretrizes do agente]
-                                        
-                                        ### 📊 ANÁLISE DE CONFORMIDADE
-                                        **Alinhamento com Diretrizes:**
-                                        - [Avalie o alinhamento com system_prompt]
-                                        - [Verifique conformidade com base_conhecimento]
-                                        - [Analise aderência aos comments]
-                                        - [Avalie alinhamento com planejamento]
-                                        
-                                        ### 🎨 ASPECTOS VISUAIS
-                                        - **Identidade Visual**: [Avalie cores, logos, tipografia conforme diretrizes]
-                                        - **Qualidade de Produção**: [Analise qualidade técnica]
-                                        - **Consistência da Marca**: [Verifique manutenção da identidade]
-                                        
-                                        ### 🔊 ASPECTOS DE ÁUDIO
-                                        - [Qualidade, trilha sonora, voz conforme padrões]
-                                        
-                                        ### 🔤 TEXTOS VISÍVEIS
-                                        - [Analise legendas, títulos, gráficos quanto à conformidade textual]
-                                        - [Verifique erros ortográficos e adequação linguística]
-                                        
-                                        ### ✅ PONTOS FORTES
-                                        - [Lista de aspectos que estão em conformidade]
-                                        
-                                        ### ⚠️ PONTOS DE ATENÇÃO
-                                        - [Lista de aspectos que precisam de ajustes para atender às diretrizes]
-                                        
-                                        ### 📋 RECOMENDAÇÕES ESPECÍFICAS
-                                        [Ações recomendadas baseadas nas diretrizes do agente]
-                                        
-                                        ### 🏆 AVALIAÇÃO FINAL
-                                        [Status: Aprovado/Reprovado/Com ajustes necessários] - [Justificativa baseada nas diretrizes]
-                                        """
-                                    elif tipo_analise == "rapida":
-                                        prompt_analise = f"""
-                                        {contexto}
-                                        
-                                        Faça uma análise RÁPIDA deste vídeo focando nos aspectos mais críticos de conformidade com as diretrizes fornecidas.
-                                        
-                                        ## 📋 RELATÓRIO RÁPIDO DE CONFORMIDADE
-                                        **Arquivo:** {getattr(uploaded_video, 'name', 'N/A')}
-                                        **Agente Validador:** {agente.get('nome', 'Agente')}
-                                        
-                                        ### 🔍 ANÁLISE RÁPIDA
-                                        - **Conformidade Geral**: [Avaliação geral com diretrizes]
-                                        - **Principais Pontos Conformes**: [2-3 pontos]
-                                        - **Problemas Críticos Identificados**: [2-3 pontos que violam diretrizes]
-                                        - **Recomendação Imediata**: [Aprovar/Reprovar/Ajustar baseado nas diretrizes]
-                                        """
-                                    elif tipo_analise == "tecnica":
-                                        prompt_analise = f"""
-                                        {contexto}
-                                        
-                                        Faça uma análise TÉCNICA detalhada do vídeo considerando os padrões técnicos das diretrizes.
-                                        
-                                        ## 🛠️ RELATÓRIO TÉCNICO
-                                        **Arquivo:** {getattr(uploaded_video, 'name', 'N/A')}
-                                        **Agente Validador:** {agente.get('nome', 'Agente')}
-                                        
-                                        ### 📊 ANÁLISE TÉCNICA
-                                        - **Qualidade de Vídeo**: [Avalie conforme padrões técnicos das diretrizes]
-                                        - **Qualidade de Áudio**: [Analise conforme especificações]
-                                        - **Aspectos Técnicos Conformes**: 
-                                        - **Problemas Técnicos Identificados**:
-                                        - **Recomendações Técnicas Baseadas nas Diretrizes**:
-                                        """
-                                    else:  # transcricao
-                                        prompt_analise = f"""
-                                        {contexto}
-                                        
-                                        TRANSCREVA o áudio deste vídeo e forneça uma análise de conformidade com as diretrizes fornecidas.
-                                        
-                                        ## 🎙️ TRANSCRIÇÃO E ANÁLISE
-                                        **Arquivo:** {getattr(uploaded_video, 'name', 'N/A')}
-                                        **Agente Validador:** {agente.get('nome', 'Agente')}
-                                        
-                                        ### 📝 TRANSCRIÇÃO COMPLETA
-                                        [Transcreva todo o áudio com timestamps]
-                                        
-                                        ### 🔍 ANÁLISE DE CONFORMIDADE
-                                        - [Analise o conteúdo transcrito em relação às diretrizes]
-                                        - [Verifique tom, linguagem e mensagem conforme especificações]
-                                        - [Avalie conformidade com brand guidelines]
-                                        """
-                                    
-                                    # Fazer requisição para Gemini com vídeo inline
-                                    response = modelo_vision.generate_content(
-                                        contents=[
-                                            types.Part(
-                                                inline_data=types.Blob(
-                                                    data=video_bytes,
-                                                    mime_type=getattr(uploaded_video, 'type', 'video/mp4')
-                                                )
-                                            ),
-                                            types.Part(text=prompt_analise)
-                                        ]
-                                    )
-                                    
-                                    st.subheader("📋 Resultado da Análise")
-                                    st.markdown(response.text)
-                                    
-                                    # Opção para download do relatório
-                                    st.download_button(
-                                        "💾 Baixar Relatório",
-                                        data=response.text,
-                                        file_name=f"relatorio_video_{getattr(uploaded_video, 'name', 'video')}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
-                                        mime="text/plain",
-                                        key="download_upload"
-                                    )
-                                    
-                                except Exception as e:
-                                    st.error(f"❌ Erro ao analisar vídeo: {str(e)}")
-                                    st.info("💡 Dica: Verifique se o vídeo está em formato suportado e tente novamente.")
-            
-            else:  # URL do YouTube
-                st.subheader("🔗 URL do YouTube")
+                    size_mb = file_size / (1024*1024) if file_size else 0
+                    st.info(f"📏 Tamanho: {size_mb:.2f} MB")
                 
-                youtube_url = st.text_input(
-                    "Cole a URL do vídeo do YouTube:",
-                    placeholder="https://www.youtube.com/watch?v=...",
-                    help="A URL deve ser pública (não privada ou não listada)",
-                    key="youtube_url"
-                )
-                
-                if youtube_url:
-                    # Validar URL do YouTube
-                    if "youtube.com" in youtube_url or "youtu.be" in youtube_url:
-                        st.success("✅ URL do YouTube válida detectada")
-                        
-                        # Botão de análise
-                        if st.button("🎬 Iniciar Análise do Vídeo", type="primary", key="analise_youtube"):
-                            with st.spinner('Analisando vídeo do YouTube com Gemini...'):
-                                try:
-                                    # Construir contexto com segmentos selecionados
-                                    contexto = construir_contexto(agente, segmentos_validacao)
-                                    
-                                    # Preparar prompt para análise
-                                    prompt_analise = f"""
-                                    {contexto}
-                                    
-                                    Analise este vídeo do YouTube considerando as diretrizes fornecidas acima.
-                                    
-                                    ## 📋 RELATÓRIO DE ANÁLISE - YOUTUBE
-                                    **URL:** {youtube_url}
-                                    **Tipo de Análise:** {tipo_analise}
-                                    **Agente Validador:** {agente.get('nome', 'Agente')}
-                                    **Segmentos Utilizados:** {', '.join(segmentos_validacao)}
-                                    
-                                    ### 🎯 ANÁLISE DE CONFORMIDADE
-                                    **Alinhamento com Diretrizes:**
-                                    - [Avalie conformidade com system_prompt]
-                                    - [Verifique aderência à base_conhecimento]
-                                    - [Analise alinhamento com comments]
-                                    - [Avalie conformidade com planejamento]
-                                    
-                                    ### 📊 ASPECTOS ANALISADOS
-                                    - **Conteúdo e Mensagem**: [Alinhamento com diretrizes de conteúdo]
-                                    - **Identidade Visual**: [Conformidade com brand guidelines]
-                                    - **Tom e Linguagem**: [Adequação ao tom da marca]
-                                    - **Textos Visíveis**: [Conformidade textual e ortográfica]
-                                    
-                                    ### ✅ PONTOS CONFORMES
-                                    - [Aspectos que seguem as diretrizes]
-                                    
-                                    ### ⚠️ NÃO CONFORMIDADES
-                                    - [Aspectos que violam as diretrizes]
-                                    
-                                    ### 📋 AÇÕES CORRETIVAS
-                                    [Recomendações baseadas nas diretrizes do agente]
-                                    
-                                    ### 🏆 PARECER FINAL
-                                    [Status baseado no grau de conformidade com as diretrizes]
-                                    """
-                                    
-                                    # Fazer requisição para Gemini com URL do YouTube
-                                    response = modelo_vision.generate_content(
-                                        contents=[
-                                            types.Part(
-                                                file_data=types.FileData(
-                                                    file_uri=youtube_url
-                                                )
-                                            ),
-                                            types.Part(text=prompt_analise)
-                                        ]
-                                    )
-                                    
-                                    st.subheader("📋 Resultado da Análise")
-                                    st.markdown(response.text)
-                                    
-                                    # Opção para download do relatório
-                                    st.download_button(
-                                        "💾 Baixar Relatório",
-                                        data=response.text,
-                                        file_name=f"relatorio_youtube_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
-                                        mime="text/plain",
-                                        key="download_youtube"
-                                    )
-                                    
-                                except Exception as e:
-                                    st.error(f"❌ Erro ao analisar vídeo do YouTube: {str(e)}")
-                                    st.info("💡 Dica: Verifique se o vídeo é público e a URL está correta.")
-                    else:
-                        st.error("❌ Por favor, insira uma URL válida do YouTube")
-            
-            # Seção de informações
-            with st.expander("ℹ️ Informações sobre Análise de Vídeos"):
-                st.markdown(f"""
-                ### 🎬 Análise com {agente.get('nome', 'Agente')}
-                
-                **Diretrizes Aplicadas:**
-                - System Prompt: {"✅" if "system_prompt" in segmentos_validacao else "❌"}
-                - Base de Conhecimento: {"✅" if "base_conhecimento" in segmentos_validacao else "❌"}
-                - Comentários: {"✅" if "comments" in segmentos_validacao else "❌"}
-                - Planejamento: {"✅" if "planejamento" in segmentos_validacao else "❌"}
-                
-                **Capacidades de Análise:**
-                - Verificação de conformidade com brand guidelines
-                - Análise de alinhamento com tom de voz
-                - Validação de identidade visual
-                - Checagem de textos visíveis
-                - Avaliação técnica de qualidade
-                
-                **Formatos Suportados:** MP4, MPEG, MOV, AVI, FLV, MPG, WEBM, WMV, 3GPP
-                """)
-        
-        with subtab_imagem:
-            st.subheader("🖼️ Validação de Imagens")
-            
-            uploaded_image = st.file_uploader(
-                "Carregue imagem para análise (.jpg, .png, .jpeg)", 
-                type=["jpg", "jpeg", "png"], 
-                key="image_upload_validacao",
-                help="A análise considerará as diretrizes do agente selecionado"
-            )
-            
-            if uploaded_image:
+                # Exibir preview do vídeo
                 try:
-                    st.image(uploaded_image, use_column_width=True, caption="Pré-visualização da Imagem")
-                    
-                    # Informações da imagem
-                    image = Image.open(uploaded_image)
-                    col_info1, col_info2, col_info3 = st.columns(3)
-                    with col_info1:
-                        st.metric("📐 Dimensões", f"{getattr(image, 'width', 'N/A')} x {getattr(image, 'height', 'N/A')}")
-                    with col_info2:
-                        st.metric("📊 Formato", getattr(uploaded_image, 'type', 'N/A'))
-                    with col_info3:
-                        file_size = getattr(uploaded_image, 'size', 0)
-                        size_mb = file_size / (1024*1024) if file_size else 0
-                        st.metric("💾 Tamanho", f"{size_mb:.2f} MB")
+                    st.video(uploaded_video)
                 except Exception as e:
-                    st.error(f"❌ Erro ao carregar imagem: {str(e)}")
+                    st.warning(f"⚠️ Não foi possível exibir preview do vídeo: {str(e)}")
                 
-                if st.button("🔍 Validar Imagem", type="primary", key="validar_imagem"):
-                    with st.spinner('Analisando imagem conforme diretrizes do agente...'):
+                # Botão de análise
+                if st.button("🎬 Validar Vídeo", type="primary", key="analise_upload"):
+                    with st.spinner('Analisando vídeo... Extraindo frames e verificando branding...'):
                         try:
-                            # Construir contexto com segmentos selecionados
-                            contexto = construir_contexto(agente, segmentos_validacao)
+                            # Salvar vídeo temporariamente
+                            temp_video_path = f"temp_video_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.mp4"
+                            with open(temp_video_path, "wb") as f:
+                                f.write(uploaded_video.getvalue())
+                            
+                            # Extrair 5 frames do vídeo
+                            frames = extrair_frames_video(temp_video_path, num_frames=5)
+                            
+                            if not frames:
+                                st.error("❌ Não foi possível extrair frames do vídeo.")
+                                return
+                            
+                            # Exibir os frames extraídos
+                            st.subheader("🖼️ Frames Extraídos para Análise")
+                            cols = st.columns(5)
+                            for idx, frame in enumerate(frames):
+                                with cols[idx]:
+                                    st.image(frame, use_column_width=True, caption=f"Frame {idx+1}")
+                            
+                            # Construir contexto com base de conhecimento do agente
+                            contexto = ""
+                            if "base_conhecimento" in agente:
+                                contexto = f"""
+                                DIRETRIZES DE BRANDING DO AGENTE:
+                                {agente['base_conhecimento']}
+                                
+                                Analise os frames deste vídeo e verifique se estão alinhados com as diretrizes de branding acima.
+                                """
                             
                             prompt_analise = f"""
                             {contexto}
                             
-                            Analise esta imagem considerando as diretrizes fornecidas acima.
+                            Analise estes 5 frames do vídeo e verifique o alinhamento com as diretrizes de branding.
                             
-                            ## 🖼️ RELATÓRIO DE ANÁLISE DE IMAGEM
-                            **Agente Validador:** {agente.get('nome', 'Agente')}
-                            **Segmentos Utilizados:** {', '.join(segmentos_validacao)}
+                            Forneça a análise em formato claro e direto:
                             
-                            ### 📊 RESUMO DE CONFORMIDADE
-                            [Avaliação geral do alinhamento com as diretrizes]
+                            ## 📋 RELATÓRIO DE ALINHAMENTO DE BRANDING
                             
-                            ### 🎨 ANÁLISE VISUAL
-                            **Conformidade com Brand Guidelines:**
-                            - [Avalie cores, logos, tipografia conforme diretrizes]
-                            - [Verifique elementos visuais da marca]
-                            - [Analise composição e layout conforme padrões]
+                            ### 🎯 RESUMO GERAL
+                            [Status geral de conformidade com as diretrizes de branding]
                             
-                            ### 🔤 ANÁLISE DE TEXTOS NA IMAGEM
-                            **Textos Identificados:**
-                            - [Liste todos os textos visíveis]
+                            ### ✅ PONTOS ALINHADOS
+                            - [Elementos que seguem as diretrizes]
                             
-                            **Conformidade Textual:**
-                            - [Verifique se textos seguem base_conhecimento]
-                            - [Identifique erros ortográficos]
-                            - [Avalie adequação linguística conforme diretrizes]
+                            ### ⚠️ PONTOS FORA DO PADRÃO
+                            - [Elementos que não seguem as diretrizes]
                             
-                            ### ✅ PONTOS CONFORMES
-                            - [Aspectos que atendem às diretrizes]
+                            ### 💡 RECOMENDAÇÕES
+                            - [Sugestões para melhor alinhamento]
+                            """
                             
-                            ### ⚠️ NÃO CONFORMIDADES
-                            - [Aspectos que violam as diretrizes]
+                            # Preparar conteúdo para Gemini com múltiplas imagens
+                            contents = [prompt_analise]
+                            for frame in frames:
+                                # Converter frame PIL para bytes
+                                img_byte_arr = io.BytesIO()
+                                frame.save(img_byte_arr, format='JPEG')
+                                img_byte_arr = img_byte_arr.getvalue()
+                                
+                                contents.append({
+                                    "mime_type": "image/jpeg", 
+                                    "data": img_byte_arr
+                                })
                             
-                            ### 📋 RECOMENDAÇÕES
-                            [Ações para adequação às diretrizes do agente]
+                            # Fazer requisição para Gemini com múltiplas imagens
+                            response = modelo_vision.generate_content(contents)
                             
-                            ### 🏆 PARECER FINAL
-                            [Status baseado na conformidade com as diretrizes]
+                            # Limpar arquivo temporário
+                            import os
+                            if os.path.exists(temp_video_path):
+                                os.remove(temp_video_path)
+                            
+                            st.subheader("📋 Resultado da Análise de Branding")
+                            st.markdown(response.text)
+                            
+                        except Exception as e:
+                            st.error(f"❌ Erro ao analisar vídeo: {str(e)}")
+        
+        with subtab_imagem:
+            st.subheader("🖼️ Validação de Imagem")
+            
+            uploaded_image = st.file_uploader(
+                "Carregue imagem para análise", 
+                type=["jpg", "jpeg", "png", "webp"], 
+                key="image_upload_validacao",
+                help="A imagem será analisada conforme as diretrizes de branding do agente"
+            )
+            
+            if uploaded_image:
+                try:
+                    st.image(uploaded_image, use_column_width=True, caption="Imagem para análise")
+                    
+                    # Informações da imagem
+                    image = Image.open(uploaded_image)
+                    col_info1, col_info2 = st.columns(2)
+                    with col_info1:
+                        st.metric("📐 Dimensões", f"{image.width} x {image.height}")
+                    with col_info2:
+                        st.metric("📊 Formato", uploaded_image.type)
+                except Exception as e:
+                    st.error(f"❌ Erro ao carregar imagem: {str(e)}")
+                
+                if st.button("🔍 Validar Imagem", type="primary", key="validar_imagem"):
+                    with st.spinner('Analisando imagem conforme diretrizes de branding...'):
+                        try:
+                            # Construir contexto com base de conhecimento do agente
+                            contexto = ""
+                            if "base_conhecimento" in agente:
+                                contexto = f"""
+                                DIRETRIZES DE BRANDING DO AGENTE:
+                                {agente['base_conhecimento']}
+                                
+                                Analise esta imagem e verifique se está alinhada com as diretrizes de branding acima.
+                                """
+                            
+                            prompt_analise = f"""
+                            {contexto}
+                            
+                            Analise esta imagem e verifique o alinhamento com as diretrizes de branding.
+                            
+                            Forneça a análise em formato claro:
+                            
+                            ## 🖼️ RELATÓRIO DE ALINHAMENTO DE IMAGEM
+                            
+                            ### 🎯 RESUMO DA IMAGEM
+                            [Avaliação geral de conformidade]
+                            
+                            ### ✅ ELEMENTOS ALINHADOS
+                            - [Itens que seguem as diretrizes]
+                            
+                            ### ⚠️ ELEMENTOS FORA DO PADRÃO
+                            - [Itens que não seguem as diretrizes]
+                            
+                            ### 💡 RECOMENDAÇÕES
+                            - [Sugestões para melhorar o alinhamento]
                             """
                             
                             # Processar imagem
@@ -1571,138 +1405,73 @@ with tab_validacao:
                                 {"mime_type": "image/jpeg", "data": uploaded_image.getvalue()}
                             ])
                             
-                            st.subheader("📋 Resultado da Análise da Imagem")
+                            st.subheader("📋 Resultado da Análise")
                             st.markdown(response.text)
-                            
-                            # Opção para download do relatório
-                            st.download_button(
-                                "💾 Baixar Relatório da Imagem",
-                                data=response.text,
-                                file_name=f"relatorio_imagem_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
-                                mime="text/plain",
-                                key="download_imagem"
-                            )
                             
                         except Exception as e:
                             st.error(f"❌ Erro ao processar imagem: {str(e)}")
-            
-            # Seção informativa
-            with st.expander("ℹ️ Sobre Análise de Imagens"):
-                st.markdown(f"""
-                ### 🖼️ Análise com {agente.get('nome', 'Agente')}
-                
-                **Diretrizes Aplicadas:**
-                - System Prompt: {"✅" if "system_prompt" in segmentos_validacao else "❌"}
-                - Base de Conhecimento: {"✅" if "base_conhecimento" in segmentos_validacao else "❌"}
-                - Comentários: {"✅" if "comments" in segmentos_validacao else "❌"}
-                - Planejamento: {"✅" if "planejamento" in segmentos_validacao else "❌"}
-                
-                **Capacidades de Análise:**
-                - Verificação de conformidade visual com brand guidelines
-                - Análise de textos visíveis na imagem
-                - Validação de elementos de marca
-                - Checagem de qualidade técnica
-                - Avaliação de composição e layout
-                """)
         
         with subtab_texto:
-            st.subheader("✍️ Validação de Textos")
+            st.subheader("✍️ Validação de Texto")
             
             texto_input = st.text_area(
                 "Insira o texto para validação:", 
-                height=300, 
+                height=200, 
                 key="texto_validacao",
                 placeholder="Cole aqui o texto que deseja validar...",
-                help="O texto será analisado considerando as diretrizes do agente selecionado"
+                help="O texto será analisado conforme as diretrizes de branding do agente"
             )
             
             if st.button("✅ Validar Texto", type="primary", key="validate_text"):
                 if not texto_input or not texto_input.strip():
                     st.warning("⚠️ Por favor, insira um texto para validação.")
                 else:
-                    with st.spinner('Analisando texto conforme diretrizes do agente...'):
+                    with st.spinner('Analisando texto conforme diretrizes de branding...'):
                         try:
-                            # Construir contexto com segmentos selecionados
-                            contexto = construir_contexto(agente, segmentos_validacao)
+                            # Construir contexto com base de conhecimento do agente
+                            contexto = ""
+                            if "base_conhecimento" in agente:
+                                contexto = f"""
+                                DIRETRIZES DE BRANDING DO AGENTE:
+                                {agente['base_conhecimento']}
+                                
+                                Analise este texto e verifique se está alinhado com as diretrizes de branding acima.
+                                """
                             
                             prompt_analise = f"""
                             {contexto}
                             
-                            Analise este texto e forneça um parecer detalhado de conformidade com as diretrizes fornecidas:
-                            
-                            ## TEXTO PARA ANÁLISE:
+                            TEXTO PARA ANÁLISE:
                             {texto_input}
                             
-                            ## FORMATO DA RESPOSTA:
+                            Analise este texto e verifique o alinhamento com as diretrizes de branding.
                             
-                            ### 📊 ANÁLISE DE CONFORMIDADE
-                            **Agente Validador:** {agente.get('nome', 'Agente')}
-                            **Segmentos Utilizados:** {', '.join(segmentos_validacao)}
+                            Forneça a análise em formato claro:
                             
-                            [Resumo da análise e conformidade geral com as diretrizes]
+                            ## ✍️ RELATÓRIO DE ALINHAMENTO DE TEXTO
                             
-                            ### ✅ PONTOS CONFORMES
-                            - [Lista de aspectos que atendem às diretrizes]
+                            ### 🎯 RESUMO DO TEXTO
+                            [Avaliação geral de conformidade]
                             
-                            ### ⚠️ NÃO CONFORMIDADES
-                            - [Lista de aspectos que violam as diretrizes]
+                            ### ✅ PONTOS ALINHADOS
+                            - [Aspectos do texto que seguem as diretrizes]
                             
-                            ### 🔤 ANÁLISE TEXTUAL DETALHADA
-                            - **Ortografia e Gramática**: [Avaliação de correção linguística conforme padrões]
-                            - **Tom e Linguagem**: [Adequação ao tom da marca definido nas diretrizes]
-                            - **Clareza e Objetividade**: [Conformidade com guidelines de comunicação]
-                            - **Conformidade com Diretrizes**: [Alinhamento específico com cada segmento utilizado]
+                            ### ⚠️ PONTOS FORA DO PADRÃO
+                            - [Aspectos que não seguem as diretrizes]
                             
-                            ### 📋 AÇÕES RECOMENDADAS
-                            - [Ações específicas para adequação às diretrizes do agente]
+                            ### 💡 RECOMENDAÇÕES
+                            - [Sugestões para melhorar o alinhamento]
                             
-                            ### 🏆 AVALIAÇÃO FINAL
-                            [Status: Aprovado/Reprovado/Com ajustes necessários]
-                            [Justificativa detalhada baseada nas diretrizes]
-                            
-                            ### ✍️ VERSÃO AJUSTADA (se aplicável)
-                            [Texto revisado e otimizado para conformidade com as diretrizes]
+                            ### ✨ TEXTO SUGERIDO (se necessário)
+                            [Versão ajustada para melhor alinhamento]
                             """
                             
                             resposta = modelo_texto.generate_content(prompt_analise)
-                            st.subheader("📋 Resultado da Análise Textual")
+                            st.subheader("📋 Resultado da Análise")
                             st.markdown(resposta.text)
-                            
-                            # Opção para download
-                            st.download_button(
-                                "💾 Baixar Relatório de Texto",
-                                data=resposta.text,
-                                file_name=f"relatorio_texto_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
-                                mime="text/plain",
-                                key="download_texto_validacao"
-                            )
                             
                         except Exception as e:
                             st.error(f"❌ Erro ao validar texto: {str(e)}")
-            
-            # Seção informativa
-            with st.expander("ℹ️ Sobre Validação de Textos"):
-                st.markdown(f"""
-                ### ✍️ Validação com {agente.get('nome', 'Agente')}
-                
-                **Diretrizes Aplicadas:**
-                - System Prompt: {"✅" if "system_prompt" in segmentos_validacao else "❌"}
-                - Base de Conhecimento: {"✅" if "base_conhecimento" in segmentos_validacao else "❌"} 
-                - Comentários: {"✅" if "comments" in segmentos_validacao else "❌"}
-                - Planejamento: {"✅" if "planejamento" in segmentos_validacao else "❌"}
-                
-                **Critérios de Avaliação:**
-                - Conformidade Total: Texto totalmente alinhado com todas as diretrizes
-                - Ajustes Menores: Pequenas correções necessárias para conformidade
-                - Revisão Significativa: Mudanças estruturais para atender diretrizes
-                - Não Conforme: Texto precisa ser reescrito para conformidade
-                
-                **Benefícios da Validação Contextual:**
-                - Garantia de consistência com as diretrizes da marca
-                - Alinhamento estratégico com objetivos definidos
-                - Redução de retrabalho por não conformidade
-                - Fortalecimento da identidade da marca
-                """)
 
 
 # ========== ABA: GERAÇÃO DE CONTEÚDO ==========
