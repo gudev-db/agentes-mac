@@ -864,14 +864,15 @@ if "segmentos_selecionados" not in st.session_state:
     st.session_state.segmentos_selecionados = ["system_prompt", "base_conhecimento", "comments", "planejamento"]
 
 # Menu de abas - ABA UNIFICADA DE VALIDAÇÃO
-tab_chat, tab_gerenciamento, tab_validacao, tab_geracao, tab_resumo, tab_busca, tab_revisao = st.tabs([
+tab_chat, tab_gerenciamento, tab_validacao, tab_geracao, tab_resumo, tab_busca, tab_revisao, tab_monitoramento = st.tabs([
     "💬 Chat", 
     "⚙️ Gerenciar Agentes", 
     "✅ Validação Unificada",  # ABA UNIFICADA
     "✨ Geração de Conteúdo",
     "📝 Resumo de Textos",
     "🌐 Busca Web",
-    "📝 Revisão Ortográfica"
+    "📝 Revisão Ortográfica",
+    "🤖 Agente de Monitoramento" 
 ])
 
 with tab_gerenciamento:
@@ -2346,6 +2347,354 @@ with tab_revisao:
             - **Otimização de Conteúdo**: Melhora a clareza e impacto da comunicação
             - **Eficiência**: Reduz tempo de revisão manual
             """)
+
+with tab_monitoramento:
+    st.header("🤖 Agente de Monitoramento")
+    st.markdown("**Especialista que fala como gente** - Conectando conhecimento técnico e engajamento social")
+    
+    # --- CONFIGURAÇÃO DO ASTRA DB DENTRO DA ABA ---
+    class AstraDBClient:
+        def __init__(self):
+            self.base_url = f"{os.getenv('ASTRA_DB_API_ENDPOINT')}/api/json/v1/{os.getenv('ASTRA_DB_NAMESPACE')}"
+            self.headers = {
+                "Content-Type": "application/json",
+                "x-cassandra-token": os.getenv('ASTRA_DB_APPLICATION_TOKEN'),
+                "Accept": "application/json"
+            }
+        
+        def vector_search(self, collection: str, vector: List[float], limit: int = 5) -> List[Dict]:
+            """Realiza busca por similaridade vetorial"""
+            url = f"{self.base_url}/{collection}"
+            payload = {
+                "find": {
+                    "sort": {"$vector": vector},
+                    "options": {"limit": limit}
+                }
+            }
+            try:
+                response = requests.post(url, json=payload, headers=self.headers, timeout=30)
+                response.raise_for_status()
+                data = response.json()
+                return data.get("data", {}).get("documents", [])
+            except Exception as e:
+                st.error(f"Erro na busca vetorial: {str(e)}")
+                return []
+
+    # Inicializa o cliente AstraDB
+    try:
+        astra_client = AstraDBClient()
+        st.success("✅ Conectado ao Astra DB")
+    except Exception as e:
+        st.error(f"❌ Erro ao conectar com Astra DB: {str(e)}")
+        astra_client = None
+
+    def get_embedding(text: str) -> List[float]:
+        """Obtém embedding do texto usando OpenAI"""
+        try:
+            client = openai.OpenAI(api_key=OPENAI_API_KEY)
+            response = client.embeddings.create(
+                input=text,
+                model="text-embedding-3-small"
+            )
+            return response.data[0].embedding
+        except Exception as e:
+            st.warning(f"Embedding OpenAI não disponível: {str(e)}")
+            # Fallback para embedding simples
+            import numpy as np
+            text_hash = hashlib.md5(text.encode()).hexdigest()
+            vector = [float(int(text_hash[i:i+2], 16) / 255.0) for i in range(0, 32, 2)]
+            # Preenche para ter 1536 dimensões
+            while len(vector) < 1536:
+                vector.append(0.0)
+            return vector[:1536]
+
+    def buscar_conhecimento_tecnico(pergunta: str) -> str:
+        """Busca conhecimento técnico na Astra DB usando RAG"""
+        if not astra_client:
+            return "Serviço de conhecimento técnico indisponível."
+            
+        try:
+            # Gera embedding para a pergunta
+            embedding = get_embedding(pergunta)
+            
+            # Busca documentos relevantes
+            relevant_docs = astra_client.vector_search(os.getenv('ASTRA_DB_COLLECTION'), embedding, limit=5)
+            
+            # Constrói contexto dos documentos
+            contexto_tecnico = ""
+            if relevant_docs:
+                contexto_tecnico = "INFORMAÇÕES TÉCNICAS DA BASE:\n\n"
+                for i, doc in enumerate(relevant_docs, 1):
+                    doc_content = str(doc)
+                    # Limpa e formata o documento
+                    doc_clean = doc_content.replace('{', '').replace('}', '').replace("'", "").replace('"', '')
+                    contexto_tecnico += f"--- Fonte {i} ---\n{doc_clean[:600]}...\n\n"
+            else:
+                contexto_tecnico = "Consulta não retornou informações técnicas específicas da base."
+            
+            return contexto_tecnico
+            
+        except Exception as e:
+            st.error(f"Erro na busca de conhecimento técnico: {str(e)}")
+            return ""
+
+    def gerar_resposta_agente(pergunta_usuario: str, historico: List[Dict] = None) -> str:
+        """Gera resposta do agente usando RAG"""
+        
+        # Busca conhecimento técnico relevante
+        contexto_tecnico = buscar_conhecimento_tecnico(pergunta_usuario)
+        
+        # Configuração do agente
+        system_prompt = """
+        PERSONALIDADE: Especialista técnico com habilidade social - "Especialista que fala como gente"
+        
+        TOM DE VOZ:
+        - Técnico, confiável e seguro, mas acessível
+        - Evita exageros e promessas vazias
+        - Sempre embasado em fatos e ciência
+        - Frases curtas e diretas, mas simpáticas
+        - Toque de leveza e ironia pontual quando o contexto permite
+        - Comunica como quem entende o campo e a internet
+        
+        DIRETRIZES DE ESTILO:
+        - Evitar jargões excessivos (usar apenas quando necessário)
+        - Ensinar sem parecer que está dando aula
+        - Preferir frases curtas
+        - Usar emojis com parcimônia, apenas quando encaixam no contexto
+        - Sempre positivo e construtivo
+        - Assumir autoridade técnica sem arrogância
+        
+        TIPOS DE INTERAÇÃO:
+        
+        1. TÉCNICA/EDUCATIVA:
+        - Foco: performance de produtos, boas práticas, conceitos técnicos
+        - Linguagem: direta, com analogias simples e didáticas
+        - Exemplo: "Os nematoides são como ladrões invisíveis do solo — e o produto age como uma cerca viva subterrânea contra eles."
+        
+        2. SOCIAL/ENGAJAMENTO:
+        - Foco: responder comentários, interagir em posts, participar de trends
+        - Linguagem: leve, simpática e natural
+        - Exemplo: "A gente também ama ver um talhão desse jeito 😍 Solo vivo é solo produtivo!"
+        
+        3. INSTITUCIONAL:
+        - Foco: valores, propósito, sustentabilidade, ciência
+        - Linguagem: inspiradora, mas sem ser piegas
+        - Exemplo: "Quando o produtor prospera, o campo inteiro floresce. É pra isso que a gente trabalha todo dia."
+        
+        PALAVRAS-CHAVE DA PERSONALIDADE:
+        Confiável | Técnico | Gentil | Moderno | Natural | Direto | Otimista | Didático
+        
+        REGRAS IMPORTANTES:
+        - NÃO inventar informações técnicas que não estejam na base de conhecimento
+        - Sempre basear respostas técnicas nas informações fornecidas
+        - Manter tom profissional mas acessível
+        - Adaptar a resposta ao tipo de pergunta (técnica, social ou institucional)
+        """
+        
+        # Constrói o prompt final
+        prompt_final = f"""
+        {system_prompt}
+        
+        CONTEXTO TÉCNICO DA BASE:
+        {contexto_tecnico}
+        
+        PERGUNTA DO USUÁRIO:
+        {pergunta_usuario}
+        
+        HISTÓRICO DA CONVERSA (se aplicável):
+        {historico if historico else "Nenhum histórico anterior"}
+        
+        INSTRUÇÕES FINAIS:
+        Baseie sua resposta principalmente nas informações técnicas da base.
+        Se a pergunta for técnica e não houver informações suficientes na base, seja honesto e diga que não tem a informação específica.
+        Adapte seu tom ao tipo de pergunta:
+        - Perguntas técnicas: seja preciso e didático
+        - Perguntas sociais: seja leve e engajador  
+        - Críticas ou problemas: seja construtivo e proativo
+        
+        Sua resposta deve refletir a personalidade do "especialista que fala como gente".
+        """
+        
+        try:
+            resposta = modelo_texto.generate_content(prompt_final)
+            return resposta.text
+        except Exception as e:
+            return f"Erro ao gerar resposta: {str(e)}"
+
+    # Sidebar com informações
+    with st.sidebar:
+        st.header("ℹ️ Sobre o Agente")
+        st.markdown("""
+        **Personalidade:**
+        - 🎯 Técnico mas acessível
+        - 💬 Direto mas simpático
+        - 🌱 Conhece o campo e a internet
+        - 🔬 Baseado em ciência
+        
+        **Capacidades:**
+        - Respostas técnicas baseadas em RAG
+        - Engajamento em redes sociais
+        - Suporte a produtores
+        - Esclarecimento de dúvidas
+        """)
+        
+        st.header("🔧 Configurações")
+        modo_resposta = st.selectbox(
+            "Modo de Resposta:",
+            ["Automático", "Técnico", "Social", "Institucional"],
+            key="modo_monitoramento"
+        )
+        
+        if st.button("🔄 Reiniciar Conversa", key="reiniciar_monitoramento"):
+            if "messages_monitoramento" in st.session_state:
+                st.session_state.messages_monitoramento = []
+            st.rerun()
+
+    # Inicializar histórico de mensagens específico para esta aba
+    if "messages_monitoramento" not in st.session_state:
+        st.session_state.messages_monitoramento = []
+
+    # Área de chat principal
+    st.header("💬 Simulador de Respostas do Agente")
+
+    # Exemplos de perguntas rápidas
+    st.subheader("🎯 Exemplos para testar:")
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        if st.button("❓ Dúvida Técnica", use_container_width=True, key="duvida_tecnica"):
+            st.session_state.messages_monitoramento.append({"role": "user", "content": "Esse produto serve pra todas as culturas?"})
+
+    with col2:
+        if st.button("😊 Comentário Social", use_container_width=True, key="comentario_social"):
+            st.session_state.messages_monitoramento.append({"role": "user", "content": "O campo tá lindo demais!"})
+
+    with col3:
+        if st.button("⚠️ Crítica/Problema", use_container_width=True, key="critica_problema"):
+            st.session_state.messages_monitoramento.append({"role": "user", "content": "Usei e não funcionou."})
+
+    # Exibir histórico de mensagens
+    for message in st.session_state.messages_monitoramento:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
+
+    # Input do usuário
+    if prompt := st.chat_input("Digite sua mensagem ou pergunta...", key="chat_monitoramento"):
+        # Adicionar mensagem do usuário
+        st.session_state.messages_monitoramento.append({"role": "user", "content": prompt})
+        with st.chat_message("user"):
+            st.markdown(prompt)
+        
+        # Gerar resposta do agente
+        with st.chat_message("assistant"):
+            with st.spinner("🌱 Consultando base técnica..."):
+                resposta = gerar_resposta_agente(prompt, st.session_state.messages_monitoramento)
+                st.markdown(resposta)
+                
+                # Adicionar ao histórico
+                st.session_state.messages_monitoramento.append({"role": "assistant", "content": resposta})
+
+    # Seção de análise de performance
+    st.markdown("---")
+    st.header("📊 Análise da Resposta")
+
+    if st.session_state.messages_monitoramento:
+        ultima_resposta = st.session_state.messages_monitoramento[-1]["content"] if st.session_state.messages_monitoramento[-1]["role"] == "assistant" else ""
+        
+        if ultima_resposta:
+            col_analise1, col_analise2, col_analise3 = st.columns(3)
+            
+            with col_analise1:
+                # Análise de tom
+                if "😊" in ultima_resposta or "😍" in ultima_resposta:
+                    st.metric("Tom Identificado", "Social/Engajador", delta="Leve")
+                elif "🔬" in ultima_resposta or "📊" in ultima_resposta:
+                    st.metric("Tom Identificado", "Técnico", delta="Preciso")
+                else:
+                    st.metric("Tom Identificado", "Balanceado", delta="Adaptado")
+            
+            with col_analise2:
+                # Comprimento da resposta
+                palavras = len(ultima_resposta.split())
+                st.metric("Tamanho", f"{palavras} palavras")
+            
+            with col_analise3:
+                # Uso de emojis
+                emojis = sum(1 for char in ultima_resposta if char in "😀😃😄😁😆😅😂🤣☺️😊😇🙂🙃😉😌😍🥰😘😗😙😚😋😛😝😜🤪🤨🧐🤓😎🤩🥳😏😒😞😔😟😕🙁☹️😣😖😫😩🥺😢😭😤😠😡🤬🤯😳🥵🥶😱😨😰😥😓🤗🤔🤭🤫🤥😶😐😑😬🙄😯😦😧😮😲🥱😴🤤😪😵🤐🥴🤢🤮🤧😷🤒🤕🤑🤠😈👿👹👺🤡💩👻💀☠️👽👾🤖🎃😺😸😹😻😼😽🙀😿😾")
+                st.metric("Emojis", emojis, delta="Moderado" if emojis <= 2 else "Alto")
+
+    # Seção de consulta direta à base técnica
+    st.markdown("---")
+    st.header("🔍 Consulta Direta à Base Técnica")
+    
+    with st.expander("📚 Consultar Base de Conhecimento"):
+        st.info("Consulte informações específicas da base de conhecimento técnico")
+        
+        col_cons1, col_cons2 = st.columns([3, 1])
+        with col_cons1:
+            pergunta_tecnica = st.text_input("Consulta Técnica:", 
+                                           placeholder="Ex: Melhores práticas para controle de nematoides...",
+                                           key="consulta_tecnica")
+        with col_cons2:
+            limite_resultados = st.number_input("Resultados", min_value=1, max_value=10, value=3, key="limite_resultados")
+        
+        if st.button("🔎 Consultar Base Técnica", key="consultar_base"):
+            if pergunta_tecnica and astra_client:
+                with st.spinner("Buscando na base de conhecimento..."):
+                    try:
+                        embedding = get_embedding(pergunta_tecnica)
+                        resultados = astra_client.vector_search(os.getenv('ASTRA_DB_COLLECTION'), embedding, limit=limite_resultados)
+                        
+                        if resultados:
+                            st.success(f"📚 Encontrados {len(resultados)} documentos relevantes:")
+                            
+                            for i, doc in enumerate(resultados, 1):
+                                with st.expander(f"Documento Técnico {i}"):
+                                    doc_content = str(doc)
+                                    # Limpa e formata o documento
+                                    doc_clean = doc_content.replace('{', '').replace('}', '').replace("'", "").replace('"', '')
+                                    # Divide em linhas para melhor legibilidade
+                                    lines = doc_clean.split(',')
+                                    for line in lines:
+                                        if line.strip():
+                                            st.write(f"• {line.strip()}")
+                        else:
+                            st.warning("❌ Nenhum documento técnico encontrado para esta consulta.")
+                            
+                    except Exception as e:
+                        st.error(f"Erro na consulta técnica: {str(e)}")
+            else:
+                st.warning("Por favor, digite uma consulta técnica.")
+
+    # Seção de exemplos de uso
+    with st.expander("📋 Exemplos de Respostas do Agente"):
+        st.markdown("""
+        **🎯 PERGUNTA TÉCNICA:**
+        *Usuário:* "Qual a diferença entre os nematoides de galha e de cisto na soja?"
+        
+        **🤖 AGENTE:** "Boa pergunta! Os nematoides de galha (Meloidogyne) formam aquelas 'inchações' nas raízes, enquanto os de cisto (Heterodera) ficam mais externos. Ambos roubam nutrientes, mas o manejo pode ser diferente. Na base técnica temos soluções específicas para cada caso! 🌱"
+        
+        **🎯 COMENTÁRIO SOCIAL:**
+        *Usuário:* "Adorei ver as fotos da lavoura no stories!"
+        
+        **🤖 AGENTE:** "A gente também ama compartilhar esses momentos! Quando a tecnologia encontra o cuidado certo, o campo fica ainda mais bonito 😍 Compartilhe suas fotos também!"
+        
+        **🎯 CRÍTICA/PROBLEMA:**
+        *Usuário:* "A aplicação não deu o resultado esperado"
+        
+        **🤖 AGENTE:** "Poxa, que pena saber disso! Vamos entender melhor o que aconteceu. Pode me contar sobre as condições de aplicação? Assim conseguimos te orientar melhor da próxima vez. A equipe técnica também está à disposição! 📞"
+        """)
+
+    # Footer
+    st.markdown("---")
+    st.markdown(
+        """
+        <div style='text-align: center; color: #666;'>
+        <i>Agente de Monitoramento • Especialista que fala como gente • Conectando conhecimento técnico e pessoas</i>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
 # --- Estilização ---
 st.markdown("""
