@@ -3,7 +3,7 @@ import io
 import google.generativeai as genai
 from PIL import Image
 import requests
-import datetime
+from datetime import datetime
 import os
 from pymongo import MongoClient
 from bson import ObjectId
