@@ -930,6 +930,14 @@ def listar_conversas_simple(agente_id):
 with tab_chat:
     st.header("💬 Chat com Agente")
     
+    # Inicializar session_state se não existir
+    if 'messages' not in st.session_state:
+        st.session_state.messages = []
+    if 'segmentos_selecionados' not in st.session_state:
+        st.session_state.segmentos_selecionados = []
+    if 'agente_selecionado' not in st.session_state:
+        st.session_state.agente_selecionado = None
+    
     # Seleção de agente se não houver um selecionado
     if not st.session_state.agente_selecionado:
         agentes = listar_agentes()
@@ -1096,15 +1104,19 @@ with tab_chat:
         if len(st.session_state.messages) > 4:
             st.caption(f"📄 Conversa com {len(st.session_state.messages)} mensagens")
         
-        # Exibir histórico de mensagens - CORREÇÃO DO TypeError
-        for message in st.session_state.messages:
-            # CORREÇÃO: Verificar se a mensagem tem a estrutura correta
-            if isinstance(message, dict) and "role" in message:
-                with st.chat_message(message["role"]):
-                    st.markdown(message.get("content", ""))
-            else:
-                # Se a mensagem não tiver a estrutura esperada, pular ou tratar
-                continue
+        # CORREÇÃO DO NameError: Verificar se messages existe e é iterável
+        if hasattr(st.session_state, 'messages') and st.session_state.messages:
+            for message in st.session_state.messages:
+                # Verificar se message é um dicionário e tem a chave 'role'
+                if isinstance(message, dict) and "role" in message:
+                    with st.chat_message(message["role"]):
+                        st.markdown(message.get("content", ""))
+                else:
+                    # Se a estrutura não for a esperada, pular esta mensagem
+                    continue
+        else:
+            # Se não houver mensagens, mostrar estado vazio
+            st.info("💬 Inicie uma conversa digitando uma mensagem abaixo!")
         
         # Input do usuário (sem botão voltar ao topo)
         if prompt := st.chat_input("Digite sua mensagem..."):
