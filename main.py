@@ -1378,7 +1378,7 @@ with tab_validacao:
         st.subheader(f"Validação com: {agente.get('nome', 'Agente')}")
         
         # Subabas para diferentes tipos de validação
-        subtab_imagem, subtab_texto = st.tabs([ "🖼️ Validação de Imagem", "✍️ Validação de Texto"])
+        subtab_imagem, subtab_texto = st.tabs(["🖼️ Validação de Imagem", "✍️ Validação de Texto"])
         
         with subtab_imagem:
             st.subheader("🖼️ Validação de Imagem")
@@ -1395,9 +1395,7 @@ with tab_validacao:
                 st.success(f"✅ {len(uploaded_images)} imagem(ns) carregada(s)")
                 
                 # Opções de análise
-                col_opcoes1 = st.columns(1)
-                with col_opcoes1:
-                    analise_individual = st.checkbox("Análise individual detalhada", value=True)
+                analise_individual = st.checkbox("Análise individual detalhada", value=True)
                 
                 # Botão para validar todas as imagens
                 if st.button("🔍 Validar Todas as Imagens", type="primary", key="validar_imagens_multiplas"):
@@ -1655,7 +1653,7 @@ with tab_validacao:
                             
                         except Exception as e:
                             st.error(f"❌ Erro ao validar texto: {str(e)}")
-
+                            
 # ========== ABA: GERAÇÃO DE CONTEÚDO ==========
 with tab_geracao:
     st.header("✨ Geração de Conteúdo com Múltiplos Insumos")
