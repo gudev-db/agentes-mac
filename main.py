@@ -3,7 +3,7 @@ import io
 import google.generativeai as genai
 from PIL import Image
 import requests
-from datetime import datetime
+import datetime
 import os
 from pymongo import MongoClient
 from bson import ObjectId
@@ -88,8 +88,6 @@ def make_hashes(password):
 def check_hashes(password, hashed_text):
     return make_hashes(password) == hashed_text
 
-
-
 # Dados de usuário (em produção, isso deve vir de um banco de dados seguro)
 users = {
     "admin": make_hashes("senha1234"),  # admin/senha1234
@@ -97,32 +95,6 @@ users = {
     "user2": make_hashes("password2")   # user2/password2
 }
 
-def listar_conversas(agente_id):
-    """
-    Lista conversas anteriores de um agente específico - VERSÃO CORRIGIDA
-    """
-    try:
-        # Verifica se existe sessão para armazenar conversas
-        if 'historico_conversas' not in st.session_state:
-            st.session_state.historico_conversas = {}
-        
-        # Recupera conversas do agente específico
-        if agente_id in st.session_state.historico_conversas:
-            conversas = st.session_state.historico_conversas[agente_id]
-            # Ordena por data (mais recente primeiro) e limita a 10 conversas
-            conversas_ordenadas = sorted(
-                conversas, 
-                key=lambda x: x.get('timestamp', 0), 
-                reverse=True
-            )[:10]
-            return conversas_ordenadas
-        else:
-            return []
-            
-    except Exception as e:
-        st.error(f"Erro ao carregar conversas: {str(e)}")
-        return []
-        
 def login():
     """Formulário de login"""
     st.title("🔒 Agente Social - Login")
@@ -905,233 +877,6 @@ tab_chat, tab_gerenciamento, tab_validacao, tab_geracao, tab_resumo, tab_busca, 
     "📝 Revisão Ortográfica",
     "Monitoramento de Redes"
 ])
-with tab_chat:
-    st.header("💬 Chat com Agente")
-    
-    # Inicializar session_state se não existir
-    if 'messages' not in st.session_state:
-        st.session_state.messages = []
-    if 'segmentos_selecionados' not in st.session_state:
-        st.session_state.segmentos_selecionados = []
-    if 'agente_selecionado' not in st.session_state:
-        st.session_state.agente_selecionado = None
-    if 'show_historico' not in st.session_state:
-        st.session_state.show_historico = False
-    
-    # Seleção de agente se não houver um selecionado
-    if not st.session_state.agente_selecionado:
-        agentes = listar_agentes()
-        if agentes:
-            # Agrupar agentes por categoria
-            agentes_por_categoria = {}
-            for agente in agentes:
-                categoria = agente.get('categoria', 'Social')
-                if categoria not in agentes_por_categoria:
-                    agentes_por_categoria[categoria] = []
-                agentes_por_categoria[categoria].append(agente)
-            
-            # Seleção com agrupamento
-            agente_options = {}
-            for categoria, agentes_cat in agentes_por_categoria.items():
-                for agente in agentes_cat:
-                    agente_completo = obter_agente_com_heranca(agente['_id'])
-                    display_name = f"{agente['nome']} ({categoria})"
-                    if agente.get('agente_mae_id'):
-                        display_name += " 🔗"
-                    agente_options[display_name] = agente_completo
-            
-            agente_selecionado_display = st.selectbox("Selecione um agente para conversar:", 
-                                                     list(agente_options.keys()))
-            
-            # Seleção de histórico prévio
-            st.subheader("📚 Histórico de Conversas")
-            conversas_anteriores = listar_conversas(agente_options[agente_selecionado_display]['_id'])
-            
-            conversa_selecionada = None
-            if conversas_anteriores:
-                # CORREÇÃO: Usar get() para evitar KeyError
-                opcoes_conversas = ["Nova conversa"] + [
-                    f"{conv.get('data_formatada', conv.get('data', 'Data desconhecida'))} - {len(conv.get('mensagens', []))} mensagens" 
-                    for conv in conversas_anteriores[:5]
-                ]
-                
-                conversa_escolhida = st.selectbox("Carregar conversa anterior:", opcoes_conversas)
-                
-                if conversa_escolhida != "Nova conversa":
-                    idx = opcoes_conversas.index(conversa_escolhida) - 1
-                    conversa_selecionada = conversas_anteriores[idx]
-                    # CORREÇÃO: Usar get() para evitar KeyError
-                    data_conversa = conversa_selecionada.get('data_formatada', conversa_selecionada.get('data', 'Data desconhecida'))
-                    st.info(f"📖 Conversa de {data_conversa} será usada como contexto")
-            else:
-                st.info("Nenhuma conversa anterior encontrada para este agente")
-            
-            if st.button("Iniciar Conversa", key="iniciar_chat"):
-                st.session_state.agente_selecionado = agente_options[agente_selecionado_display]
-                st.session_state.messages = []
-                
-                # Carregar histórico selecionado se existir
-                if conversa_selecionada:
-                    st.session_state.historico_contexto = conversa_selecionada.get('mensagens', [])
-                    st.session_state.messages.extend(conversa_selecionada.get('mensagens', []))
-                    st.success(f"✅ Histórico carregado: {len(conversa_selecionada.get('mensagens', []))} mensagens")
-                
-                st.rerun()
-        else:
-            st.info("Nenhum agente disponível. Crie um agente primeiro na aba de Gerenciamento.")
-    else:
-        agente = st.session_state.agente_selecionado
-        st.subheader(f"Conversando com: {agente['nome']}")
-        
-        # Controles de navegação no topo
-        col1, col2, col3 = st.columns([1, 1, 1])
-        
-        with col1:
-            if st.button("📚 Carregar Histórico", key="carregar_historico"):
-                st.session_state.show_historico = not st.session_state.show_historico
-                st.rerun()
-        
-        with col2:
-            if st.button("🔄 Limpar Chat", key="limpar_chat"):
-                st.session_state.messages = []
-                if hasattr(st.session_state, 'historico_contexto'):
-                    st.session_state.historico_contexto = []
-                st.success("Chat limpo!")
-                st.rerun()
-        
-        with col3:
-            if st.button("🔁 Trocar Agente", key="trocar_agente"):
-                st.session_state.agente_selecionado = None
-                st.session_state.messages = []
-                st.session_state.historico_contexto = []
-                st.rerun()
-        
-        # Mostrar se há histórico carregado
-        if hasattr(st.session_state, 'historico_contexto') and st.session_state.historico_contexto:
-            st.info(f"📖 Usando histórico anterior com {len(st.session_state.historico_contexto)} mensagens como contexto")
-        
-        # Modal para seleção de histórico
-        if st.session_state.show_historico:
-            with st.expander("📚 Selecionar Histórico de Conversa", expanded=True):
-                conversas_anteriores = listar_conversas(agente['_id'])
-                
-                if conversas_anteriores:
-                    for i, conversa in enumerate(conversas_anteriores[:10]):  # Últimas 10 conversas
-                        col_hist1, col_hist2, col_hist3 = st.columns([3, 1, 1])
-                        
-                        with col_hist1:
-                            # CORREÇÃO: Usar get() para evitar KeyError
-                            data_display = conversa.get('data_formatada', conversa.get('data', 'Data desconhecida'))
-                            mensagens_count = len(conversa.get('mensagens', []))
-                            st.write(f"**{data_display}** - {mensagens_count} mensagens")
-                        
-                        with col_hist2:
-                            if st.button("👀 Visualizar", key=f"ver_{i}"):
-                                st.session_state.conversa_visualizada = conversa.get('mensagens', [])
-                        
-                        with col_hist3:
-                            if st.button("📥 Usar", key=f"usar_{i}"):
-                                st.session_state.messages = conversa.get('mensagens', [])
-                                st.session_state.historico_contexto = conversa.get('mensagens', [])
-                                st.session_state.show_historico = False
-                                st.success(f"✅ Histórico carregado: {len(conversa.get('mensagens', []))} mensagens")
-                                st.rerun()
-                    
-                    # Visualizar conversa selecionada
-                    if hasattr(st.session_state, 'conversa_visualizada'):
-                        st.subheader("👀 Visualização do Histórico")
-                        for msg in st.session_state.conversa_visualizada[-6:]:  # Últimas 6 mensagens
-                            with st.chat_message(msg.get("role", "user")):
-                                st.markdown(msg.get("content", ""))
-                        
-                        if st.button("Fechar Visualização", key="fechar_visualizacao"):
-                            st.session_state.conversa_visualizada = None
-                            st.rerun()
-                else:
-                    st.info("Nenhuma conversa anterior encontrada")
-        
-        # Mostrar informações de herança se aplicável
-        if 'agente_mae_id' in agente and agente['agente_mae_id']:
-            agente_original = obter_agente(agente['_id'])
-            if agente_original and agente_original.get('herdar_elementos'):
-                st.info(f"🔗 Este agente herda {len(agente_original['herdar_elementos'])} elementos do agente mãe")
-        
-        # Controles de segmentos na sidebar do chat
-        st.sidebar.subheader("🔧 Configurações do Agente")
-        st.sidebar.write("Selecione quais bases de conhecimento usar:")
-        
-        segmentos_disponiveis = {
-            "Prompt do Sistema": "system_prompt",
-            "Brand Guidelines": "base_conhecimento", 
-            "Comentários do Cliente": "comments",
-            "Planejamento": "planejamento"
-        }
-        
-        segmentos_selecionados = []
-        for nome, chave in segmentos_disponiveis.items():
-            if st.sidebar.checkbox(nome, value=chave in st.session_state.segmentos_selecionados, key=f"seg_{chave}"):
-                segmentos_selecionados.append(chave)
-        
-        st.session_state.segmentos_selecionados = segmentos_selecionados
-        
-        # Exibir status dos segmentos
-        if segmentos_selecionados:
-            st.sidebar.success(f"✅ Usando {len(segmentos_selecionados)} segmento(s)")
-        else:
-            st.sidebar.warning("⚠️ Nenhum segmento selecionado")
-        
-        # Indicador de posição na conversa
-        if len(st.session_state.messages) > 4:
-            st.caption(f"📄 Conversa com {len(st.session_state.messages)} mensagens")
-        
-        # CORREÇÃO: Exibir histórico de mensagens DENTRO do contexto correto
-        # Verificar se messages existe e é iterável
-        if hasattr(st.session_state, 'messages') and st.session_state.messages:
-            for message in st.session_state.messages:
-                # Verificar se message é um dicionário e tem a chave 'role'
-                if isinstance(message, dict) and "role" in message:
-                    with st.chat_message(message["role"]):
-                        st.markdown(message.get("content", ""))
-                else:
-                    # Se a estrutura não for a esperada, pular esta mensagem
-                    continue
-        else:
-            # Se não houver mensagens, mostrar estado vazio
-            st.info("💬 Inicie uma conversa digitando uma mensagem abaixo!")
-        
-        # Input do usuário
-        if prompt := st.chat_input("Digite sua mensagem..."):
-            # Adicionar mensagem do usuário ao histórico
-            st.session_state.messages.append({"role": "user", "content": prompt})
-            with st.chat_message("user"):
-                st.markdown(prompt)
-            
-            # Construir contexto com segmentos selecionados
-            contexto = construir_contexto(
-                agente, 
-                st.session_state.segmentos_selecionados, 
-                st.session_state.messages
-            )
-            
-            # Gerar resposta
-            with st.chat_message("assistant"):
-                with st.spinner('Pensando...'):
-                    try:
-                        resposta = modelo_texto.generate_content(contexto)
-                        st.markdown(resposta.text)
-                        
-                        # Adicionar ao histórico
-                        st.session_state.messages.append({"role": "assistant", "content": resposta.text})
-                        
-                        # Salvar conversa com segmentos utilizados
-                        salvar_conversa(
-                            agente['_id'], 
-                            st.session_state.messages,
-                            st.session_state.segmentos_selecionados
-                        )
-                        
-                    except Exception as e:
-                        st.error(f"Erro ao gerar resposta: {str(e)}")
 
 with tab_gerenciamento:
     st.header("Gerenciamento de Agentes")
@@ -1365,110 +1110,203 @@ with tab_gerenciamento:
                 else:
                     st.info("Nenhum agente encontrado para esta categoria.")
 
-# Função para listar conversas anteriores
-def listar_conversas(agente_id):
-    """
-    Lista conversas anteriores de um agente específico
-    """
-    try:
-        # Verifica se existe sessão para armazenar conversas
-        if 'historico_conversas' not in st.session_state:
-            st.session_state.historico_conversas = {}
-        
-        # Recupera conversas do agente específico
-        if agente_id in st.session_state.historico_conversas:
-            conversas = st.session_state.historico_conversas[agente_id]
-            # Ordena por data (mais recente primeiro) e limita a 10 conversas
-            conversas_ordenadas = sorted(
-                conversas, 
-                key=lambda x: x.get('data_ultima_interacao', ''), 
-                reverse=True
-            )[:10]
-            return conversas_ordenadas
-        else:
-            return []
+with tab_chat:
+    st.header("💬 Chat com Agente")
+    
+    # Seleção de agente se não houver um selecionado
+    if not st.session_state.agente_selecionado:
+        agentes = listar_agentes()
+        if agentes:
+            # Agrupar agentes por categoria
+            agentes_por_categoria = {}
+            for agente in agentes:
+                categoria = agente.get('categoria', 'Social')
+                if categoria not in agentes_por_categoria:
+                    agentes_por_categoria[categoria] = []
+                agentes_por_categoria[categoria].append(agente)
             
-    except Exception as e:
-        st.error(f"Erro ao carregar conversas: {str(e)}")
-        return []
-
-# Função para salvar uma nova conversa
-def salvar_conversa(agente_id, titulo, mensagens, resumo=""):
-    """
-    Salva uma nova conversa no histórico
-    """
-    try:
-        if 'historico_conversas' not in st.session_state:
-            st.session_state.historico_conversas = {}
+            # Seleção com agrupamento
+            agente_options = {}
+            for categoria, agentes_cat in agentes_por_categoria.items():
+                for agente in agentes_cat:
+                    agente_completo = obter_agente_com_heranca(agente['_id'])
+                    display_name = f"{agente['nome']} ({categoria})"
+                    if agente.get('agente_mae_id'):
+                        display_name += " 🔗"
+                    agente_options[display_name] = agente_completo
+            
+            agente_selecionado_display = st.selectbox("Selecione um agente para conversar:", 
+                                                     list(agente_options.keys()))
+            
+            # Seleção de histórico prévio
+            st.subheader("📚 Histórico de Conversas")
+            conversas_anteriores = listar_conversas(agente_options[agente_selecionado_display]['_id'])
+            
+            conversa_selecionada = None
+            if conversas_anteriores:
+                opcoes_conversas = ["Nova conversa"] + [f"{conv['data']} - {len(conv['mensagens'])} mensagens" 
+                                                       for conv in conversas_anteriores[:5]]  # Últimas 5 conversas
+                
+                conversa_escolhida = st.selectbox("Carregar conversa anterior:", opcoes_conversas)
+                
+                if conversa_escolhida != "Nova conversa":
+                    idx = opcoes_conversas.index(conversa_escolhida) - 1
+                    conversa_selecionada = conversas_anteriores[idx]
+                    st.info(f"📖 Conversa de {conversa_selecionada['data']} será usada como contexto")
+            else:
+                st.info("Nenhuma conversa anterior encontrada para este agente")
+            
+            if st.button("Iniciar Conversa", key="iniciar_chat"):
+                st.session_state.agente_selecionado = agente_options[agente_selecionado_display]
+                st.session_state.messages = []
+                
+                # Carregar histórico selecionado se existir
+                if conversa_selecionada:
+                    st.session_state.historico_contexto = conversa_selecionada['mensagens']
+                    st.session_state.messages.extend(conversa_selecionada['mensagens'])
+                    st.success(f"✅ Histórico carregado: {len(conversa_selecionada['mensagens'])} mensagens")
+                
+                st.rerun()
+        else:
+            st.info("Nenhum agente disponível. Crie um agente primeiro na aba de Gerenciamento.")
+    else:
+        agente = st.session_state.agente_selecionado
+        st.subheader(f"Conversando com: {agente['nome']}")
         
-        if agente_id not in st.session_state.historico_conversas:
-            st.session_state.historico_conversas[agente_id] = []
+        # Controles de navegação no topo
+        col1, col2, col3 = st.columns([1, 1, 1])
         
-        nova_conversa = {
-            "id": f"conv_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
-            "titulo": titulo,
-            "data_ultima_interacao": datetime.now().isoformat(),
-            "resumo": resumo,
-            "mensagens": mensagens
+        with col1:
+            if st.button("🔄 Voltar ao Topo", key="voltar_topo"):
+                # Rolar para o topo (simulado reiniciando a conversa)
+                st.session_state.messages = st.session_state.messages[:2] if len(st.session_state.messages) > 2 else st.session_state.messages
+                st.rerun()
+        
+        with col2:
+            if st.button("📚 Carregar Histórico", key="carregar_historico"):
+                st.session_state.show_historico = not getattr(st.session_state, 'show_historico', False)
+                st.rerun()
+        
+        with col3:
+            if st.button("🔄 Trocar Agente", key="trocar_agente"):
+                st.session_state.agente_selecionado = None
+                st.session_state.messages = []
+                st.session_state.historico_contexto = []
+                st.rerun()
+        
+        # Mostrar se há histórico carregado
+        if hasattr(st.session_state, 'historico_contexto') and st.session_state.historico_contexto:
+            st.info(f"📖 Usando histórico anterior com {len(st.session_state.historico_contexto)} mensagens como contexto")
+        
+        # Modal para seleção de histórico
+        if getattr(st.session_state, 'show_historico', False):
+            with st.expander("📚 Selecionar Histórico de Conversa", expanded=True):
+                conversas_anteriores = listar_conversas(agente['_id'])
+                
+                if conversas_anteriores:
+                    for i, conversa in enumerate(conversas_anteriores[:10]):  # Últimas 10 conversas
+                        col_hist1, col_hist2, col_hist3 = st.columns([3, 1, 1])
+                        
+                        with col_hist1:
+                            st.write(f"**{conversa['data']}** - {len(conversa['mensagens'])} mensagens")
+                        
+                        with col_hist2:
+                            if st.button("👀 Visualizar", key=f"ver_{i}"):
+                                st.session_state.conversa_visualizada = conversa['mensagens']
+                        
+                        with col_hist3:
+                            if st.button("📥 Usar", key=f"usar_{i}"):
+                                st.session_state.messages = conversa['mensagens']
+                                st.session_state.historico_contexto = conversa['mensagens']
+                                st.session_state.show_historico = False
+                                st.success(f"✅ Histórico carregado: {len(conversa['mensagens'])} mensagens")
+                                st.rerun()
+                    
+                    # Visualizar conversa selecionada
+                    if hasattr(st.session_state, 'conversa_visualizada'):
+                        st.subheader("👀 Visualização do Histórico")
+                        for msg in st.session_state.conversa_visualizada[-6:]:  # Últimas 6 mensagens
+                            with st.chat_message(msg["role"]):
+                                st.markdown(msg["content"])
+                        
+                        if st.button("Fechar Visualização"):
+                            st.session_state.conversa_visualizada = None
+                            st.rerun()
+                else:
+                    st.info("Nenhuma conversa anterior encontrada")
+        
+        # Mostrar informações de herança se aplicável
+        if 'agente_mae_id' in agente and agente['agente_mae_id']:
+            agente_original = obter_agente(agente['_id'])
+            if agente_original and agente_original.get('herdar_elementos'):
+                st.info(f"🔗 Este agente herda {len(agente_original['herdar_elementos'])} elementos do agente mãe")
+        
+        # Controles de segmentos na sidebar do chat
+        st.sidebar.subheader("🔧 Configurações do Agente")
+        st.sidebar.write("Selecione quais bases de conhecimento usar:")
+        
+        segmentos_disponiveis = {
+            "Prompt do Sistema": "system_prompt",
+            "Brand Guidelines": "base_conhecimento", 
+            "Comentários do Cliente": "comments",
+            "Planejamento": "planejamento"
         }
         
-        st.session_state.historico_conversas[agente_id].append(nova_conversa)
-        return True
+        segmentos_selecionados = []
+        for nome, chave in segmentos_disponiveis.items():
+            if st.sidebar.checkbox(nome, value=chave in st.session_state.segmentos_selecionados, key=f"seg_{chave}"):
+                segmentos_selecionados.append(chave)
         
-    except Exception as e:
-        st.error(f"Erro ao salvar conversa: {str(e)}")
-        return False
-
-# Função para carregar uma conversa específica
-def carregar_conversa(agente_id, conversa_id):
-    """
-    Carrega uma conversa específica do histórico
-    """
-    try:
-        if ('historico_conversas' in st.session_state and 
-            agente_id in st.session_state.historico_conversas):
-            
-            for conversa in st.session_state.historico_conversas[agente_id]:
-                if conversa['id'] == conversa_id:
-                    return conversa
-        return None
+        st.session_state.segmentos_selecionados = segmentos_selecionados
         
-    except Exception as e:
-        st.error(f"Erro ao carregar conversa: {str(e)}")
-        return None
-
-# Versão alternativa usando JSON file (para persistência entre sessões)
-def listar_conversas_json(agente_id, arquivo="conversas.json"):
-    """
-    Versão que salva em arquivo JSON para persistência
-    """
-    try:
-        import os
-        import json
-        
-        if os.path.exists(arquivo):
-            with open(arquivo, 'r', encoding='utf-8') as f:
-                todas_conversas = json.load(f)
-            
-            conversas_agente = todas_conversas.get(agente_id, [])
-            # Ordena por data e limita a 10
-            conversas_ordenadas = sorted(
-                conversas_agente,
-                key=lambda x: x.get('data_ultima_interacao', ''),
-                reverse=True
-            )[:10]
-            return conversas_ordenadas
+        # Exibir status dos segmentos
+        if segmentos_selecionados:
+            st.sidebar.success(f"✅ Usando {len(segmentos_selecionados)} segmento(s)")
         else:
-            return []
+            st.sidebar.warning("⚠️ Nenhum segmento selecionado")
+        
+        # Indicador de posição na conversa
+        if len(st.session_state.messages) > 4:
+            st.caption(f"📄 Conversa com {len(st.session_state.messages)} mensagens - Use 'Voltar ao Topo' para recomeçar")
+        
+        # Exibir histórico de mensagens
+        for message in st.session_state.messages:
+            with st.chat_message(message["role"]):
+                st.markdown(message["content"])
+        
+        # Input do usuário
+        if prompt := st.chat_input("Digite sua mensagem..."):
+            # Adicionar mensagem do usuário ao histórico
+            st.session_state.messages.append({"role": "user", "content": prompt})
+            with st.chat_message("user"):
+                st.markdown(prompt)
             
-    except Exception as e:
-        st.error(f"Erro ao carregar conversas do arquivo: {str(e)}")
-        return []
-
-if isinstance(message, dict) and "role" in message:
-    with st.chat_message(message["role"]):
-        st.markdown(message.get("content", ""))
-
+            # Construir contexto com segmentos selecionados
+            contexto = construir_contexto(
+                agente, 
+                st.session_state.segmentos_selecionados, 
+                st.session_state.messages
+            )
+            
+            # Gerar resposta
+            with st.chat_message("assistant"):
+                with st.spinner('Pensando...'):
+                    try:
+                        resposta = modelo_texto.generate_content(contexto)
+                        st.markdown(resposta.text)
+                        
+                        # Adicionar ao histórico
+                        st.session_state.messages.append({"role": "assistant", "content": resposta.text})
+                        
+                        # Salvar conversa com segmentos utilizados
+                        salvar_conversa(
+                            agente['_id'], 
+                            st.session_state.messages,
+                            st.session_state.segmentos_selecionados
+                        )
+                        
+                    except Exception as e:
+                        st.error(f"Erro ao gerar resposta: {str(e)}")
 # --- ABA UNIFICADA DE VALIDAÇÃO ---
 with tab_validacao:
     st.header("✅ Validação Unificada de Conteúdo")
