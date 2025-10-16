@@ -1110,6 +1110,106 @@ with tab_gerenciamento:
                 else:
                     st.info("Nenhum agente encontrado para esta categoria.")
 
+# Função para listar conversas anteriores
+def listar_conversas(agente_id):
+    """
+    Lista conversas anteriores de um agente específico
+    """
+    try:
+        # Verifica se existe sessão para armazenar conversas
+        if 'historico_conversas' not in st.session_state:
+            st.session_state.historico_conversas = {}
+        
+        # Recupera conversas do agente específico
+        if agente_id in st.session_state.historico_conversas:
+            conversas = st.session_state.historico_conversas[agente_id]
+            # Ordena por data (mais recente primeiro) e limita a 10 conversas
+            conversas_ordenadas = sorted(
+                conversas, 
+                key=lambda x: x.get('data_ultima_interacao', ''), 
+                reverse=True
+            )[:10]
+            return conversas_ordenadas
+        else:
+            return []
+            
+    except Exception as e:
+        st.error(f"Erro ao carregar conversas: {str(e)}")
+        return []
+
+# Função para salvar uma nova conversa
+def salvar_conversa(agente_id, titulo, mensagens, resumo=""):
+    """
+    Salva uma nova conversa no histórico
+    """
+    try:
+        if 'historico_conversas' not in st.session_state:
+            st.session_state.historico_conversas = {}
+        
+        if agente_id not in st.session_state.historico_conversas:
+            st.session_state.historico_conversas[agente_id] = []
+        
+        nova_conversa = {
+            "id": f"conv_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+            "titulo": titulo,
+            "data_ultima_interacao": datetime.now().isoformat(),
+            "resumo": resumo,
+            "mensagens": mensagens
+        }
+        
+        st.session_state.historico_conversas[agente_id].append(nova_conversa)
+        return True
+        
+    except Exception as e:
+        st.error(f"Erro ao salvar conversa: {str(e)}")
+        return False
+
+# Função para carregar uma conversa específica
+def carregar_conversa(agente_id, conversa_id):
+    """
+    Carrega uma conversa específica do histórico
+    """
+    try:
+        if ('historico_conversas' in st.session_state and 
+            agente_id in st.session_state.historico_conversas):
+            
+            for conversa in st.session_state.historico_conversas[agente_id]:
+                if conversa['id'] == conversa_id:
+                    return conversa
+        return None
+        
+    except Exception as e:
+        st.error(f"Erro ao carregar conversa: {str(e)}")
+        return None
+
+# Versão alternativa usando JSON file (para persistência entre sessões)
+def listar_conversas_json(agente_id, arquivo="conversas.json"):
+    """
+    Versão que salva em arquivo JSON para persistência
+    """
+    try:
+        import os
+        import json
+        
+        if os.path.exists(arquivo):
+            with open(arquivo, 'r', encoding='utf-8') as f:
+                todas_conversas = json.load(f)
+            
+            conversas_agente = todas_conversas.get(agente_id, [])
+            # Ordena por data e limita a 10
+            conversas_ordenadas = sorted(
+                conversas_agente,
+                key=lambda x: x.get('data_ultima_interacao', ''),
+                reverse=True
+            )[:10]
+            return conversas_ordenadas
+        else:
+            return []
+            
+    except Exception as e:
+        st.error(f"Erro ao carregar conversas do arquivo: {str(e)}")
+        return []
+
 with tab_chat:
     st.header("💬 Chat com Agente")
     
