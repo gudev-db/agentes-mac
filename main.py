@@ -878,6 +878,55 @@ tab_chat, tab_gerenciamento, tab_validacao, tab_geracao, tab_resumo, tab_busca, 
     "Monitoramento de Redes"
 ])
 
+def listar_conversas(agente_id):
+    """
+    List previous conversations for a specific agent
+    """
+    try:
+        # If using MongoDB (adjust based on your database)
+        if db is not None:
+            conversas = db.conversas.find(
+                {"agente_id": agente_id}
+            ).sort("data_ultima_interacao", -1).limit(10)
+            
+            conversas_list = []
+            for conv in conversas:
+                conversas_list.append({
+                    "id": str(conv["_id"]),
+                    "titulo": conv.get("titulo", "Conversa sem título"),
+                    "data_ultima_interacao": conv.get("data_ultima_interacao", ""),
+                    "resumo": conv.get("resumo", "")
+                })
+            return conversas_list
+        
+        # Fallback: return empty list if no database connection
+        return []
+    
+    except Exception as e:
+        st.error(f"Erro ao carregar conversas anteriores: {str(e)}")
+        return []
+
+# Alternative simple implementation if you don't have a database:
+def listar_conversas_simple(agente_id):
+    """
+    Simple implementation that returns mock data
+    """
+    # This is a temporary implementation - replace with your actual data source
+    return [
+        {
+            "id": "1",
+            "titulo": "Conversa sobre estratégia de marketing",
+            "data_ultima_interacao": "2024-01-15",
+            "resumo": "Discussão sobre campanhas digitais"
+        },
+        {
+            "id": "2", 
+            "titulo": "Planejamento de projeto",
+            "data_ultima_interacao": "2024-01-14",
+            "resumo": "Definição de escopo e prazos"
+        }
+    ]
+
 with tab_chat:
     st.header("💬 Chat com Agente")
     
