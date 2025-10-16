@@ -1138,102 +1138,15 @@ with tab_chat:
             agente_selecionado_display = st.selectbox("Selecione um agente para conversar:", 
                                                      list(agente_options.keys()))
             
-            # Seleção de histórico prévio
-            st.subheader("📚 Histórico de Conversas")
-            conversas_anteriores = listar_conversas(agente_options[agente_selecionado_display]['_id'])
-            
-            conversa_selecionada = None
-            if conversas_anteriores:
-                opcoes_conversas = ["Nova conversa"] + [f"{conv['data']} - {len(conv['mensagens'])} mensagens" 
-                                                       for conv in conversas_anteriores[:5]]  # Últimas 5 conversas
-                
-                conversa_escolhida = st.selectbox("Carregar conversa anterior:", opcoes_conversas)
-                
-                if conversa_escolhida != "Nova conversa":
-                    idx = opcoes_conversas.index(conversa_escolhida) - 1
-                    conversa_selecionada = conversas_anteriores[idx]
-                    st.info(f"📖 Conversa de {conversa_selecionada['data']} será usada como contexto")
-            else:
-                st.info("Nenhuma conversa anterior encontrada para este agente")
-            
             if st.button("Iniciar Conversa", key="iniciar_chat"):
                 st.session_state.agente_selecionado = agente_options[agente_selecionado_display]
                 st.session_state.messages = []
-                
-                # Carregar histórico selecionado se existir
-                if conversa_selecionada:
-                    st.session_state.historico_contexto = conversa_selecionada['mensagens']
-                    st.session_state.messages.extend(conversa_selecionada['mensagens'])
-                    st.success(f"✅ Histórico carregado: {len(conversa_selecionada['mensagens'])} mensagens")
-                
                 st.rerun()
         else:
             st.info("Nenhum agente disponível. Crie um agente primeiro na aba de Gerenciamento.")
     else:
         agente = st.session_state.agente_selecionado
         st.subheader(f"Conversando com: {agente['nome']}")
-        
-        # Controles de navegação no topo
-        col1, col2, col3 = st.columns([1, 1, 1])
-        
-        with col1:
-            if st.button("🔄 Voltar ao Topo", key="voltar_topo"):
-                # Rolar para o topo (simulado reiniciando a conversa)
-                st.session_state.messages = st.session_state.messages[:2] if len(st.session_state.messages) > 2 else st.session_state.messages
-                st.rerun()
-        
-        with col2:
-            if st.button("📚 Carregar Histórico", key="carregar_historico"):
-                st.session_state.show_historico = not getattr(st.session_state, 'show_historico', False)
-                st.rerun()
-        
-        with col3:
-            if st.button("🔄 Trocar Agente", key="trocar_agente"):
-                st.session_state.agente_selecionado = None
-                st.session_state.messages = []
-                st.session_state.historico_contexto = []
-                st.rerun()
-        
-        # Mostrar se há histórico carregado
-        if hasattr(st.session_state, 'historico_contexto') and st.session_state.historico_contexto:
-            st.info(f"📖 Usando histórico anterior com {len(st.session_state.historico_contexto)} mensagens como contexto")
-        
-        # Modal para seleção de histórico
-        if getattr(st.session_state, 'show_historico', False):
-            with st.expander("📚 Selecionar Histórico de Conversa", expanded=True):
-                conversas_anteriores = listar_conversas(agente['_id'])
-                
-                if conversas_anteriores:
-                    for i, conversa in enumerate(conversas_anteriores[:10]):  # Últimas 10 conversas
-                        col_hist1, col_hist2, col_hist3 = st.columns([3, 1, 1])
-                        
-                        with col_hist1:
-                            st.write(f"**{conversa['data']}** - {len(conversa['mensagens'])} mensagens")
-                        
-                        with col_hist2:
-                            if st.button("👀 Visualizar", key=f"ver_{i}"):
-                                st.session_state.conversa_visualizada = conversa['mensagens']
-                        
-                        with col_hist3:
-                            if st.button("📥 Usar", key=f"usar_{i}"):
-                                st.session_state.messages = conversa['mensagens']
-                                st.session_state.historico_contexto = conversa['mensagens']
-                                st.session_state.show_historico = False
-                                st.success(f"✅ Histórico carregado: {len(conversa['mensagens'])} mensagens")
-                                st.rerun()
-                    
-                    # Visualizar conversa selecionada
-                    if hasattr(st.session_state, 'conversa_visualizada'):
-                        st.subheader("👀 Visualização do Histórico")
-                        for msg in st.session_state.conversa_visualizada[-6:]:  # Últimas 6 mensagens
-                            with st.chat_message(msg["role"]):
-                                st.markdown(msg["content"])
-                        
-                        if st.button("Fechar Visualização"):
-                            st.session_state.conversa_visualizada = None
-                            st.rerun()
-                else:
-                    st.info("Nenhuma conversa anterior encontrada")
         
         # Mostrar informações de herança se aplicável
         if 'agente_mae_id' in agente and agente['agente_mae_id']:
@@ -1265,9 +1178,11 @@ with tab_chat:
         else:
             st.sidebar.warning("⚠️ Nenhum segmento selecionado")
         
-        # Indicador de posição na conversa
-        if len(st.session_state.messages) > 4:
-            st.caption(f"📄 Conversa com {len(st.session_state.messages)} mensagens - Use 'Voltar ao Topo' para recomeçar")
+        # Botão para trocar de agente
+        if st.button("Trocar de Agente", key="trocar_agente"):
+            st.session_state.agente_selecionado = None
+            st.session_state.messages = []
+            st.rerun()
         
         # Exibir histórico de mensagens
         for message in st.session_state.messages:
@@ -1307,6 +1222,7 @@ with tab_chat:
                         
                     except Exception as e:
                         st.error(f"Erro ao gerar resposta: {str(e)}")
+
 # --- ABA UNIFICADA DE VALIDAÇÃO ---
 with tab_validacao:
     st.header("✅ Validação Unificada de Conteúdo")
