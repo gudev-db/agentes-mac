@@ -630,7 +630,7 @@ def gerar_analise_seo(conteudo, agente, palavra_chave_principal=None, tipo_conte
     - Distribuição ao longo do texto:
     - Sugestões de otimização:
     
-    ### 📝 ANÁLISE DE CONTEÚDO
+    ### 📝 ANÁLISE DE CONteúdo
     **Meta Informações:**
     - **Título SEO** (atual/sugerido): 
       [Avaliar e sugerir título otimizado (50-60 caracteres)]
@@ -846,6 +846,33 @@ def processar_imagem_upload(imagem_file, segmentos_selecionados, agente):
     except Exception as e:
         return f"Erro ao processar imagem: {str(e)}"
 
+# --- Função para listar conversas ---
+def listar_conversas(agente_id):
+    """
+    Lista conversas anteriores de um agente específico
+    """
+    try:
+        # Verifica se existe sessão para armazenar conversas
+        if 'historico_conversas' not in st.session_state:
+            st.session_state.historico_conversas = {}
+        
+        # Recupera conversas do agente específico
+        if agente_id in st.session_state.historico_conversas:
+            conversas = st.session_state.historico_conversas[agente_id]
+            # Ordena por data (mais recente primeiro) e limita a 10 conversas
+            conversas_ordenadas = sorted(
+                conversas, 
+                key=lambda x: x.get('timestamp', 0), 
+                reverse=True
+            )[:10]
+            return conversas_ordenadas
+        else:
+            return []
+            
+    except Exception as e:
+        st.error(f"Erro ao carregar conversas: {str(e)}")
+        return []
+
 # --- Interface Principal ---
 st.sidebar.title(f"🤖 Bem-vindo, {st.session_state.user}!")
 
@@ -865,6 +892,8 @@ if "messages" not in st.session_state:
     st.session_state.messages = []
 if "segmentos_selecionados" not in st.session_state:
     st.session_state.segmentos_selecionados = ["system_prompt", "base_conhecimento", "comments", "planejamento"]
+if "show_historico" not in st.session_state:
+    st.session_state.show_historico = False
 
 # Menu de abas - ABA UNIFICADA DE VALIDAÇÃO
 tab_chat, tab_gerenciamento, tab_validacao, tab_geracao, tab_resumo, tab_busca, tab_revisao, tab_monitoramento = st.tabs([
@@ -1113,6 +1142,16 @@ with tab_gerenciamento:
 with tab_chat:
     st.header("💬 Chat com Agente")
     
+    # Inicializar session_state se não existir
+    if 'messages' not in st.session_state:
+        st.session_state.messages = []
+    if 'segmentos_selecionados' not in st.session_state:
+        st.session_state.segmentos_selecionados = []
+    if 'agente_selecionado' not in st.session_state:
+        st.session_state.agente_selecionado = None
+    if 'show_historico' not in st.session_state:
+        st.session_state.show_historico = False
+    
     # Seleção de agente se não houver um selecionado
     if not st.session_state.agente_selecionado:
         agentes = listar_agentes()
@@ -1138,15 +1177,112 @@ with tab_chat:
             agente_selecionado_display = st.selectbox("Selecione um agente para conversar:", 
                                                      list(agente_options.keys()))
             
+            # Seleção de histórico prévio
+            st.subheader("📚 Histórico de Conversas")
+            conversas_anteriores = listar_conversas(agente_options[agente_selecionado_display]['_id'])
+            
+            conversa_selecionada = None
+            if conversas_anteriores:
+                # CORREÇÃO: Usar get() para evitar KeyError
+                opcoes_conversas = ["Nova conversa"] + [
+                    f"{conv.get('data_formatada', conv.get('data', 'Data desconhecida'))} - {len(conv.get('mensagens', []))} mensagens" 
+                    for conv in conversas_anteriores[:5]
+                ]
+                
+                conversa_escolhida = st.selectbox("Carregar conversa anterior:", opcoes_conversas)
+                
+                if conversa_escolhida != "Nova conversa":
+                    idx = opcoes_conversas.index(conversa_escolhida) - 1
+                    conversa_selecionada = conversas_anteriores[idx]
+                    # CORREÇÃO: Usar get() para evitar KeyError
+                    data_conversa = conversa_selecionada.get('data_formatada', conversa_selecionada.get('data', 'Data desconhecida'))
+                    st.info(f"📖 Conversa de {data_conversa} será usada como contexto")
+            else:
+                st.info("Nenhuma conversa anterior encontrada para este agente")
+            
             if st.button("Iniciar Conversa", key="iniciar_chat"):
                 st.session_state.agente_selecionado = agente_options[agente_selecionado_display]
                 st.session_state.messages = []
+                
+                # Carregar histórico selecionado se existir
+                if conversa_selecionada:
+                    st.session_state.historico_contexto = conversa_selecionada.get('mensagens', [])
+                    st.session_state.messages.extend(conversa_selecionada.get('mensagens', []))
+                    st.success(f"✅ Histórico carregado: {len(conversa_selecionada.get('mensagens', []))} mensagens")
+                
                 st.rerun()
         else:
             st.info("Nenhum agente disponível. Crie um agente primeiro na aba de Gerenciamento.")
     else:
         agente = st.session_state.agente_selecionado
         st.subheader(f"Conversando com: {agente['nome']}")
+        
+        # Controles de navegação no topo
+        col1, col2, col3 = st.columns([1, 1, 1])
+        
+        with col1:
+            if st.button("📚 Carregar Histórico", key="carregar_historico"):
+                st.session_state.show_historico = not st.session_state.show_historico
+                st.rerun()
+        
+        with col2:
+            if st.button("🔄 Limpar Chat", key="limpar_chat"):
+                st.session_state.messages = []
+                if hasattr(st.session_state, 'historico_contexto'):
+                    st.session_state.historico_contexto = []
+                st.success("Chat limpo!")
+                st.rerun()
+        
+        with col3:
+            if st.button("🔁 Trocar Agente", key="trocar_agente"):
+                st.session_state.agente_selecionado = None
+                st.session_state.messages = []
+                st.session_state.historico_contexto = []
+                st.rerun()
+        
+        # Mostrar se há histórico carregado
+        if hasattr(st.session_state, 'historico_contexto') and st.session_state.historico_contexto:
+            st.info(f"📖 Usando histórico anterior com {len(st.session_state.historico_contexto)} mensagens como contexto")
+        
+        # Modal para seleção de histórico
+        if st.session_state.show_historico:
+            with st.expander("📚 Selecionar Histórico de Conversa", expanded=True):
+                conversas_anteriores = listar_conversas(agente['_id'])
+                
+                if conversas_anteriores:
+                    for i, conversa in enumerate(conversas_anteriores[:10]):  # Últimas 10 conversas
+                        col_hist1, col_hist2, col_hist3 = st.columns([3, 1, 1])
+                        
+                        with col_hist1:
+                            # CORREÇÃO: Usar get() para evitar KeyError
+                            data_display = conversa.get('data_formatada', conversa.get('data', 'Data desconhecida'))
+                            mensagens_count = len(conversa.get('mensagens', []))
+                            st.write(f"**{data_display}** - {mensagens_count} mensagens")
+                        
+                        with col_hist2:
+                            if st.button("👀 Visualizar", key=f"ver_{i}"):
+                                st.session_state.conversa_visualizada = conversa.get('mensagens', [])
+                        
+                        with col_hist3:
+                            if st.button("📥 Usar", key=f"usar_{i}"):
+                                st.session_state.messages = conversa.get('mensagens', [])
+                                st.session_state.historico_contexto = conversa.get('mensagens', [])
+                                st.session_state.show_historico = False
+                                st.success(f"✅ Histórico carregado: {len(conversa.get('mensagens', []))} mensagens")
+                                st.rerun()
+                    
+                    # Visualizar conversa selecionada
+                    if hasattr(st.session_state, 'conversa_visualizada'):
+                        st.subheader("👀 Visualização do Histórico")
+                        for msg in st.session_state.conversa_visualizada[-6:]:  # Últimas 6 mensagens
+                            with st.chat_message(msg.get("role", "user")):
+                                st.markdown(msg.get("content", ""))
+                        
+                        if st.button("Fechar Visualização", key="fechar_visualizacao"):
+                            st.session_state.conversa_visualizada = None
+                            st.rerun()
+                else:
+                    st.info("Nenhuma conversa anterior encontrada")
         
         # Mostrar informações de herança se aplicável
         if 'agente_mae_id' in agente and agente['agente_mae_id']:
@@ -1178,16 +1314,24 @@ with tab_chat:
         else:
             st.sidebar.warning("⚠️ Nenhum segmento selecionado")
         
-        # Botão para trocar de agente
-        if st.button("Trocar de Agente", key="trocar_agente"):
-            st.session_state.agente_selecionado = None
-            st.session_state.messages = []
-            st.rerun()
+        # Indicador de posição na conversa
+        if len(st.session_state.messages) > 4:
+            st.caption(f"📄 Conversa com {len(st.session_state.messages)} mensagens")
         
-        # Exibir histórico de mensagens
-        for message in st.session_state.messages:
-            with st.chat_message(message["role"]):
-                st.markdown(message["content"])
+        # CORREÇÃO: Exibir histórico de mensagens DENTRO do contexto correto
+        # Verificar se messages existe e é iterável
+        if hasattr(st.session_state, 'messages') and st.session_state.messages:
+            for message in st.session_state.messages:
+                # Verificar se message é um dicionário e tem a chave 'role'
+                if isinstance(message, dict) and "role" in message:
+                    with st.chat_message(message["role"]):
+                        st.markdown(message.get("content", ""))
+                else:
+                    # Se a estrutura não for a esperada, pular esta mensagem
+                    continue
+        else:
+            # Se não houver mensagens, mostrar estado vazio
+            st.info("💬 Inicie uma conversa digitando uma mensagem abaixo!")
         
         # Input do usuário
         if prompt := st.chat_input("Digite sua mensagem..."):
@@ -1236,9 +1380,6 @@ with tab_validacao:
         # Subabas para diferentes tipos de validação
         subtab_imagem, subtab_texto = st.tabs([ "🖼️ Validação de Imagem", "✍️ Validação de Texto"])
         
-
-                
-        
         with subtab_imagem:
             st.subheader("🖼️ Validação de Imagem")
             
@@ -1257,7 +1398,6 @@ with tab_validacao:
                 col_opcoes1 = st.columns(1)
                 with col_opcoes1:
                     analise_individual = st.checkbox("Análise individual detalhada", value=True)
-                
                 
                 # Botão para validar todas as imagens
                 if st.button("🔍 Validar Todas as Imagens", type="primary", key="validar_imagens_multiplas"):
@@ -1360,53 +1500,6 @@ with tab_validacao:
                                         
                             except Exception as e:
                                 st.error(f"❌ Erro ao carregar imagem {uploaded_image.name}: {str(e)}")
-                    
-                    # Análise comparativa se solicitada
-                    if analise_comparativa and len(resultados_analise) > 1:
-                        st.markdown("---")
-                        st.subheader("📊 Análise Comparativa")
-                        
-                        try:
-                            # Preparar prompt para análise comparativa
-                            contexto_comparativo = ""
-                            if "base_conhecimento" in agente:
-                                contexto_comparativo = f"""
-                                DIRETRIZES DE BRANDING DO AGENTE:
-                                {agente['base_conhecimento']}
-                                """
-                            
-                            prompt_comparativo = f"""
-                            {contexto_comparativo}
-                            
-                            ## ANÁLISE COMPARATIVA DE IMAGENS
-                            
-                            Você analisou {len(resultados_analise)} imagens individualmente. Agora forneça uma análise comparativa:
-                            
-                            ### 📈 RESUMO COMPARATIVO
-                            - Qual imagem tem melhor alinhamento com o branding?
-                            - Quais padrões comuns foram identificados?
-                            - Quais problemas se repetem nas imagens?
-                            
-                            ### 🏆 RANKING DE ALINHAMENTO
-                            [Classifique as imagens da mais alinhada para a menos alinhada]
-                            
-                            ### 🔍 TENDÊNCIAS IDENTIFICADAS
-                            - Pontos fortes consistentes
-                            - Problemas recorrentes
-                            - Oportunidades de melhoria
-                            
-                            ### 💡 RECOMENDAÇÕES GERAIS
-                            [Sugestões para todo o conjunto de imagens]
-                            
-                            Dados das imagens analisadas:
-                            {chr(10).join([f"- {res['nome']} ({res['dimensoes']})" for res in resultados_analise])}
-                            """
-                            
-                            resposta_comparativa = modelo_texto.generate_content(prompt_comparativo)
-                            st.markdown(resposta_comparativa.text)
-                            
-                        except Exception as e:
-                            st.error(f"❌ Erro na análise comparativa: {str(e)}")
                     
                     # Resumo executivo
                     st.markdown("---")
@@ -1562,7 +1655,6 @@ with tab_validacao:
                             
                         except Exception as e:
                             st.error(f"❌ Erro ao validar texto: {str(e)}")
-
 
 # ========== ABA: GERAÇÃO DE CONTEÚDO ==========
 with tab_geracao:
