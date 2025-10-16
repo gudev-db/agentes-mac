@@ -937,6 +937,8 @@ with tab_chat:
         st.session_state.segmentos_selecionados = []
     if 'agente_selecionado' not in st.session_state:
         st.session_state.agente_selecionado = None
+    if 'show_historico' not in st.session_state:
+        st.session_state.show_historico = False
     
     # Seleção de agente se não houver um selecionado
     if not st.session_state.agente_selecionado:
@@ -1008,7 +1010,7 @@ with tab_chat:
         
         with col1:
             if st.button("📚 Carregar Histórico", key="carregar_historico"):
-                st.session_state.show_historico = not getattr(st.session_state, 'show_historico', False)
+                st.session_state.show_historico = not st.session_state.show_historico
                 st.rerun()
         
         with col2:
@@ -1031,7 +1033,7 @@ with tab_chat:
             st.info(f"📖 Usando histórico anterior com {len(st.session_state.historico_contexto)} mensagens como contexto")
         
         # Modal para seleção de histórico
-        if getattr(st.session_state, 'show_historico', False):
+        if st.session_state.show_historico:
             with st.expander("📚 Selecionar Histórico de Conversa", expanded=True):
                 conversas_anteriores = listar_conversas(agente['_id'])
                 
@@ -1104,7 +1106,8 @@ with tab_chat:
         if len(st.session_state.messages) > 4:
             st.caption(f"📄 Conversa com {len(st.session_state.messages)} mensagens")
         
-        # CORREÇÃO DO NameError: Verificar se messages existe e é iterável
+        # CORREÇÃO: Exibir histórico de mensagens DENTRO do contexto correto
+        # Verificar se messages existe e é iterável
         if hasattr(st.session_state, 'messages') and st.session_state.messages:
             for message in st.session_state.messages:
                 # Verificar se message é um dicionário e tem a chave 'role'
@@ -1118,7 +1121,7 @@ with tab_chat:
             # Se não houver mensagens, mostrar estado vazio
             st.info("💬 Inicie uma conversa digitando uma mensagem abaixo!")
         
-        # Input do usuário (sem botão voltar ao topo)
+        # Input do usuário
         if prompt := st.chat_input("Digite sua mensagem..."):
             # Adicionar mensagem do usuário ao histórico
             st.session_state.messages.append({"role": "user", "content": prompt})
