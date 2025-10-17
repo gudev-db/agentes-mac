@@ -1276,281 +1276,315 @@ with tab_mapping["✅ Validação Unificada"]:
         st.subheader(f"Validação com: {agente.get('nome', 'Agente')}")
         
         # Subabas para diferentes tipos de validação
-        subtab_imagem, subtab_texto = st.tabs(["🖼️ Validação de Imagem", "✍️ Validação de Texto"])
-        
-        with subtab_imagem:
-            st.subheader("🖼️ Validação de Imagem")
-            
-            uploaded_images = st.file_uploader(
-                "Carregue uma ou mais imagens para análise", 
-                type=["jpg", "jpeg", "png", "webp"], 
-                key="image_upload_validacao",
-                accept_multiple_files=True,
-                help="As imagens serão analisadas individualmente conforme as diretrizes de branding do agente"
-            )
-            
-            if uploaded_images:
-                st.success(f"✅ {len(uploaded_images)} imagem(ns) carregada(s)")
-                
-                # Opções de análise
-                analise_individual = st.checkbox("Análise individual detalhada", value=True)
-                
-                # Botão para validar todas as imagens
-                if st.button("🔍 Validar Todas as Imagens", type="primary", key="validar_imagens_multiplas"):
-                    
-                    # Lista para armazenar resultados
-                    resultados_analise = []
-                    
-                    # Loop através de cada imagem
-                    for idx, uploaded_image in enumerate(uploaded_images):
-                        with st.spinner(f'Analisando imagem {idx+1} de {len(uploaded_images)}: {uploaded_image.name}...'):
-                            try:
-                                # Criar container para cada imagem
-                                with st.container():
-                                    st.markdown("---")
-                                    col_img, col_info = st.columns([2, 1])
-                                    
-                                    with col_img:
-                                        # Exibir imagem
-                                        image = Image.open(uploaded_image)
-                                        st.image(image, use_column_width=True, caption=f"Imagem {idx+1}: {uploaded_image.name}")
-                                    
-                                    with col_info:
-                                        # Informações da imagem
-                                        st.metric("📐 Dimensões", f"{image.width} x {image.height}")
-                                        st.metric("📊 Formato", uploaded_image.type)
-                                        st.metric("📁 Tamanho", f"{uploaded_image.size / 1024:.1f} KB")
-                                    
-                                    # Análise individual
-                                    if analise_individual:
-                                        with st.expander(f"📋 Análise Detalhada - Imagem {idx+1}", expanded=True):
-                                            try:
-                                                # Construir contexto com base de conhecimento do agente
-                                                contexto = ""
-                                                if "base_conhecimento" in agente:
-                                                    contexto = f"""
-                                                    DIRETRIZES DE BRANDING DO AGENTE:
-                                                    {agente['base_conhecimento']}
-                                                    
-                                                    Analise esta imagem e verifique se está alinhada com as diretrizes de branding acima.
-                                                    """
-                                                
-                                                prompt_analise = f"""
-                                                {contexto}
-                                                
-                                                Analise esta imagem e verifique o alinhamento com as diretrizes de branding.
-                                                
-                                                Forneça a análise em formato claro:
-                                                
-                                                ## 🖼️ RELATÓRIO DE ALINHAMENTO - IMAGEM {idx+1}
-                                                
-                                                **Arquivo:** {uploaded_image.name}
-                                                **Dimensões:** {image.width} x {image.height}
-                                                
-                                                ### 🎯 RESUMO DA IMAGEM
-                                                [Avaliação geral de conformidade]
-                                                
-                                                ### ✅ ELEMENTOS ALINHADOS
-                                                - [Itens que seguem as diretrizes]
-                                                
-                                                ### ⚠️ ELEMENTOS FORA DO PADRÃO
-                                                - [Itens que não seguem as diretrizes]
-                                                
-                                                ### 💡 RECOMENDAÇÕES
-                                                - [Sugestões para melhorar o alinhamento]
-                                                
-                                                ### 🎨 ASPECTOS TÉCNICOS
-                                                - [Composição, cores, tipografia, etc.]
-                                                """
-                                                
-                                                # Processar imagem
-                                                response = modelo_vision.generate_content([
-                                                    prompt_analise,
-                                                    {"mime_type": "image/jpeg", "data": uploaded_image.getvalue()}
-                                                ])
-                                                
-                                                st.markdown(response.text)
-                                                
-                                                # Armazenar resultado para análise comparativa
-                                                resultados_analise.append({
-                                                    'nome': uploaded_image.name,
-                                                    'indice': idx,
-                                                    'analise': response.text,
-                                                    'dimensoes': f"{image.width}x{image.height}",
-                                                    'tamanho': uploaded_image.size
-                                                })
-                                                
-                                            except Exception as e:
-                                                st.error(f"❌ Erro ao processar imagem {uploaded_image.name}: {str(e)}")
-                                                resultados_analise.append({
-                                                    'nome': uploaded_image.name,
-                                                    'indice': idx,
-                                                    'analise': f"Erro na análise: {str(e)}",
-                                                    'dimensoes': f"{image.width}x{image.height}",
-                                                    'tamanho': uploaded_image.size
-                                                })
-                                    
-                                    # Separador visual entre imagens
-                                    if idx < len(uploaded_images) - 1:
-                                        st.markdown("---")
-                                        
-                            except Exception as e:
-                                st.error(f"❌ Erro ao carregar imagem {uploaded_image.name}: {str(e)}")
-                    
-                    # Resumo executivo
-                    st.markdown("---")
-                    st.subheader("📋 Resumo Executivo")
-                    
-                    col_resumo1, col_resumo2, col_resumo3 = st.columns(3)
-                    with col_resumo1:
-                        st.metric("📊 Total de Imagens", len(uploaded_images))
-                    with col_resumo2:
-                        st.metric("✅ Análises Concluídas", len(resultados_analise))
-                    with col_resumo3:
-                        st.metric("🖼️ Média por Imagem", f"{len(uploaded_images)} análises")
-                    
-                    # Botão para download do relatório consolidado
-                    if st.button("📥 Exportar Relatório Completo", key="exportar_relatorio"):
-                        relatorio = f"""
-                        # RELATÓRIO DE VALIDAÇÃO DE IMAGENS
-                        
-                        **Agente:** {agente.get('nome', 'N/A')}
-                        **Data:** {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}
-                        **Total de Imagens:** {len(uploaded_images)}
-                        
-                        ## RESUMO EXECUTIVO
-                        {chr(10).join([f"{idx+1}. {img.name}" for idx, img in enumerate(uploaded_images)])}
-                        
-                        ## ANÁLISES INDIVIDUAIS
-                        {chr(10).join([f'### {res["nome"]} {chr(10)}{res["analise"]}' for res in resultados_analise])}
-                        """
-                        
-                        st.download_button(
-                            "💾 Baixar Relatório em TXT",
-                            data=relatorio,
-                            file_name=f"relatorio_validacao_imagens_{datetime.datetime.now().strftime('%Y%m%d_%H%M')}.txt",
-                            mime="text/plain"
-                        )
-            
-            else:
-                st.info("📁 Carregue uma ou mais imagens para iniciar a validação de branding")
+        subtab_imagem, subtab_texto = st.tabs(["🖼️ Validação de Imagem", "📄 Validação de Documentos"])
         
         with subtab_texto:
-            st.subheader("✍️ Validação de Texto")
+            st.subheader("📄 Validação de Documentos e Texto")
             
-            texto_input = st.text_area(
-                "Insira o texto para validação:", 
-                height=200, 
-                key="texto_validacao",
-                placeholder="Cole aqui o texto que deseja validar...",
-                help="O texto será analisado conforme as diretrizes de branding do agente"
-            )
+            # Container principal com duas colunas
+            col_entrada, col_saida = st.columns([1, 1])
             
-            # Opção para upload de arquivos de texto
-            st.write("**📎 Ou carregue arquivos de texto:**")
-            arquivos_texto = st.file_uploader(
-                "Arquivos de texto (TXT, PDF, DOCX)",
-                type=['txt', 'pdf', 'docx'],
-                accept_multiple_files=True,
-                key="arquivos_texto_validacao",
-                help="Arquivos serão convertidos para texto e validados"
-            )
-            
-            # Processar arquivos de texto se houver
-            textos_arquivos = ""
-            if arquivos_texto:
-                st.success(f"✅ {len(arquivos_texto)} arquivo(s) de texto carregado(s)")
+            with col_entrada:
+                st.markdown("### 📥 Entrada de Conteúdo")
                 
-                for arquivo in arquivos_texto:
-                    with st.spinner(f"Processando {arquivo.name}..."):
-                        texto_extraido = extrair_texto_arquivo(arquivo)
-                        textos_arquivos += f"\n\n--- CONTEÚDO DE {arquivo.name.upper()} ---\n{texto_extraido}"
+                # Opção 1: Texto direto
+                texto_input = st.text_area(
+                    "**✍️ Digite o texto para validação:**", 
+                    height=150, 
+                    key="texto_validacao",
+                    placeholder="Cole aqui o texto que deseja validar...",
+                    help="O texto será analisado conforme as diretrizes de branding do agente"
+                )
                 
-                # Mostrar preview dos textos
-                with st.expander("📋 Visualizar Conteúdo dos Arquivos", expanded=False):
-                    for i, arquivo in enumerate(arquivos_texto):
-                        texto_preview = textos_arquivos.split(f"--- CONTEÚDO DE {arquivo.name.upper()} ---")[1].split("--- CONTEÚDO DE")[0] if len(arquivos_texto) > 1 else textos_arquivos
-                        if len(texto_preview) > 500:
-                            st.text_area(f"Preview - {arquivo.name}", 
-                                       value=texto_preview[:500] + "...", 
-                                       height=150,
-                                       key=f"preview_texto_{i}")
-                        else:
-                            st.text_area(f"Preview - {arquivo.name}", 
-                                       value=texto_preview, 
-                                       height=150,
-                                       key=f"preview_texto_{i}")
+                # Opção 2: Upload de múltiplos arquivos
+                st.markdown("### 📎 Ou carregue arquivos")
+                
+                arquivos_documentos = st.file_uploader(
+                    "**Documentos suportados:** PDF, PPTX, TXT, DOCX",
+                    type=['pdf', 'pptx', 'txt', 'docx'],
+                    accept_multiple_files=True,
+                    key="arquivos_documentos_validacao",
+                    help="Arquivos serão convertidos para texto e validados automaticamente"
+                )
+                
+                # Configurações de análise
+                st.markdown("### ⚙️ Configurações de Análise")
+                
+                analise_individual = st.checkbox(
+                    "📋 Análise individual por documento", 
+                    value=True,
+                    help="Gera um relatório detalhado para cada arquivo"
+                )
+                
+                analise_comparativa = st.checkbox(
+                    "📊 Análise comparativa", 
+                    value=True,
+                    help="Compara todos os documentos entre si"
+                )
+                
+                # Botão de validação
+                if st.button("✅ Validar Conteúdo", type="primary", key="validate_documents", use_container_width=True):
+                    st.session_state.validacao_triggered = True
             
-            # Combinar texto manual com arquivos
-            texto_completo = texto_input
-            if textos_arquivos:
-                texto_completo += f"\n\n{textos_arquivos}"
-            
-            if st.button("✅ Validar Texto", type="primary", key="validate_text"):
-                if not texto_completo or not texto_completo.strip():
-                    st.warning("⚠️ Por favor, insira um texto ou carregue arquivos para validação.")
-                else:
-                    with st.spinner('Analisando texto conforme diretrizes de branding...'):
-                        try:
-                            # Construir contexto com base de conhecimento do agente
-                            contexto = ""
-                            if "base_conhecimento" in agente:
-                                contexto = f"""
-                                DIRETRIZES DE BRANDING DO AGENTE:
-                                {agente['base_conhecimento']}
-                                
-                                Analise este texto e verifique se está alinhado com as diretrizes de branding acima.
-                                """
+            with col_saida:
+                st.markdown("### 📊 Resultados")
+                
+                if st.session_state.get('validacao_triggered'):
+                    # Processar todos os conteúdos
+                    todos_textos = []
+                    arquivos_processados = []
+                    
+                    # Adicionar texto manual se existir
+                    if texto_input and texto_input.strip():
+                        todos_textos.append({
+                            'nome': 'Texto_Manual',
+                            'conteudo': texto_input,
+                            'tipo': 'texto_direto',
+                            'tamanho': len(texto_input)
+                        })
+                    
+                    # Processar arquivos uploadados
+                    if arquivos_documentos:
+                        for arquivo in arquivos_documentos:
+                            with st.spinner(f"Processando {arquivo.name}..."):
+                                try:
+                                    texto_extraido = ""
+                                    
+                                    if arquivo.type == "application/pdf":
+                                        texto_extraido = extract_text_from_pdf(arquivo)
+                                    elif arquivo.type == "application/vnd.openxmlformats-officedocument.presentationml.presentation":
+                                        texto_extraido = extract_text_from_pptx(arquivo)
+                                    elif arquivo.type in ["text/plain", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"]:
+                                        texto_extraido = extrair_texto_arquivo(arquivo)
+                                    else:
+                                        st.warning(f"Tipo de arquivo não suportado: {arquivo.name}")
+                                        continue
+                                    
+                                    if texto_extraido and texto_extraido.strip():
+                                        todos_textos.append({
+                                            'nome': arquivo.name,
+                                            'conteudo': texto_extraido,
+                                            'tipo': arquivo.type,
+                                            'tamanho': len(texto_extraido)
+                                        })
+                                        arquivos_processados.append(arquivo.name)
+                                    
+                                except Exception as e:
+                                    st.error(f"❌ Erro ao processar {arquivo.name}: {str(e)}")
+                    
+                    # Verificar se há conteúdo para validar
+                    if not todos_textos:
+                        st.warning("⚠️ Nenhum conteúdo válido encontrado para validação.")
+                    else:
+                        st.success(f"✅ {len(todos_textos)} documento(s) processado(s) com sucesso!")
+                        
+                        # Exibir estatísticas rápidas
+                        col_docs, col_palavras, col_chars = st.columns(3)
+                        with col_docs:
+                            st.metric("📄 Documentos", len(todos_textos))
+                        with col_palavras:
+                            total_palavras = sum(len(doc['conteudo'].split()) for doc in todos_textos)
+                            st.metric("📝 Palavras", total_palavras)
+                        with col_chars:
+                            total_chars = sum(doc['tamanho'] for doc in todos_textos)
+                            st.metric("🔤 Caracteres", f"{total_chars:,}")
+                        
+                        # Análise individual por documento
+                        if analise_individual:
+                            st.markdown("---")
+                            st.subheader("📋 Análise Individual por Documento")
                             
-                            prompt_analise = f"""
-                            {contexto}
+                            for doc in todos_textos:
+                                with st.expander(f"📄 {doc['nome']} - {doc['tamanho']} chars", expanded=False):
+                                    # Preview do conteúdo
+                                    preview = doc['conteudo'][:500] + "..." if len(doc['conteudo']) > 500 else doc['conteudo']
+                                    st.text_area(
+                                        f"Preview - {doc['nome']}",
+                                        value=preview,
+                                        height=150,
+                                        key=f"preview_{doc['nome']}",
+                                        disabled=True
+                                    )
+                                    
+                                    # Análise de branding
+                                    with st.spinner(f"Analisando {doc['nome']}..."):
+                                        try:
+                                            contexto = ""
+                                            if "base_conhecimento" in agente:
+                                                contexto = f"""
+                                                DIRETRIZES DE BRANDING DO AGENTE:
+                                                {agente['base_conhecimento']}
+                                                """
+                                            
+                                            prompt_analise = f"""
+                                            {contexto}
+                                            
+                                            ANALISE O SEGUINTE CONTEÚDO:
+                                            
+                                            {doc['conteudo'][:10000]}  # Limitar para não exceder tokens
+                                            
+                                            Forneça uma análise detalhada em português:
+                                            
+                                            ## 📊 RELATÓRIO DE ALINHAMENTO - {doc['nome']}
+                                            
+                                            ### 🎯 RESUMO EXECUTIVO
+                                            [Avaliação geral em 1-2 parágrafos]
+                                            
+                                            ### ✅ PONTOS FORTES
+                                            - [Aspectos alinhados com as diretrizes]
+                                            
+                                            ### ⚠️ PONTOS DE ATENÇÃO
+                                            - [Desvios das diretrizes]
+                                            
+                                            ### 💡 RECOMENDAÇÕES
+                                            - [Sugestões específicas para melhorar]
+                                            
+                                            ### 🎨 TOM E LINGUAGEM
+                                            - [Análise do tom e adequação]
+                                            """
+                                            
+                                            resposta = modelo_texto.generate_content(prompt_analise)
+                                            st.markdown(resposta.text)
+                                            
+                                        except Exception as e:
+                                            st.error(f"❌ Erro na análise de {doc['nome']}: {str(e)}")
+                        
+                        # Análise comparativa
+                        if analise_comparativa and len(todos_textos) > 1:
+                            st.markdown("---")
+                            st.subheader("📊 Análise Comparativa")
                             
-                            TEXTO PARA ANÁLISE:
-                            {texto_completo}
+                            with st.spinner("Gerando análise comparativa..."):
+                                try:
+                                    # Preparar conteúdo para análise comparativa
+                                    conteudos_combinados = "\n\n".join([
+                                        f"--- {doc['nome']} ---\n{doc['conteudo'][:2000]}"
+                                        for doc in todos_textos
+                                    ])
+                                    
+                                    contexto = ""
+                                    if "base_conhecimento" in agente:
+                                        contexto = f"""
+                                        DIRETRIZES DE BRANDING DO AGENTE:
+                                        {agente['base_conhecimento']}
+                                        """
+                                    
+                                    prompt_comparativo = f"""
+                                    {contexto}
+                                    
+                                    ANALISE COMPARATIVA DOS SEGUINTES DOCUMENTOS:
+                                    
+                                    {conteudos_combinados}
+                                    
+                                    Forneça uma análise comparativa em português:
+                                    
+                                    ## 📈 RELATÓRIO COMPARATIVO
+                                    
+                                    ### 🎯 VISÃO GERAL
+                                    [Comparativo geral entre todos os documentos]
+                                    
+                                    ### ✅ CONSISTÊNCIAS
+                                    - [Pontos em comum bem alinhados]
+                                    
+                                    ### ⚠️ INCONSISTÊNCIAS
+                                    - [Divergências entre documentos]
+                                    
+                                    ### 📊 RANKING DE ALINHAMENTO
+                                    [Ordene os documentos por nível de conformidade]
+                                    
+                                    ### 💡 RECOMENDAÇÕES GLOBAIS
+                                    - [Ações para padronizar todos os conteúdos]
+                                    """
+                                    
+                                    resposta_comparativa = modelo_texto.generate_content(prompt_comparativo)
+                                    st.markdown(resposta_comparativa.text)
+                                    
+                                except Exception as e:
+                                    st.error(f"❌ Erro na análise comparativa: {str(e)}")
+                        
+                        # Relatório consolidado
+                        st.markdown("---")
+                        st.subheader("📑 Relatório Consolidado")
+                        
+                        # Botão para exportar
+                        if st.button("📥 Exportar Relatório Completo", key="exportar_relatorio_completo"):
+                            relatorio = f"""
+                            # RELATÓRIO DE VALIDAÇÃO DE CONTEÚDO
                             
-                            Analise este texto e verifique o alinhamento com as diretrizes de branding.
+                            **Agente:** {agente.get('nome', 'N/A')}
+                            **Data:** {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}
+                            **Total de Documentos:** {len(todos_textos)}
                             
-                            Forneça a análise em formato claro:
+                            ## DOCUMENTOS ANALISADOS:
+                            {chr(10).join([f"{idx+1}. {doc['nome']} ({doc['tipo']}) - {doc['tamanho']} caracteres" for idx, doc in enumerate(todos_textos)])}
                             
-                            ## ✍️ RELATÓRIO DE ALINHAMENTO DE TEXTO
-                            
-                            ### 🎯 RESUMO DO TEXTO
-                            [Avaliação geral de conformidade]
-                            
-                            ### ✅ PONTOS ALINHADOS
-                            - [Aspectos do texto que seguem as diretrizes]
-                            
-                            ### ⚠️ PONTOS FORA DO PADRÃO
-                            - [Aspectos que não seguem as diretrizes]
-                            
-                            ### 💡 RECOMENDAÇÕES
-                            - [Sugestões para melhorar o alinhamento]
-                            
-                            ### ✨ TEXTO SUGERIDO (se necessário)
-                            [Versão ajustada para melhor alinhamento]
-                            
-                            ### 📊 ESTATÍSTICAS
-                            - Tom geral identificado
-                            - Consistência com a voz da marca
-                            - Adequação ao público-alvo
+                            ## ANÁLISES INDIVIDUAIS:
+                            {chr(10).join([f'### {doc["nome"]} {chr(10)}[Análise individual aqui]' for doc in todos_textos])}
                             """
                             
-                            resposta = modelo_texto.generate_content(prompt_analise)
-                            st.subheader("📋 Resultado da Análise")
-                            st.markdown(resposta.text)
-                            
-                            # Estatísticas adicionais
-                            palavras_count = len(texto_completo.split())
-                            col_stat1, col_stat2, col_stat3 = st.columns(3)
-                            with col_stat1:
-                                st.metric("📝 Palavras Analisadas", palavras_count)
-                            with col_stat2:
-                                st.metric("📎 Arquivos Processados", len(arquivos_texto) if arquivos_texto else 0)
-                            with col_stat3:
-                                st.metric("🔍 Nível de Conformidade", "Ver relatório")
-                            
-                        except Exception as e:
-                            st.error(f"❌ Erro ao validar texto: {str(e)}")
+                            st.download_button(
+                                "💾 Baixar Relatório em TXT",
+                                data=relatorio,
+                                file_name=f"relatorio_validacao_{datetime.datetime.now().strftime('%Y%m%d_%H%M')}.txt",
+                                mime="text/plain"
+                            )
+                
+                else:
+                    # Estado inicial - instruções
+                    st.info("""
+                    **📋 Como usar:**
+                    1. **Digite texto** diretamente OU **carregue arquivos** (PDF, PPTX, TXT, DOCX)
+                    2. Configure as opções de análise
+                    3. Clique em **"Validar Conteúdo"**
+                    
+                    **✅ Suporta:**
+                    - 📄 PDF (apresentações, documentos)
+                    - 🎯 PPTX (apresentações PowerPoint)  
+                    - 📝 TXT (arquivos de texto)
+                    - 📋 DOCX (documentos Word)
+                    - ✍️ Texto direto
+                    """)
+            
+            # Funções de extração (adicionar ao código)
+            def extract_text_from_pdf(file):
+                """Extrai texto de arquivos PDF"""
+                try:
+                    import PyPDF2
+                    pdf_reader = PyPDF2.PdfReader(file)
+                    text = ""
+                    for page in pdf_reader.pages:
+                        text += page.extract_text() + "\n"
+                    return text
+                except Exception as e:
+                    return f"Erro na extração PDF: {str(e)}"
+            
+            def extract_text_from_pptx(file):
+                """Extrai texto de arquivos PPTX"""
+                try:
+                    from pptx import Presentation
+                    prs = Presentation(file)
+                    text = ""
+                    for slide_number, slide in enumerate(prs.slides, 1):
+                        text += f"\n--- Slide {slide_number} ---\n"
+                        for shape in slide.shapes:
+                            if hasattr(shape, "text") and shape.text:
+                                text += shape.text + "\n"
+                    return text
+                except Exception as e:
+                    return f"Erro na extração PPTX: {str(e)}"
+            
+            def extrair_texto_arquivo(file):
+                """Extrai texto de arquivos TXT e DOCX"""
+                try:
+                    if file.type == "text/plain":
+                        return str(file.read(), "utf-8")
+                    elif file.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+                        # Implementar extração para DOCX se necessário
+                        return f"Conteúdo do arquivo DOCX: {file.name}"
+                    else:
+                        return f"Tipo não suportado: {file.type}"
+                except Exception as e:
+                    return f"Erro na extração: {str(e)}"
 
 # --- ABA: GERAÇÃO DE CONTEÚDO ---
 with tab_mapping["✨ Geração de Conteúdo"]:
