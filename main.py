@@ -2448,7 +2448,10 @@ with tab_mapping["📝 Revisão Ortográfica"]:
                             resultado = revisar_texto_ortografia(
                                 texto=texto_para_revisao,
                                 agente=agente,
-                                segmentos_selecionados=segmentos_revisao
+                                segmentos_selecionados=segmentos_revisao,
+                                revisao_estilo=revisao_estilo,
+                                manter_estrutura=manter_estrutura,
+                                explicar_alteracoes=explicar_alteracoes
                             )
                             
                             st.markdown(resultado)
@@ -2483,7 +2486,7 @@ with tab_mapping["📝 Revisão Ortográfica"]:
                             with col_dl3:
                                 # Extrair apenas as explicações se disponível
                                 if "## 🔍 EXPLICAÇÃO DAS PRINCIPAIS ALTERAÇÕES" in resultado:
-                                    explicacoes_start = resultado.find("## 🔍 EXPLICAÇÃO DAS PRINCIPAIS ALTERAÇões")
+                                    explicacoes_start = resultado.find("## 🔍 EXPLICAÇÃO DAS PRINCIPAIS ALTERAÇÕES")
                                     explicacoes_end = resultado.find("##", explicacoes_start + 1)
                                     explicacoes = resultado[explicacoes_start:explicacoes_end] if explicacoes_end != -1 else resultado[explicacoes_start:]
                                     
@@ -2548,6 +2551,115 @@ with tab_mapping["📝 Revisão Ortográfica"]:
             - **Otimização de Conteúdo**: Melhora a clareza e impacto da comunicação
             - **Eficiência**: Reduz tempo de revisão manual
             """)
+
+# Função para revisão ortográfica usando a API do Gemini
+def revisar_texto_ortografia(texto, agente, segmentos_selecionados, revisao_estilo=True, manter_estrutura=True, explicar_alteracoes=True):
+    """
+    Realiza revisão ortográfica e gramatical do texto considerando as diretrizes do agente
+    usando a API do Gemini
+    """
+    
+    # Construir o contexto do agente
+    contexto_agente = "CONTEXTO DO AGENTE PARA REVISÃO:\n\n"
+    
+    if "system_prompt" in segmentos_selecionados and "system_prompt" in agente:
+        contexto_agente += f"DIRETRIZES PRINCIPAIS:\n{agente['system_prompt']}\n\n"
+    
+    if "base_conhecimento" in segmentos_selecionados and "base_conhecimento" in agente:
+        contexto_agente += f"BASE DE CONHECIMENTO:\n{agente['base_conhecimento']}\n\n"
+    
+    if "comments" in segmentos_selecionados and "comments" in agente:
+        contexto_agente += f"COMENTÁRIOS E OBSERVAÇÕES:\n{agente['comments']}\n\n"
+    
+    if "planejamento" in segmentos_selecionados and "planejamento" in agente:
+        contexto_agente += f"PLANEJAMENTO E ESTRATÉGIA:\n{agente['planejamento']}\n\n"
+    
+    # Construir instruções baseadas nas configurações
+    instrucoes_revisao = ""
+    
+    if revisao_estilo:
+        instrucoes_revisao += """
+        - Analise e melhore a clareza, coesão e coerência textual
+        - Verifique adequação ao tom da marca
+        - Elimine vícios de linguagem e redundâncias
+        - Simplifique frases muito longas ou complexas
+        """
+    
+    if manter_estrutura:
+        instrucoes_revisao += """
+        - Mantenha a estrutura geral do texto original
+        - Preserve parágrafos e seções quando possível
+        - Conserve o fluxo lógico do conteúdo
+        """
+    
+    if explicar_alteracoes:
+        instrucoes_revisao += """
+        - Inclua justificativa para as principais alterações
+        - Explique correções gramaticais importantes
+        - Destaque melhorias de estilo significativas
+        """
+    
+    # Construir o prompt para revisão
+    prompt_revisao = f"""
+    {contexto_agente}
+    
+    TEXTO PARA REVISÃO:
+    {texto}
+    
+    INSTRUÇÕES PARA REVISÃO:
+    
+    1. **REVISÃO ORTOGRÁFICA E GRAMATICAL:**
+       - Corrija erros de ortografia, acentuação e grafia
+       - Verifique concordância nominal e verbal
+       - Ajuste pontuação (vírgulas, pontos, travessões)
+       - Corrija regência verbal e nominal
+       - Ajuste colocação pronominal
+    
+    2. **REVISÃO DE ESTILO E CLAREZA:**
+       {instrucoes_revisao}
+    
+    3. **CONFORMIDADE COM AS DIRETRIZES:**
+       - Alinhe o texto ao tom e estilo definidos
+       - Mantenha consistência terminológica
+       - Preserve a estrutura original quando possível
+       - Adapte ao público-alvo definido
+    
+    FORMATO DA RESPOSTA:
+    
+    ## 📋 TEXTO REVISADO
+    [Aqui vai o texto completo revisado, mantendo a estrutura geral quando possível]
+    
+    ## 📊 RELATÓRIO DE REVISÃO
+    **Pontuação de Qualidade:**
+    - Ortografia: [0-10] - [Breve justificativa]
+    - Gramática: [0-10] - [Breve justificativa] 
+    - Clareza: [0-10] - [Breve justificativa]
+    - Conformidade: [0-10] - [Breve justificativa]
+    - **Total: [0-40]**
+    
+    ## 🔍 EXPLICAÇÃO DAS PRINCIPAIS ALTERAÇÕES
+    [Lista das principais correções realizadas com justificativa]
+    
+    ## 💡 RECOMENDAÇÕES PARA MELHORIA CONTÍNUA
+    [Sugestões para aprimorar a qualidade dos textos futuros]
+    
+    **IMPORTANTE:**
+    - Seja detalhado e preciso nas explicações
+    - Mantenha o formato markdown para fácil leitura
+    - Inclua exemplos específicos quando relevante
+    """
+    
+    try:
+        # Chamar a API do Gemini
+        response = modelo_texto.generate_content(prompt_revisao)
+        
+        if response and response.text:
+            return response.text
+        else:
+            return "❌ Erro: Não foi possível gerar a revisão. Tente novamente."
+        
+    except Exception as e:
+        return f"❌ Erro durante a revisão: {str(e)}"
 
 # --- ABA: MONITORAMENTO DE REDES ---
 with tab_mapping["Monitoramento de Redes"]:
