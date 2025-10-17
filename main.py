@@ -2441,24 +2441,15 @@ def revisar_texto_ortografia(texto, agente, segmentos_selecionados, revisao_esti
     ## 📋 TEXTO REVISADO
     [Aqui vai o texto completo revisado, mantendo a estrutura geral quando possível]
     
-    ## 📊 RELATÓRIO DE REVISÃO
-    **Pontuação de Qualidade:**
-    - Ortografia: [0-10] - [Breve justificativa]
-    - Gramática: [0-10] - [Breve justificativa] 
-    - Clareza: [0-10] - [Breve justificativa]
-    - Conformidade: [0-10] - [Breve justificativa]
-    - **Total: [0-40]**
-    
-    ## 🔍 EXPLICAÇÃO DAS PRINCIPAIS ALTERAÇÕES
+    ## 🔍 PRINCIPAIS ALTERAÇÕES REALIZADAS
     [Lista das principais correções realizadas com justificativa]
     
-    ## 💡 RECOMENDAÇÕES PARA MELHORIA CONTÍNUA
-    [Sugestões para aprimorar a qualidade dos textos futuros]
     
     **IMPORTANTE:**
     - Seja detalhado e preciso nas explicações
     - Mantenha o formato markdown para fácil leitura
     - Inclua exemplos específicos quando relevante
+    - Foque nas correções ortográficas e gramaticais
     """
     
     try:
@@ -2472,9 +2463,6 @@ def revisar_texto_ortografia(texto, agente, segmentos_selecionados, revisao_esti
         
     except Exception as e:
         return f"❌ Erro durante a revisão: {str(e)}"
-
-
-
 
 # --- ABA: REVISÃO ORTOGRÁFICA ---
 with tab_mapping["📝 Revisão Ortográfica"]:
@@ -2497,121 +2485,258 @@ with tab_mapping["📝 Revisão Ortográfica"]:
             key="revisao_segmentos"
         )
         
-        # Layout em colunas
-        col_original, col_resultado = st.columns(2)
+        # Layout em abas para diferentes métodos de entrada
+        tab_texto, tab_arquivo = st.tabs(["📝 Texto Direto", "📎 Upload de Arquivos"])
         
-        with col_original:
-            st.subheader("📄 Texto Original")
+        with tab_texto:
+            # Layout em colunas para texto direto
+            col_original, col_resultado = st.columns(2)
             
-            texto_para_revisao = st.text_area(
-                "Cole o texto que deseja revisar:",
-                height=400,
-                placeholder="Cole aqui o texto que precisa de revisão ortográfica e gramatical...",
-                help="O texto será analisado considerando as diretrizes do agente selecionado",
-                key="texto_revisao"
+            with col_original:
+                st.subheader("📄 Texto Original")
+                
+                texto_para_revisao = st.text_area(
+                    "Cole o texto que deseja revisar:",
+                    height=400,
+                    placeholder="Cole aqui o texto que precisa de revisão ortográfica e gramatical...",
+                    help="O texto será analisado considerando as diretrizes do agente selecionado",
+                    key="texto_revisao"
+                )
+                
+                # Estatísticas do texto
+                if texto_para_revisao:
+                    palavras = len(texto_para_revisao.split())
+                    caracteres = len(texto_para_revisao)
+                    paragrafos = texto_para_revisao.count('\n\n') + 1
+                    
+                    col_stats1, col_stats2, col_stats3 = st.columns(3)
+                    with col_stats1:
+                        st.metric("📊 Palavras", palavras)
+                    with col_stats2:
+                        st.metric("🔤 Caracteres", caracteres)
+                    with col_stats3:
+                        st.metric("📄 Parágrafos", paragrafos)
+                
+                # Configurações de revisão
+                with st.expander("⚙️ Configurações da Revisão"):
+                    revisao_estilo = st.checkbox(
+                        "Incluir revisão de estilo",
+                        value=True,
+                        help="Analisar clareza, coesão e adequação ao tom da marca",
+                        key="revisao_estilo"
+                    )
+                    
+                    manter_estrutura = st.checkbox(
+                        "Manter estrutura original",
+                        value=True,
+                        help="Preservar a estrutura geral do texto quando possível",
+                        key="manter_estrutura"
+                    )
+                    
+                    explicar_alteracoes = st.checkbox(
+                        "Explicar alterações principais",
+                        value=True,
+                        help="Incluir justificativa para as mudanças mais importantes",
+                        key="explicar_alteracoes"
+                    )
+            
+            with col_resultado:
+                st.subheader("📋 Resultado da Revisão")
+                
+                if st.button("🔍 Realizar Revisão Completa", type="primary", key="revisar_texto"):
+                    if not texto_para_revisao.strip():
+                        st.warning("⚠️ Por favor, cole o texto que deseja revisar.")
+                    else:
+                        with st.spinner("🔄 Analisando texto e realizando revisão..."):
+                            try:
+                                resultado = revisar_texto_ortografia(
+                                    texto=texto_para_revisao,
+                                    agente=agente,
+                                    segmentos_selecionados=segmentos_revisao,
+                                    revisao_estilo=revisao_estilo,
+                                    manter_estrutura=manter_estrutura,
+                                    explicar_alteracoes=explicar_alteracoes
+                                )
+                                
+                                st.markdown(resultado)
+                                
+                                # Opções de download
+                                col_dl1, col_dl2, col_dl3 = st.columns(3)
+                                
+                                with col_dl1:
+                                    st.download_button(
+                                        "💾 Baixar Relatório Completo",
+                                        data=resultado,
+                                        file_name=f"relatorio_revisao_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+                                        mime="text/plain",
+                                        key="download_revisao_completo"
+                                    )
+                                
+                                with col_dl2:
+                                    # Extrair apenas o texto revisado se disponível
+                                    if "## 📋 TEXTO REVISADO" in resultado:
+                                        texto_revisado_start = resultado.find("## 📋 TEXTO REVISADO")
+                                        texto_revisado_end = resultado.find("##", texto_revisado_start + 1)
+                                        texto_revisado = resultado[texto_revisado_start:texto_revisado_end] if texto_revisado_end != -1 else resultado[texto_revisado_start:]
+                                        
+                                        st.download_button(
+                                            "📄 Baixar Texto Revisado",
+                                            data=texto_revisado,
+                                            file_name=f"texto_revisado_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+                                            mime="text/plain",
+                                            key="download_texto_revisado"
+                                        )
+                                
+                                with col_dl3:
+                                    # Extrair apenas as explicações se disponível
+                                    if "## 🔍 PRINCIPAIS ALTERAÇÕES REALIZADAS" in resultado:
+                                        explicacoes_start = resultado.find("## 🔍 PRINCIPAIS ALTERAÇÕES REALIZADAS")
+                                        explicacoes_end = resultado.find("##", explicacoes_start + 1)
+                                        explicacoes = resultado[explicacoes_start:explicacoes_end] if explicacoes_end != -1 else resultado[explicacoes_start:]
+                                        
+                                        st.download_button(
+                                            "📝 Baixar Explicações",
+                                            data=explicacoes,
+                                            file_name=f"explicacoes_revisao_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+                                            mime="text/plain",
+                                            key="download_explicacoes"
+                                        )
+                                
+                            except Exception as e:
+                                st.error(f"❌ Erro ao realizar revisão: {str(e)}")
+        
+        with tab_arquivo:
+            st.subheader("📎 Upload de Arquivos para Revisão")
+            
+            # Upload de múltiplos arquivos
+            arquivos_upload = st.file_uploader(
+                "Selecione arquivos PDF ou PPTX para revisão:",
+                type=['pdf', 'pptx'],
+                accept_multiple_files=True,
+                help="Arquivos serão convertidos para texto e revisados ortograficamente",
+                key="arquivos_revisao"
             )
             
-            # Estatísticas do texto
-            if texto_para_revisao:
-                palavras = len(texto_para_revisao.split())
-                caracteres = len(texto_para_revisao)
-                paragrafos = texto_para_revisao.count('\n\n') + 1
-                
-                col_stats1, col_stats2, col_stats3 = st.columns(3)
-                with col_stats1:
-                    st.metric("📊 Palavras", palavras)
-                with col_stats2:
-                    st.metric("🔤 Caracteres", caracteres)
-                with col_stats3:
-                    st.metric("📄 Parágrafos", paragrafos)
-            
-            # Configurações de revisão
-            with st.expander("⚙️ Configurações da Revisão"):
-                revisao_estilo = st.checkbox(
+            # Configurações para arquivos
+            with st.expander("⚙️ Configurações da Revisão para Arquivos"):
+                revisao_estilo_arquivos = st.checkbox(
                     "Incluir revisão de estilo",
                     value=True,
                     help="Analisar clareza, coesão e adequação ao tom da marca",
-                    key="revisao_estilo"
+                    key="revisao_estilo_arquivos"
                 )
                 
-                manter_estrutura = st.checkbox(
+                manter_estrutura_arquivos = st.checkbox(
                     "Manter estrutura original",
                     value=True,
                     help="Preservar a estrutura geral do texto quando possível",
-                    key="manter_estrutura"
+                    key="manter_estrutura_arquivos"
                 )
                 
-                explicar_alteracoes = st.checkbox(
+                explicar_alteracoes_arquivos = st.checkbox(
                     "Explicar alterações principais",
                     value=True,
                     help="Incluir justificativa para as mudanças mais importantes",
-                    key="explicar_alteracoes"
+                    key="explicar_alteracoes_arquivos"
                 )
-        
-        with col_resultado:
-            st.subheader("📋 Resultado da Revisão")
             
-            if st.button("🔍 Realizar Revisão Completa", type="primary", key="revisar_texto"):
-                if not texto_para_revisao.strip():
-                    st.warning("⚠️ Por favor, cole o texto que deseja revisar.")
-                else:
-                    with st.spinner("🔄 Analisando texto e realizando revisão..."):
-                        try:
-                            resultado = revisar_texto_ortografia(
-                                texto=texto_para_revisao,
-                                agente=agente,
-                                segmentos_selecionados=segmentos_revisao,
-                                revisao_estilo=revisao_estilo,
-                                manter_estrutura=manter_estrutura,
-                                explicar_alteracoes=explicar_alteracoes
-                            )
-                            
-                            st.markdown(resultado)
-                            
-                            # Opções de download
-                            col_dl1, col_dl2, col_dl3 = st.columns(3)
-                            
-                            with col_dl1:
-                                st.download_button(
-                                    "💾 Baixar Relatório Completo",
-                                    data=resultado,
-                                    file_name=f"relatorio_revisao_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
-                                    mime="text/plain",
-                                    key="download_revisao_completo"
-                                )
-                            
-                            with col_dl2:
-                                # Extrair apenas o texto revisado se disponível
-                                if "## 📋 TEXTO REVISADO" in resultado:
-                                    texto_revisado_start = resultado.find("## 📋 TEXTO REVISADO")
-                                    texto_revisado_end = resultado.find("##", texto_revisado_start + 1)
-                                    texto_revisado = resultado[texto_revisado_start:texto_revisado_end] if texto_revisado_end != -1 else resultado[texto_revisado_start:]
-                                    
-                                    st.download_button(
-                                        "📄 Baixar Texto Revisado",
-                                        data=texto_revisado,
-                                        file_name=f"texto_revisado_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
-                                        mime="text/plain",
-                                        key="download_texto_revisado"
+            if arquivos_upload:
+                st.success(f"✅ {len(arquivos_upload)} arquivo(s) carregado(s)")
+                
+                # Mostrar preview dos arquivos
+                with st.expander("📋 Visualizar Arquivos Carregados", expanded=False):
+                    for i, arquivo in enumerate(arquivos_upload):
+                        st.write(f"**{arquivo.name}** ({arquivo.size} bytes)")
+                
+                if st.button("🔍 Revisar Todos os Arquivos", type="primary", key="revisar_arquivos"):
+                    resultados_completos = []
+                    
+                    for arquivo in arquivos_upload:
+                        with st.spinner(f"Processando {arquivo.name}..."):
+                            try:
+                                # Extrair texto do arquivo
+                                texto_extraido = ""
+                                
+                                if arquivo.type == "application/pdf":
+                                    texto_extraido = extract_text_from_pdf(arquivo)
+                                elif arquivo.type == "application/vnd.openxmlformats-officedocument.presentationml.presentation":
+                                    texto_extraido = extract_text_from_pptx(arquivo)
+                                else:
+                                    st.warning(f"Tipo de arquivo não suportado: {arquivo.name}")
+                                    continue
+                                
+                                if texto_extraido and len(texto_extraido.strip()) > 0:
+                                    # Realizar revisão
+                                    resultado = revisar_texto_ortografia(
+                                        texto=texto_extraido,
+                                        agente=agente,
+                                        segmentos_selecionados=segmentos_revisao,
+                                        revisao_estilo=revisao_estilo_arquivos,
+                                        manter_estrutura=manter_estrutura_arquivos,
+                                        explicar_alteracoes=explicar_alteracoes_arquivos
                                     )
-                            
-                            with col_dl3:
-                                # Extrair apenas as explicações se disponível
-                                if "## 🔍 EXPLICAÇÃO DAS PRINCIPAIS ALTERAÇÕES" in resultado:
-                                    explicacoes_start = resultado.find("## 🔍 EXPLICAÇÃO DAS PRINCIPAIS ALTERAÇÕES")
-                                    explicacoes_end = resultado.find("##", explicacoes_start + 1)
-                                    explicacoes = resultado[explicacoes_start:explicacoes_end] if explicacoes_end != -1 else resultado[explicacoes_start:]
                                     
-                                    st.download_button(
-                                        "📝 Baixar Explicações",
-                                        data=explicacoes,
-                                        file_name=f"explicacoes_revisao_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
-                                        mime="text/plain",
-                                        key="download_explicacoes"
-                                    )
-                            
-                        except Exception as e:
-                            st.error(f"❌ Erro ao realizar revisão: {str(e)}")
+                                    resultados_completos.append({
+                                        'nome': arquivo.name,
+                                        'texto_original': texto_extraido,
+                                        'resultado': resultado
+                                    })
+                                    
+                                    # Exibir resultado individual
+                                    with st.expander(f"📄 Resultado - {arquivo.name}", expanded=False):
+                                        st.markdown(resultado)
+                                        
+                                        # Estatísticas do arquivo processado
+                                        palavras_orig = len(texto_extraido.split())
+                                        st.info(f"📊 Arquivo original: {palavras_orig} palavras")
+                                        
+                                else:
+                                    st.warning(f"❌ Não foi possível extrair texto do arquivo: {arquivo.name}")
+                                
+                            except Exception as e:
+                                st.error(f"❌ Erro ao processar {arquivo.name}: {str(e)}")
+                    
+                    # Botão para download de todos os resultados
+                    if resultados_completos:
+                        st.markdown("---")
+                        st.subheader("📦 Download de Todos os Resultados")
+                        
+                        # Criar relatório consolidado
+                        relatorio_consolidado = f"# RELATÓRIO DE REVISÃO ORTOGRÁFICA\n\n"
+                        relatorio_consolidado += f"**Data:** {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}\n"
+                        relatorio_consolidado += f"**Agente:** {agente['nome']}\n"
+                        relatorio_consolidado += f"**Total de Arquivos:** {len(resultados_completos)}\n\n"
+                        
+                        for resultado in resultados_completos:
+                            relatorio_consolidado += f"## 📄 {resultado['nome']}\n\n"
+                            relatorio_consolidado += f"{resultado['resultado']}\n\n"
+                            relatorio_consolidado += "---\n\n"
+                        
+                        st.download_button(
+                            "💾 Baixar Relatório Consolidado",
+                            data=relatorio_consolidado,
+                            file_name=f"relatorio_revisao_arquivos_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+                            mime="text/plain",
+                            key="download_consolidado"
+                        )
+            
+            else:
+                st.info("""
+                **📎 Como usar o upload de arquivos:**
+                
+                1. Selecione um ou mais arquivos PDF ou PPTX
+                2. Configure as opções de revisão
+                3. Clique em **"Revisar Todos os Arquivos"**
+                
+                **📋 Formatos suportados:**
+                - PDF (documentos, apresentações)
+                - PPTX (apresentações PowerPoint)
+                
+                **⚡ Processamento:**
+                - Arquivos são convertidos para texto automaticamente
+                - Texto é revisado ortograficamente
+                - Resultados podem ser baixados individualmente ou em lote
+                """)
         
         # Seção informativa
         with st.expander("ℹ️ Sobre a Revisão Ortográfica"):
@@ -2641,14 +2766,6 @@ with tab_mapping["📝 Revisão Ortográfica"]:
             - Clareza na comunicação
             - Eliminação de vícios de linguagem
             
-            ### 📊 Métricas de Qualidade
-            
-            - **Ortografia**: Correção gramatical (0-10)
-            - **Gramática**: Estrutura linguística (0-10)
-            - **Clareza**: Facilidade de compreensão (0-10)
-            - **Conformidade**: Adequação às diretrizes (0-10)
-            - **Total**: Pontuação geral (0-40)
-            
             ### 💡 Dicas para Melhor Revisão
             
             1. **Texto Completo**: Cole o texto integral para análise detalhada
@@ -2663,115 +2780,7 @@ with tab_mapping["📝 Revisão Ortográfica"]:
             - **Otimização de Conteúdo**: Melhora a clareza e impacto da comunicação
             - **Eficiência**: Reduz tempo de revisão manual
             """)
-
-# Função para revisão ortográfica usando a API do Gemini
-def revisar_texto_ortografia(texto, agente, segmentos_selecionados, revisao_estilo=True, manter_estrutura=True, explicar_alteracoes=True):
-    """
-    Realiza revisão ortográfica e gramatical do texto considerando as diretrizes do agente
-    usando a API do Gemini
-    """
-    
-    # Construir o contexto do agente
-    contexto_agente = "CONTEXTO DO AGENTE PARA REVISÃO:\n\n"
-    
-    if "system_prompt" in segmentos_selecionados and "system_prompt" in agente:
-        contexto_agente += f"DIRETRIZES PRINCIPAIS:\n{agente['system_prompt']}\n\n"
-    
-    if "base_conhecimento" in segmentos_selecionados and "base_conhecimento" in agente:
-        contexto_agente += f"BASE DE CONHECIMENTO:\n{agente['base_conhecimento']}\n\n"
-    
-    if "comments" in segmentos_selecionados and "comments" in agente:
-        contexto_agente += f"COMENTÁRIOS E OBSERVAÇÕES:\n{agente['comments']}\n\n"
-    
-    if "planejamento" in segmentos_selecionados and "planejamento" in agente:
-        contexto_agente += f"PLANEJAMENTO E ESTRATÉGIA:\n{agente['planejamento']}\n\n"
-    
-    # Construir instruções baseadas nas configurações
-    instrucoes_revisao = ""
-    
-    if revisao_estilo:
-        instrucoes_revisao += """
-        - Analise e melhore a clareza, coesão e coerência textual
-        - Verifique adequação ao tom da marca
-        - Elimine vícios de linguagem e redundâncias
-        - Simplifique frases muito longas ou complexas
-        """
-    
-    if manter_estrutura:
-        instrucoes_revisao += """
-        - Mantenha a estrutura geral do texto original
-        - Preserve parágrafos e seções quando possível
-        - Conserve o fluxo lógico do conteúdo
-        """
-    
-    if explicar_alteracoes:
-        instrucoes_revisao += """
-        - Inclua justificativa para as principais alterações
-        - Explique correções gramaticais importantes
-        - Destaque melhorias de estilo significativas
-        """
-    
-    # Construir o prompt para revisão
-    prompt_revisao = f"""
-    {contexto_agente}
-    
-    TEXTO PARA REVISÃO:
-    {texto}
-    
-    INSTRUÇÕES PARA REVISÃO:
-    
-    1. **REVISÃO ORTOGRÁFICA E GRAMATICAL:**
-       - Corrija erros de ortografia, acentuação e grafia
-       - Verifique concordância nominal e verbal
-       - Ajuste pontuação (vírgulas, pontos, travessões)
-       - Corrija regência verbal e nominal
-       - Ajuste colocação pronominal
-    
-    2. **REVISÃO DE ESTILO E CLAREZA:**
-       {instrucoes_revisao}
-    
-    3. **CONFORMIDADE COM AS DIRETRIZES:**
-       - Alinhe o texto ao tom e estilo definidos
-       - Mantenha consistência terminológica
-       - Preserve a estrutura original quando possível
-       - Adapte ao público-alvo definido
-    
-    FORMATO DA RESPOSTA:
-    
-    ## 📋 TEXTO REVISADO
-    [Aqui vai o texto completo revisado, mantendo a estrutura geral quando possível]
-    
-    ## 📊 RELATÓRIO DE REVISÃO
-    **Pontuação de Qualidade:**
-    - Ortografia: [0-10] - [Breve justificativa]
-    - Gramática: [0-10] - [Breve justificativa] 
-    - Clareza: [0-10] - [Breve justificativa]
-    - Conformidade: [0-10] - [Breve justificativa]
-    - **Total: [0-40]**
-    
-    ## 🔍 EXPLICAÇÃO DAS PRINCIPAIS ALTERAÇÕES
-    [Lista das principais correções realizadas com justificativa]
-    
-    ## 💡 RECOMENDAÇÕES PARA MELHORIA CONTÍNUA
-    [Sugestões para aprimorar a qualidade dos textos futuros]
-    
-    **IMPORTANTE:**
-    - Seja detalhado e preciso nas explicações
-    - Mantenha o formato markdown para fácil leitura
-    - Inclua exemplos específicos quando relevante
-    """
-    
-    try:
-        # Chamar a API do Gemini
-        response = modelo_texto.generate_content(prompt_revisao)
-        
-        if response and response.text:
-            return response.text
-        else:
-            return "❌ Erro: Não foi possível gerar a revisão. Tente novamente."
-        
-    except Exception as e:
-        return f"❌ Erro durante a revisão: {str(e)}"
+            
 
 # --- ABA: MONITORAMENTO DE REDES ---
 with tab_mapping["Monitoramento de Redes"]:
