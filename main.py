@@ -16,6 +16,8 @@ import docx
 import openai
 from typing import List, Dict
 import hashlib
+import pandas as pd
+import re
 
 # Configuração inicial
 st.set_page_config(
@@ -288,591 +290,6 @@ def construir_contexto(agente, segmentos_selecionados, historico_mensagens=None)
     
     return contexto
 
-# --- Funções para processamento de vídeo ---
-def processar_video_upload(video_file, segmentos_selecionados, agente, tipo_analise="completa"):
-    """Processa vídeo upload e retorna análise"""
-    try:
-        # Ler bytes do vídeo
-        video_bytes = video_file.read()
-        
-        # Construir contexto com segmentos selecionados
-        contexto = construir_contexto(agente, segmentos_selecionados)
-        
-        # Definir prompt baseado no tipo de análise
-        if tipo_analise == "completa":
-            prompt = f"""
-            {contexto}
-            
-            Analise este vídeo considerando as diretrizes fornecidas e forneça um relatório detalhado:
-            
-            ## 🎬 ANÁLISE DO VÍDEO
-            
-            ### 📊 Resumo Executivo
-            [Forneça uma visão geral da conformidade do vídeo com as diretrizes]
-            
-            ### ✅ Pontos de Conformidade
-            - [Liste os aspectos que estão em conformidade]
-            
-            ### ⚠️ Pontos de Atenção
-            - [Liste os aspectos que precisam de ajustes]
-            
-            ### 🎯 Análise de Conteúdo
-            - **Mensagem**: [Avalie se a mensagem está alinhada]
-            - **Tom e Linguagem**: [Avalie o tom utilizado]
-            - **Valores da Marca**: [Verifique alinhamento com valores]
-            
-            ### 🎨 Análise Visual
-            - **Identidade Visual**: [Cores, logos, tipografia]
-            - **Qualidade Técnica**: [Iluminação, enquadramento, áudio]
-            - **Consistência**: [Manutenção da identidade ao longo do vídeo]
-            
-            ### 🔊 Análise de Áudio
-            - [Qualidade, trilha sonora, voz]
-            
-            ### 📋 Recomendações Específicas
-            [Liste recomendações práticas para melhorias]
-            
-            ### 🏆 Avaliação Final
-            [Aprovado/Reprovado/Com ajustes] - [Justificativa]
-            
-            ### 🔤 ANÁLISE DE TEXTO EM VÍDEO
-            - **Textos Visíveis**: Analise todos os textos que aparecem no vídeo (legendas, títulos, gráficos, etc.)
-            - **Conformidade Textual**: Verifique se os textos seguem as diretrizes da base de conhecimento
-            - **Erros Ortográficos**: Identifique possíveis erros em textos inseridos
-            - **Consistência de Mensagem**: Avalie se o texto visual reforça a mensagem principal
-            """
-        elif tipo_analise == "rapida":
-            prompt = f"""
-            {contexto}
-            
-            Faça uma análise rápida deste vídeo focando nos aspectos mais críticos:
-            
-            ### 🔍 Análise Rápida
-            - **Conformidade Geral**: [Avaliação geral]
-            - **Principais Pontos Positivos**: [2-3 pontos]
-            - **Principais Problemas**: [2-3 pontos críticos]
-            - **Recomendação Imediata**: [Aprovar/Reprovar/Ajustar]
-            - **Textos em Vídeo**: [Análise rápida de textos visíveis e conformidade]
-            """
-        else:  # análise técnica
-            prompt = f"""
-            {contexto}
-            
-            Faça uma análise técnica detalhada do vídeo:
-            
-            ### 🛠️ Análise Técnica
-            - **Qualidade de Vídeo**: [Resolução, estabilidade, compression]
-            - **Qualidade de Áudio**: [Clareza, ruído, mixagem]
-            - **Edição e Transições**: [Fluidez, ritmo, cortes]
-            - **Aspectos Técnicos Conformes**: 
-            - **Problemas Técnicos Identificados**:
-            - **Recomendações Técnicas**:
-            - **Textos e Legibilidade**: [Qualidade de textos inseridos, legibilidade, conformidade]
-            """
-        
-        # Processar vídeo com a API Gemini
-        response = modelo_vision.generate_content(
-            contents=[
-                types.Part(
-                    inline_data=types.Blob(
-                        data=video_bytes,
-                        mime_type=video_file.type
-                    )
-                ),
-                types.Part(text=prompt)
-            ]
-        )
-        
-        return response.text
-        
-    except Exception as e:
-        return f"Erro ao processar vídeo: {str(e)}"
-
-def processar_url_youtube(youtube_url, segmentos_selecionados, agente, tipo_analise="completa"):
-    """Processa URL do YouTube e retorna análise"""
-    try:
-        # Construir contexto com segmentos selelecionados
-        contexto = construir_contexto(agente, segmentos_selecionados)
-        
-        # Definir prompt baseado no tipo de análise
-        if tipo_analise == "completa":
-            prompt = f"""
-            {contexto}
-            
-            Analise este vídeo do YouTube considerando as diretrizes fornecidas:
-            
-            ## 🎬 ANÁLISE DO VÍDEO - YOUTUBE
-            
-            ### 📊 Resumo Executivo
-            [Avaliação geral de conformidade]
-            
-            ### 🎯 Conteúdo e Mensagem
-            - Alinhamento com diretrizes: 
-            - Clareza da mensagem:
-            - Tom e abordagem:
-            
-            ### 🎨 Aspectos Visuais
-            - Identidade visual:
-            - Qualidade de produção:
-            - Consistência da marca:
-            
-            ### 🔊 Aspectos de Áudio
-            - Qualidade do áudio:
-            - Trilha sonora:
-            - Narração/diálogo:
-            
-            ### 📈 Estrutura e Engajamento
-            - Ritmo do vídeo:
-            - Manutenção do interesse:
-            - Chamadas para ação:
-            
-            ### ✅ Pontos Fortes
-            - [Liste os pontos positivos]
-            
-            ### ⚠️ Pontos de Melhoria
-            - [Liste sugestões de melhoria]
-            
-            ### 🔤 Análise de Textos no Vídeo
-            - **Textos Visíveis**: Analise legendas, títulos, descrições na tela
-            - **Conformidade Textual**: Verifique alinhamento com base de conhecimento
-            - **Qualidade dos Textos**: Avalie clareza, ortografia, adequação
-            - **Consistência**: Verifique se textos reforçam mensagem principal
-            
-            ### 🏆 Recomendação Final
-            [Status e justificativa]
-            """
-        
-        # Processar URL do YouTube
-        response = modelo_vision.generate_content(
-            contents=[
-                types.Part(
-                    file_data=types.FileData(file_uri=youtube_url)
-                ),
-                types.Part(text=prompt)
-            ]
-        )
-        
-        return response.text
-        
-    except Exception as e:
-        return f"Erro ao processar URL do YouTube: {str(e)}"
-
-# --- Funções para busca web com Perplexity ---
-def buscar_perplexity(pergunta, contexto_agente=None, focus=None, urls_especificas=None):
-    """Faz busca na web usando a API do Perplexity"""
-    try:
-        if not perp_api_key:
-            return "❌ Erro: Chave da API Perplexity não configurada"
-        
-        # Construir o prompt com contexto do agente se fornecido
-        prompt_final = pergunta
-        if contexto_agente:
-            prompt_final = f"""
-            Contexto do agente:
-            {contexto_agente}
-            
-            Pergunta: {pergunta}
-            
-            Por favor, responda considerando o contexto acima e complemente com informações atualizadas da web.
-            """
-        
-        # Configurar os parâmetros da requisição
-        url = "https://api.perplexity.ai/chat/completions"
-        
-        headers = {
-            "Authorization": perp_api_key,
-            "Content-Type": "application/json"
-        }
-        
-        # Configurar o payload
-        payload = {
-            "model": "sonar",
-            "messages": [
-                {
-                    "role": "system",
-                    "content": "Seja preciso e forneça informações atualizadas. Cite fontes quando relevante."
-                },
-                {
-                    "role": "user",
-                    "content": prompt_final
-                }
-            ],
-            "max_tokens": 2000,
-            "temperature": 0.1,
-            "top_p": 0.9,
-            "return_citations": True,
-            "search_domain_filters": urls_especificas if urls_especificas else None
-        }
-        
-        # Fazer a requisição
-        response = requests.post(url, json=payload, headers=headers, timeout=30)
-        
-        if response.status_code == 200:
-            data = response.json()
-            resposta = data['choices'][0]['message']['content']
-            
-            # Adicionar citações se disponíveis
-            if 'citations' in data and data['citations']:
-                resposta += "\n\n### 🔍 Fontes Consultadas:\n"
-                for i, citation in enumerate(data['citations'], 1):
-                    resposta += f"{i}. {citation}\n"
-            
-            return resposta
-        else:
-            return f"❌ Erro na API Perplexity: {response.status_code} - {response.text}"
-            
-    except Exception as e:
-        return f"❌ Erro ao fazer busca: {str(e)}"
-
-def analisar_urls_perplexity(urls, pergunta, contexto_agente=None):
-    """Analisa URLs específicas usando Perplexity"""
-    try:
-        if not perp_api_key:
-            return "❌ Erro: Chave da API Perplexity não configurada"
-        
-        # Construir prompt para análise de URLs
-        prompt = f"""
-        Analise as seguintes URLs e responda à pergunta com base no conteúdo delas:
-        
-        URLs para análise:
-        {chr(10).join([f'- {url}' for url in urls])}
-        
-        Pergunta: {pergunta}
-        """
-        
-        if contexto_agente:
-            prompt = f"""
-            Contexto do agente:
-            {contexto_agente}
-            
-            {prompt}
-            
-            Por favor, responda considerando o contexto do agente e as informações das URLs fornecidas.
-            """
-        
-        url = "https://api.perplexity.ai/chat/completions"
-        
-        headers = {
-            "Authorization": perp_api_key,
-            "Content-Type": "application/json"
-        }
-        
-        payload = {
-            "model": "sonar",
-            "messages": [
-                {
-                    "role": "system",
-                    "content": "Analise o conteúdo das URLs fornecidas e responda com base nelas. Cite trechos específicos quando relevante."
-                },
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ],
-            "max_tokens": 2000,
-            "temperature": 0.1,
-            "top_p": 0.9,
-            "return_citations": True,
-            "search_domain_filters": urls
-        }
-        
-        response = requests.post(url, json=payload, headers=headers, timeout=30)
-        
-        if response.status_code == 200:
-            data = response.json()
-            resposta = data['choices'][0]['message']['content']
-            
-            if 'citations' in data and data['citations']:
-                resposta += "\n\n### 🔍 URLs Analisadas:\n"
-                for i, citation in enumerate(data['citations'], 1):
-                    resposta += f"{i}. {citation}\n"
-            
-            return resposta
-        else:
-            return f"❌ Erro na API Perplexity: {response.status_code} - {response.text}"
-            
-    except Exception as e:
-        return f"❌ Erro ao analisar URLs: {str(e)}"
-
-# --- Função para Otimização SEO ---
-def gerar_analise_seo(conteudo, agente, palavra_chave_principal=None, tipo_conteudo="blog"):
-    """Gera análise completa de SEO para o conteúdo fornecido"""
-    
-    # Construir contexto com segmentos do agente
-    contexto = construir_contexto(agente, ["system_prompt", "base_conhecimento", "planejamento"])
-    
-    # Definir prompt específico para SEO
-    prompt = f"""
-    {contexto}
-    
-    ## 🎯 ANÁLISE DE OTIMIZAÇÃO SEO
-    
-    Analise o seguinte conteúdo para otimização SEO e forneça um relatório detalhado:
-    
-    **Informações do Conteúdo:**
-    - Tipo: {tipo_conteudo}
-    {f"- Palavra-chave Principal: {palavra_chave_principal}" if palavra_chave_principal else "- Palavra-chave: A ser identificada"}
-    
-    **Conteúdo para Análise:**
-    {conteudo}
-    
-    ### 📊 RESUMO EXECUTIVO
-    [Avaliação geral do conteúdo em termos de SEO]
-    
-    ### 🔍 ANÁLISE DE PALAVRAS-CHAVE
-    **Palavras-chave Identificadas:**
-    - Principal: [identificar/sugerir]
-    - Secundárias: [listar 3-5]
-    - LSI (Latent Semantic Indexing): [sugerir 3-5]
-    
-    **Densidade e Uso:**
-    - Frequência da palavra-chave principal: 
-    - Distribuição ao longo do texto:
-    - Sugestões de otimização:
-    
-    ### 📝 ANÁLISE DE CONteúdo
-    **Meta Informações:**
-    - **Título SEO** (atual/sugerido): 
-      [Avaliar e sugerir título otimizado (50-60 caracteres)]
-    
-    - **Meta Description** (atual/sugerida):
-      [Avaliar e sugerir descrição otimizada (120-158 caracteres)]
-    
-    **Estrutura do Conteúdo:**
-    - Títulos H1, H2, H3: [Avaliar hierarquia e uso de palavras-chave]
-    - Comprimento do conteúdo: [Avaliar se é adequado para o tópico]
-    - Legibilidade: [Avaliar clareza e facilidade de leitura]
-    - Valor para o usuário: [Avaliar qualidade e profundidade]
-    
-    ### 🔗 OTIMIZAÇÃO ON-PAGE
-    **Elementos Técnicos:**
-    - URLs: [Sugerir estrutura otimizada]
-    - Imagens: [Sugerir otimização de alt text e nomes de arquivo]
-    - Links Internos: [Sugerir oportunidades]
-    - Links Externos: [Sugerir fontes autoritativas]
-    
-    **Engajamento:**
-    - Chamadas para ação (CTAs): [Avaliar e sugerir]
-    - Elementos visuais: [Sugerir melhorias]
-    - Interatividade: [Sugerir elementos engajadores]
-    
-    ### 📈 OTIMIZAÇÃO OFF-PAGE
-    **Estratégias de Link Building:**
-    - [Sugerir 3-5 estratégias específicas]
-    
-    **Compartilhamento Social:**
-    - Títulos para redes sociais: [Sugerir variações]
-    - Descrições otimizadas: [Para Facebook, Twitter, LinkedIn]
-    
-    ### 🎯 SCORE SEO
-    **Pontuação por Categoria:**
-    - Palavras-chave: [0-10]
-    - Conteúdo: [0-10] 
-    - Técnico: [0-10]
-    - Experiência do Usuário: [0-10]
-    
-    **Pontuação Total:** [0-40]
-    
-    ### 🚀 AÇÕES RECOMENDADAS
-    **Prioridade Alta:**
-    - [Listar 3-5 ações críticas]
-    
-    **Prioridade Média:**
-    - [Listar 3-5 ações importantes]
-    
-    **Prioridade Baixa:**
-    - [Listar 2-3 otimizações adicionais]
-    
-    ### 💡 CONTEÚDO SUGERIDO
-    **Tópicos Relacionados:**
-    - [Sugerir 3-5 tópicos para pillar content]
-    
-    **Perguntas Frequentes:**
-    - [Listar 3-5 perguntas que o conteúdo responde]
-    
-    ### 📋 CHECKLIST DE OTIMIZAÇÃO
-    - [ ] Título otimizado com palavra-chave
-    - [ ] Meta description atrativa
-    - [ ] Estrutura de headings adequada
-    - [ ] Conteúdo de valor e profundidade
-    - [ ] Palavras-chave bem distribuídas
-    - [ ] Imagens otimizadas
-    - [ ] Links internos relevantes
-    - [ ] CTAs eficazes
-    - [ ] Conteúdo mobile-friendly
-    - [ ] Velocidade de carregamento adequada
-    """
-    
-    try:
-        pre_resposta = modelo_texto.generate_content(prompt)
-        resposta = modelo_texto.generate_content(f'''Com base no, utilize como referência a análise de otimização de SEO e gere o conteúdo otimizado por INTEIRO
-            ###BEGIN CONTEUDO ORIGINAL A SER AJUSTADO###
-            {conteudo}
-            ###END CONTEUDO ORIGINAL A SER AJUSTADO###
-            
-            ###BEGIN ANALISE DE PONTOS DE MELHORIA###
-            {pre_resposta}
-            ###END ANALISE DE PONTOS DE MELHORIA###
-
-            
-            ''')
-        
-        return resposta.text
-    except Exception as e:
-        return f"❌ Erro ao gerar análise SEO: {str(e)}"
-
-# --- Função para Revisão Ortográfica ---
-def revisar_texto_ortografia(texto, agente, segmentos_selecionados):
-    """Faz revisão ortográfica e gramatical considerando as bases do agente"""
-    
-    # Construir contexto com segmentos selecionados
-    contexto = construir_contexto(agente, segmentos_selecionados)
-    
-    prompt = f"""
-    {contexto}
-    
-    ## 📝 REVISÃO ORTOGRÁFICA E GRAMATICAL
-    
-    Faça uma revisão completa do texto abaixo, considerando as diretrizes fornecidas:
-    
-    ### TEXTO ORIGINAL:
-    {texto}
-    
-    ### FORMATO DA RESPOSTA:
-    
-    ## 📊 RESUMO DA REVISÃO
-    [Resumo geral dos problemas encontrados e qualidade do texto]
-    
-    ## ✅ PONTOS FORTES
-    - [Listar aspectos positivos do texto]
-    
-    ## ⚠️ PROBLEMAS IDENTIFICADOS
-    
-    ### 🔤 Ortografia
-    - [Listar erros ortográficos encontrados]
-    
-    ### 📖 Gramática
-    - [Listar erros gramaticais]
-    
-    ### 🔠 Pontuação
-    - [Listar problemas de pontuação]
-    
-    ### 📝 Estilo e Clareza
-    - [Sugestões para melhorar clareza e estilo]
-    
-    ### 🎯 Adequação às Diretrizes
-    - [Avaliação de conformidade com as diretrizes fornecidas]
-    
-    ## 📋 TEXTO REVISADO
-    [Apresentar o texto completo com as correções aplicadas]
-    
-    ## 🔍 EXPLICAÇÃO DAS PRINCIPAIS ALTERAÇÕES
-    [Explicar as mudanças mais importantes realizadas]
-    
-    ## 📈 SCORE DE QUALIDADE
-    **Ortografia:** [0-10]
-    **Gramática:** [0-10]
-    **Clareza:** [0-10]
-    **Conformidade:** [0-10]
-    **Total:** [0-40]
-    """
-    
-    try:
-        resposta = modelo_texto.generate_content(prompt)
-        return resposta.text
-    except Exception as e:
-        return f"❌ Erro ao realizar revisão: {str(e)}"
-
-# --- Função para processar imagem com análise de texto ---
-def processar_imagem_upload(imagem_file, segmentos_selecionados, agente):
-    """Processa imagem upload e retorna análise detalhada incluindo textos na imagem"""
-    try:
-        # Abrir e processar imagem
-        image = Image.open(imagem_file)
-        
-        # Construir contexto com segmentos selecionados
-        contexto = construir_contexto(agente, segmentos_selecionados)
-        
-        prompt = f"""
-        {contexto}
-        
-        Analise esta imagem considerando as diretrizes fornecidas e forneça um relatório detalhado:
-        
-        ## 🖼️ ANÁLISE DA IMAGEM
-        
-        ### 📊 Resumo Executivo
-        [Avaliação geral da conformidade da imagem com as diretrizes]
-        
-        ### 🎨 Análise Visual
-        - **Identidade Visual**: [Cores, logos, tipografia, elementos de marca]
-        - **Qualidade Técnica**: [Resolução, nitidez, composição]
-        - **Consistência com Diretrizes**: [Aderência às especificações da marca]
-        
-        ### 🔤 ANÁLISE DE TEXTOS NA IMAGEM
-        **Textos Identificados:**
-        - [Listar todos os textos visíveis na imagem]
-        
-        **Conformidade Textual:**
-        - [Verificar se os textos seguem as diretrizes da base de conhecimento]
-        - [Identificar possíveis erros ortográficos em textos inseridos]
-        - [Avaliar adequação da linguagem e tom]
-        - [Verificar consistência com mensagem da marca]
-        
-        **Recomendações para Textos:**
-        - [Sugerir ajustes em textos quando necessário]
-        - [Otimizar mensagens textuais conforme diretrizes]
-        
-        ### ✅ Pontos de Conformidade
-        - [Liste os aspectos que estão em conformidade]
-        
-        ### ⚠️ Pontos de Atenção
-        - [Liste os aspectos que precisam de ajustes]
-        
-        ### 📋 Recomendações Específicas
-        [Liste recomendações práticas para melhorias]
-        
-        ### 🏆 Avaliação Final
-        [Aprovado/Reprovado/Com ajustes] - [Justificativa]
-        """
-        
-        # Processar imagem com a API Gemini
-        response = modelo_vision.generate_content([
-            prompt,
-            {"mime_type": "image/jpeg", "data": imagem_file.getvalue()}
-        ])
-        
-        return response.text
-        
-    except Exception as e:
-        return f"Erro ao processar imagem: {str(e)}"
-
-# --- Função para listar conversas ---
-def listar_conversas(agente_id):
-    """
-    Lista conversas anteriores de um agente específico
-    """
-    try:
-        # Verifica se existe sessão para armazenar conversas
-        if 'historico_conversas' not in st.session_state:
-            st.session_state.historico_conversas = {}
-        
-        # Recupera conversas do agente específico
-        if agente_id in st.session_state.historico_conversas:
-            conversas = st.session_state.historico_conversas[agente_id]
-            # Ordena por data (mais recente primeiro) e limita a 10 conversas
-            conversas_ordenadas = sorted(
-                conversas, 
-                key=lambda x: x.get('timestamp', 0), 
-                reverse=True
-            )[:10]
-            return conversas_ordenadas
-        else:
-            return []
-            
-    except Exception as e:
-        st.error(f"Erro ao carregar conversas: {str(e)}")
-        return []
-
 # --- NOVA SEÇÃO: SELEÇÃO DE AGENTE ANTES DA INTERFACE ---
 def selecionar_agente():
     """Tela para seleção do agente antes de ativar a interface principal"""
@@ -933,6 +350,192 @@ if not st.session_state.agente_selecionado:
 # --- INTERFACE PRINCIPAL (apenas se agente estiver selecionado) ---
 agente_selecionado = st.session_state.agente_selecionado
 
+# --- FUNCIONALIDADE DE BRIEFING SYNGENTA ---
+def is_syngenta_agent(agent_name):
+    """Verifica se o agente é da Syngenta baseado no nome"""
+    return agent_name and any(keyword in agent_name.upper() for keyword in ['SYN', 'SYNGENTA'])
+
+# Dicionário de descrições de produtos Syngenta
+PRODUCT_DESCRIPTIONS = {
+    "FORTENZA": "Tratamento de sementes inseticida, focado no Cerrado e posicionado para controle do complexo de lagartas e outras pragas iniciais. Comunicação focada no mercado 'on farm' (tratamento feito na fazenda).",
+    "ALADE": "Fungicida para controle de doenças em soja, frequentemente posicionado em programa com Mitrion para controle de podridões de vagens e grãos.",
+    "VERDAVIS": "Inseticida e acaricida composto por PLINAZOLIN® technology (nova molécula, novo grupo químico, modo de ação inédito) + lambda-cialotrina. KBFs: + mais choque, + mais espectro e + mais dias de controle.",
+    "ENGEO PLENO S": "Inseticida de tradição, referência no controle de percevejos. Mote: 'Nunca foi sorte. Sempre foi Engeo Pleno S'.",
+    "MEGAFOL": "Bioativador da Syngenta Biologicals. Origem 100% natural (extratos vegetais e de algas Ascophyllum nodosum). Desenvolvido para garantir que a planta alcance todo seu potencial produtivo.",
+    "MIRAVIS DUO": "Fungicida da família Miravis. Traz ADEPIDYN technology (novo ingrediente ativo, novo grupo químico). Focado no controle de manchas foliares.",
+    "AVICTA COMPLETO": "Oferta comercial de tratamento industrial de sementes (TSI). Composto por inseticida, fungicida e nematicida.",
+    "MITRION": "Fungicida para controle de doenças em soja, frequentemente posicionado em programa com Alade.",
+    "AXIAL": "Herbicida para trigo. Composto por um novo ingrediente ativo. Foco no controle do azevém.",
+    "CERTANO": "Bionematicida e biofungicida. Composto pela bactéria Bacillus velezensis. Controla nematoides e fungos de solo.",
+    "MANEJO LIMPO": "Programa da Syngenta para manejo integrado de plantas daninhas.",
+    "ELESTAL NEO": "Fungicida para controle de doenças em soja e algodão.",
+    "FRONDEO": "Inseticida para cana-de-açúcar com foco no controle da broca da cana.",
+    "FORTENZA ELITE": "Oferta comercial de TSI. Solução robusta contre pragas, doenças e nematoides do Cerrado.",
+    "REVERB": "Produto para manejo de doenças em soja e milho com ação prolongada ou de espectro amplo.",
+    "YIELDON": "Produto focado em maximizar a produtividade das lavouras.",
+    "ORONDIS FLEXI": "Fungicida com flexibilidade de uso para controle de requeima, míldios e manchas.",
+    "RIZOLIQ LLI": "Inoculante ou produto para tratamento de sementes que atua na rizosfera.",
+    "ARVATICO": "Fungicida ou inseticida com ação específica para controle de doenças foliares ou pragas.",
+    "VERDADERO": "Produto relacionado à saúde do solo ou nutrição vegetal.",
+    "MIRAVIS": "Fungicida da família Miravis para controle de doenças.",
+    "MIRAVIS PRO": "Fungicida premium da família Miravis para controle avançado de doenças.",
+    "INSTIVO": "Lagarticida posicionado como especialista no controle de lagartas do gênero Spodoptera.",
+    "CYPRESS": "Fungicida posicionado para últimas aplicações na soja, consolidando o manejo de doenças.",
+    "CALARIS": "Herbicida composto por atrazina + mesotriona para controle de plantas daninhas no milho.",
+    "SPONTA": "Inseticida para algodão com PLINAZOLIN® technology para controle de bicudo e outras pragas.",
+    "INFLUX": "Inseticida lagarticida premium para controle de todas as lagartas, especialmente helicoverpa.",
+    "JOINER": "Inseticida acaricida com tecnologia PLINAZOLIN para culturas hortifrúti.",
+    "DUAL GOLD": "Herbicida para manejo de plantas daninhas.",
+}
+
+def extract_product_info(text: str) -> Tuple[str, str, str]:
+    """Extrai informações do produto do texto da célula"""
+    if not text or not text.strip():
+        return None, None, None
+    
+    text = str(text).strip()
+    
+    # Remover emojis e marcadores
+    clean_text = re.sub(r'[🔵🟠🟢🔴🟣🔃📲]', '', text).strip()
+    
+    # Padrões para extração
+    patterns = {
+        'product': r'\b([A-Z][A-Za-z\s]+(?:PRO|S|NEO|LLI|ELITE|COMPLETO|DUO|FLEXI|PLENO|XTRA)?)\b',
+        'culture': r'\b(soja|milho|algodão|cana|trigo|HF|café|citrus|batata|melão|uva|tomate|multi)\b',
+        'action': r'\b(depoimento|resultados|série|reforço|controle|lançamento|importância|jornada|conceito|vídeo|ação|diferenciais|awareness|problemática|glossário|manejo|aplicação|posicionamento)\b'
+    }
+    
+    product_match = re.search(patterns['product'], clean_text, re.IGNORECASE)
+    culture_match = re.search(patterns['culture'], clean_text, re.IGNORECASE)
+    action_match = re.search(patterns['action'], clean_text, re.IGNORECASE)
+    
+    product = product_match.group(1).strip().upper() if product_match else None
+    culture = culture_match.group(0).lower() if culture_match else "multi"
+    action = action_match.group(0).lower() if action_match else "conscientização"
+    
+    return product, culture, action
+
+def generate_context(content, product_name, culture, action, data_input, formato_principal):
+    """Gera o texto de contexto discursivo usando LLM"""
+    if not gemini_api_key:
+        return "API key do Gemini não configurada. Contexto não disponível."
+    
+    # Determinar mês em português
+    meses = {
+        1: "janeiro", 2: "fevereiro", 3: "março", 4: "abril",
+        5: "maio", 6: "junho", 7: "julho", 8: "agosto",
+        9: "setembro", 10: "outubro", 11: "novembro", 12: "dezembro"
+    }
+    mes = meses[data_input.month]
+    
+    prompt = f"""
+    Como redator especializado em agronegócio da Syngenta, elabore um texto contextual discursivo de 3-4 parágrafos para uma pauta de conteúdo.
+
+    Informações da pauta:
+    - Produto: {product_name}
+    - Cultura: {culture}
+    - Ação/tema: {action}
+    - Mês de publicação: {mes}
+    - Formato principal: {formato_principal}
+    - Conteúdo original: {content}
+
+    Descrição do produto: {PRODUCT_DESCRIPTIONS.get(product_name, 'Produto agrícola Syngenta')}
+
+    Instruções:
+    - Escreva em formato discursivo e fluido, com 3-4 parágrafos bem estruturados
+    - Mantenha tom técnico mas acessível, adequado para produtores rurais
+    - Contextualize a importância do tema para a cultura e época do ano
+    - Explique por que este conteúdo é relevante neste momento
+    - Inclua considerações sobre o público-alvo e objetivos da comunicação
+    - Não repita literalmente a descrição do produto, mas a incorpore naturalmente no texto
+    - Use linguagem persuasiva mas factual, baseada em dados técnicos
+
+    Formato: Texto corrido em português brasileiro
+    """
+    
+    try:
+        response = modelo_texto.generate_content(prompt)
+        return response.text
+    except Exception as e:
+        return f"Erro ao gerar contexto: {str(e)}"
+
+def generate_platform_strategy(product_name, culture, action, content):
+    """Gera estratégia por plataforma usando Gemini"""
+    if not gemini_api_key:
+        return "API key do Gemini não configurada. Estratégias por plataforma não disponíveis."
+    
+    prompt = f"""
+    Como especialista em mídias sociais para o agronegócio Syngenta, crie uma estratégia de conteúdo detalhada:
+
+    PRODUTO: {product_name}
+    CULTURA: {culture}
+    AÇÃO: {action}
+    CONTEÚDO ORIGINAL: {content}
+    DESCRIÇÃO DO PRODUTO: {PRODUCT_DESCRIPTIONS.get(product_name, 'Produto agrícola Syngenta')}
+
+    FORNECER ESTRATÉGIA PARA:
+    - Instagram (Feed, Reels, Stories)
+    - Facebook 
+    - LinkedIn
+    - WhatsApp Business
+    - YouTube
+    - Portal Mais Agro (blog)
+
+    INCLUIR PARA CADA PLATAFORMA:
+    1. Tipo de conteúdo recomendado
+    2. Formato ideal (vídeo, carrossel, estático, etc.)
+    3. Tom de voz apropriado
+    4. CTA específico
+    5. Melhores práticas
+
+    Formato: Texto claro com seções bem definidas
+    """
+    
+    try:
+        response = modelo_texto.generate_content(prompt)
+        return response.text
+    except Exception as e:
+        return f"Erro ao gerar estratégia: {str(e)}"
+
+def generate_briefing(content, product_name, culture, action, data_input, formato_principal):
+    """Gera um briefing completo em formato de texto puro"""
+    description = PRODUCT_DESCRIPTIONS.get(product_name, "Descrição do produto não disponível.")
+    context = generate_context(content, product_name, culture, action, data_input, formato_principal)
+    platform_strategy = generate_platform_strategy(product_name, culture, action, content)
+    
+    briefing = f"""
+BRIEFING DE CONTEÚDO - {product_name} - {culture.upper()} - {action.upper()}
+
+CONTEXTO E OBJETIVO
+{context}
+
+DESCRIÇÃO DO PRODUTO
+{description}
+
+ESTRATÉGIA POR PLATAFORMA
+{platform_strategy}
+
+FORMATOS SUGERIDOS
+- Instagram: Reels + Stories + Feed post
+- Facebook: Carrossel + Link post
+- LinkedIn: Artigo + Post informativo
+- WhatsApp: Card informativo + Link
+- YouTube: Shorts + Vídeo explicativo
+- Portal Mais Agro: Blog post + Webstories
+
+CONTATOS E OBSERVAÇÕES
+- Validar com especialista técnico
+- Checar disponibilidade de imagens/vídeos
+- Incluir CTA para portal Mais Agro
+- Seguir guidelines de marca Syngenta
+- Revisar compliance regulatório
+
+DATA PREVISTA: {data_input.strftime('%d/%m/%Y')}
+FORMATO PRINCIPAL: {formato_principal}
+"""
+    return briefing
+
+# --- Interface Principal ---
 st.sidebar.title(f"🤖 Bem-vindo, {st.session_state.user}!")
 st.sidebar.info(f"**Agente selecionado:** {agente_selecionado['nome']}")
 
@@ -959,19 +562,197 @@ if "segmentos_selecionados" not in st.session_state:
 if "show_historico" not in st.session_state:
     st.session_state.show_historico = False
 
-# Menu de abas - ABA UNIFICADA DE VALIDAÇÃO
-tab_chat, tab_gerenciamento, tab_validacao, tab_geracao, tab_resumo, tab_busca, tab_revisao, tab_monitoramento = st.tabs([
+# Menu de abas - DETERMINAR QUAIS ABAS MOSTRAR
+abas_base = [
     "💬 Chat", 
     "⚙️ Gerenciar Agentes", 
-    "✅ Validação Unificada",  # ABA UNIFICADA
+    "✅ Validação Unificada",
     "✨ Geração de Conteúdo",
     "📝 Resumo de Textos",
     "🌐 Busca Web",
     "📝 Revisão Ortográfica",
     "Monitoramento de Redes"
-])
+]
 
-with tab_gerenciamento:
+# Adicionar aba de Briefing Syngenta apenas se o agente for da Syngenta
+if is_syngenta_agent(agente_selecionado['nome']):
+    abas_base.append("📋 Briefing Syngenta")
+
+# Criar abas dinamicamente
+tabs = st.tabs(abas_base)
+
+# Mapear abas para suas respectivas funcionalidades
+tab_mapping = {}
+for i, aba in enumerate(abas_base):
+    tab_mapping[aba] = tabs[i]
+
+# --- ABA: CHAT ---
+with tab_mapping["💬 Chat"]:
+    st.header("💬 Chat com Agente")
+    
+    # Inicializar session_state se não existir
+    if 'messages' not in st.session_state:
+        st.session_state.messages = []
+    if 'segmentos_selecionados' not in st.session_state:
+        st.session_state.segmentos_selecionados = []
+    if 'show_historico' not in st.session_state:
+        st.session_state.show_historico = False
+    
+    agente = st.session_state.agente_selecionado
+    st.subheader(f"Conversando com: {agente['nome']}")
+    
+    # Controles de navegação no topo
+    col1, col2, col3 = st.columns([1, 1, 1])
+    
+    with col1:
+        if st.button("📚 Carregar Histórico", key="carregar_historico"):
+            st.session_state.show_historico = not st.session_state.show_historico
+            st.rerun()
+    
+    with col2:
+        if st.button("🔄 Limpar Chat", key="limpar_chat"):
+            st.session_state.messages = []
+            if hasattr(st.session_state, 'historico_contexto'):
+                st.session_state.historico_contexto = []
+            st.success("Chat limpo!")
+            st.rerun()
+    
+    with col3:
+        if st.button("🔁 Trocar Agente", key="trocar_agente_chat"):
+            st.session_state.agente_selecionado = None
+            st.session_state.messages = []
+            st.session_state.historico_contexto = []
+            st.rerun()
+    
+    # Mostrar se há histórico carregado
+    if hasattr(st.session_state, 'historico_contexto') and st.session_state.historico_contexto:
+        st.info(f"📖 Usando histórico anterior com {len(st.session_state.historico_contexto)} mensagens como contexto")
+    
+    # Modal para seleção de histórico
+    if st.session_state.show_historico:
+        with st.expander("📚 Selecionar Histórico de Conversa", expanded=True):
+            conversas_anteriores = listar_conversas(agente['_id'])
+            
+            if conversas_anteriores:
+                for i, conversa in enumerate(conversas_anteriores[:10]):  # Últimas 10 conversas
+                    col_hist1, col_hist2, col_hist3 = st.columns([3, 1, 1])
+                    
+                    with col_hist1:
+                        # CORREÇÃO: Usar get() para evitar KeyError
+                        data_display = conversa.get('data_formatada', conversa.get('data', 'Data desconhecida'))
+                        mensagens_count = len(conversa.get('mensagens', []))
+                        st.write(f"**{data_display}** - {mensagens_count} mensagens")
+                    
+                    with col_hist2:
+                        if st.button("👀 Visualizar", key=f"ver_{i}"):
+                            st.session_state.conversa_visualizada = conversa.get('mensagens', [])
+                    
+                    with col_hist3:
+                        if st.button("📥 Usar", key=f"usar_{i}"):
+                            st.session_state.messages = conversa.get('mensagens', [])
+                            st.session_state.historico_contexto = conversa.get('mensagens', [])
+                            st.session_state.show_historico = False
+                            st.success(f"✅ Histórico carregado: {len(conversa.get('mensagens', []))} mensagens")
+                            st.rerun()
+                
+                # Visualizar conversa selecionada
+                if hasattr(st.session_state, 'conversa_visualizada'):
+                    st.subheader("👀 Visualização do Histórico")
+                    for msg in st.session_state.conversa_visualizada[-6:]:  # Últimas 6 mensagens
+                        with st.chat_message(msg.get("role", "user")):
+                            st.markdown(msg.get("content", ""))
+                    
+                    if st.button("Fechar Visualização", key="fechar_visualizacao"):
+                        st.session_state.conversa_visualizada = None
+                        st.rerun()
+            else:
+                st.info("Nenhuma conversa anterior encontrada")
+    
+    # Mostrar informações de herança se aplicável
+    if 'agente_mae_id' in agente and agente['agente_mae_id']:
+        agente_original = obter_agente(agente['_id'])
+        if agente_original and agente_original.get('herdar_elementos'):
+            st.info(f"🔗 Este agente herda {len(agente_original['herdar_elementos'])} elementos do agente mãe")
+    
+    # Controles de segmentos na sidebar do chat
+    st.sidebar.subheader("🔧 Configurações do Agente")
+    st.sidebar.write("Selecione quais bases de conhecimento usar:")
+    
+    segmentos_disponiveis = {
+        "Prompt do Sistema": "system_prompt",
+        "Brand Guidelines": "base_conhecimento", 
+        "Comentários do Cliente": "comments",
+        "Planejamento": "planejamento"
+    }
+    
+    segmentos_selecionados = []
+    for nome, chave in segmentos_disponiveis.items():
+        if st.sidebar.checkbox(nome, value=chave in st.session_state.segmentos_selecionados, key=f"seg_{chave}"):
+            segmentos_selecionados.append(chave)
+    
+    st.session_state.segmentos_selecionados = segmentos_selecionados
+    
+    # Exibir status dos segmentos
+    if segmentos_selecionados:
+        st.sidebar.success(f"✅ Usando {len(segmentos_selecionados)} segmento(s)")
+    else:
+        st.sidebar.warning("⚠️ Nenhum segmento selecionado")
+    
+    # Indicador de posição na conversa
+    if len(st.session_state.messages) > 4:
+        st.caption(f"📄 Conversa com {len(st.session_state.messages)} mensagens")
+    
+    # CORREÇÃO: Exibir histórico de mensagens DENTRO do contexto correto
+    # Verificar se messages existe e é iterável
+    if hasattr(st.session_state, 'messages') and st.session_state.messages:
+        for message in st.session_state.messages:
+            # Verificar se message é um dicionário e tem a chave 'role'
+            if isinstance(message, dict) and "role" in message:
+                with st.chat_message(message["role"]):
+                    st.markdown(message.get("content", ""))
+            else:
+                # Se a estrutura não for a esperada, pular esta mensagem
+                continue
+    else:
+        # Se não houver mensagens, mostrar estado vazio
+        st.info("💬 Inicie uma conversa digitando uma mensagem abaixo!")
+    
+    # Input do usuário
+    if prompt := st.chat_input("Digite sua mensagem..."):
+        # Adicionar mensagem do usuário ao histórico
+        st.session_state.messages.append({"role": "user", "content": prompt})
+        with st.chat_message("user"):
+            st.markdown(prompt)
+        
+        # Construir contexto com segmentos selecionados
+        contexto = construir_contexto(
+            agente, 
+            st.session_state.segmentos_selecionados, 
+            st.session_state.messages
+        )
+        
+        # Gerar resposta
+        with st.chat_message("assistant"):
+            with st.spinner('Pensando...'):
+                try:
+                    resposta = modelo_texto.generate_content(contexto)
+                    st.markdown(resposta.text)
+                    
+                    # Adicionar ao histórico
+                    st.session_state.messages.append({"role": "assistant", "content": resposta.text})
+                    
+                    # Salvar conversa com segmentos utilizados
+                    salvar_conversa(
+                        agente['_id'], 
+                        st.session_state.messages,
+                        st.session_state.segmentos_selecionados
+                    )
+                    
+                except Exception as e:
+                    st.error(f"Erro ao gerar resposta: {str(e)}")
+
+# --- ABA: GERENCIAMENTO DE AGENTES ---
+with tab_mapping["⚙️ Gerenciar Agentes"]:
     st.header("Gerenciamento de Agentes")
     
     # Verificar autenticação apenas para gerenciamento
@@ -1204,172 +985,288 @@ with tab_gerenciamento:
                 else:
                     st.info("Nenhum agente encontrado para esta categoria.")
 
-with tab_chat:
-    st.header("💬 Chat com Agente")
-    
-    # Inicializar session_state se não existir
-    if 'messages' not in st.session_state:
-        st.session_state.messages = []
-    if 'segmentos_selecionados' not in st.session_state:
-        st.session_state.segmentos_selecionados = []
-    if 'show_historico' not in st.session_state:
-        st.session_state.show_historico = False
-    
-    agente = st.session_state.agente_selecionado
-    st.subheader(f"Conversando com: {agente['nome']}")
-    
-    # Controles de navegação no topo
-    col1, col2, col3 = st.columns([1, 1, 1])
-    
-    with col1:
-        if st.button("📚 Carregar Histórico", key="carregar_historico"):
-            st.session_state.show_historico = not st.session_state.show_historico
-            st.rerun()
-    
-    with col2:
-        if st.button("🔄 Limpar Chat", key="limpar_chat"):
-            st.session_state.messages = []
-            if hasattr(st.session_state, 'historico_contexto'):
-                st.session_state.historico_contexto = []
-            st.success("Chat limpo!")
-            st.rerun()
-    
-    with col3:
-        if st.button("🔁 Trocar Agente", key="trocar_agente_chat"):
-            st.session_state.agente_selecionado = None
-            st.session_state.messages = []
-            st.session_state.historico_contexto = []
-            st.rerun()
-    
-    # Mostrar se há histórico carregado
-    if hasattr(st.session_state, 'historico_contexto') and st.session_state.historico_contexto:
-        st.info(f"📖 Usando histórico anterior com {len(st.session_state.historico_contexto)} mensagens como contexto")
-    
-    # Modal para seleção de histórico
-    if st.session_state.show_historico:
-        with st.expander("📚 Selecionar Histórico de Conversa", expanded=True):
-            conversas_anteriores = listar_conversas(agente['_id'])
+# --- ABA: BRIEFING SYNGENTA (APENAS SE AGENTE FOR DA SYNGENTA) ---
+if "📋 Briefing Syngenta" in tab_mapping:
+    with tab_mapping["📋 Briefing Syngenta"]:
+        st.header("📋 Gerador de Briefings - SYN")
+        st.markdown("Digite o conteúdo da célula do calendário para gerar um briefing completo no padrão SYN.")
+        
+        # Abas para diferentes modos de operação
+        tab1, tab2 = st.tabs(["Briefing Individual", "Processamento em Lote (CSV)"])
+        
+        with tab1:
+            st.markdown("### Digite o conteúdo da célula do calendário")
+
+            content_input = st.text_area(
+                "Conteúdo da célula:",
+                placeholder="Ex: megafol - série - potencial máximo, todo o tempo",
+                height=100,
+                help="Cole aqui o conteúdo exato da célula do calendário do Sheets",
+                key="individual_content"
+            )
+
+            # Campos opcionais para ajuste
+            col1, col2 = st.columns(2)
+
+            with col1:
+                data_input = st.date_input("Data prevista:", value=datetime.datetime.now(), key="individual_date")
+
+            with col2:
+                formato_principal = st.selectbox(
+                    "Formato principal:",
+                    ["Reels + capa", "Carrossel + stories", "Blog + redes", "Vídeo + stories", "Multiplataforma"],
+                    key="individual_format"
+                )
+
+            generate_btn = st.button("Gerar Briefing Individual", type="primary", key="individual_btn")
+
+            # Processamento e exibição do briefing individual
+            if generate_btn and content_input:
+                with st.spinner("Analisando conteúdo e gerando briefing..."):
+                    # Extrair informações do produto
+                    product, culture, action = extract_product_info(content_input)
+                    
+                    if product and product in PRODUCT_DESCRIPTIONS:
+                        # Gerar briefing completo
+                        briefing = generate_briefing(content_input, product, culture, action, data_input, formato_principal)
+                        
+                        # Exibir briefing
+                        st.markdown("## Briefing Gerado")
+                        st.text(briefing)
+                        
+                        # Botão de download
+                        st.download_button(
+                            label="Baixar Briefing",
+                            data=briefing,
+                            file_name=f"briefing_{product}_{data_input.strftime('%Y%m%d')}.txt",
+                            mime="text/plain",
+                            key="individual_download"
+                        )
+                        
+                        # Informações extras
+                        with st.expander("Informações Extraídas"):
+                            st.write(f"Produto: {product}")
+                            st.write(f"Cultura: {culture}")
+                            st.write(f"Ação: {action}")
+                            st.write(f"Data: {data_input.strftime('%d/%m/%Y')}")
+                            st.write(f"Formato principal: {formato_principal}")
+                            st.write(f"Descrição: {PRODUCT_DESCRIPTIONS[product]}")
+                            
+                    elif product:
+                        st.warning(f"Produto '{product}' não encontrado no dicionário. Verifique a grafia.")
+                        st.info("Produtos disponíveis: " + ", ".join(list(PRODUCT_DESCRIPTIONS.keys())[:10]) + "...")
+                    else:
+                        st.error("Não foi possível identificar um produto no conteúdo. Tente formatos como:")
+                        st.code("""
+                        megafol - série - potencial máximo, todo o tempo
+                        verdavis - soja - depoimento produtor
+                        engeo pleno s - milho - controle percevejo
+                        miravis duo - algodão - reforço preventivo
+                        """)
+
+        with tab2:
+            st.markdown("### Processamento em Lote via CSV")
             
-            if conversas_anteriores:
-                for i, conversa in enumerate(conversas_anteriores[:10]):  # Últimas 10 conversas
-                    col_hist1, col_hist2, col_hist3 = st.columns([3, 1, 1])
-                    
-                    with col_hist1:
-                        # CORREÇÃO: Usar get() para evitar KeyError
-                        data_display = conversa.get('data_formatada', conversa.get('data', 'Data desconhecida'))
-                        mensagens_count = len(conversa.get('mensagens', []))
-                        st.write(f"**{data_display}** - {mensagens_count} mensagens")
-                    
-                    with col_hist2:
-                        if st.button("👀 Visualizar", key=f"ver_{i}"):
-                            st.session_state.conversa_visualizada = conversa.get('mensagens', [])
-                    
-                    with col_hist3:
-                        if st.button("📥 Usar", key=f"usar_{i}"):
-                            st.session_state.messages = conversa.get('mensagens', [])
-                            st.session_state.historico_contexto = conversa.get('mensagens', [])
-                            st.session_state.show_historico = False
-                            st.success(f"✅ Histórico carregado: {len(conversa.get('mensagens', []))} mensagens")
-                            st.rerun()
-                
-                # Visualizar conversa selecionada
-                if hasattr(st.session_state, 'conversa_visualizada'):
-                    st.subheader("👀 Visualização do Histórico")
-                    for msg in st.session_state.conversa_visualizada[-6:]:  # Últimas 6 mensagens
-                        with st.chat_message(msg.get("role", "user")):
-                            st.markdown(msg.get("content", ""))
-                    
-                    if st.button("Fechar Visualização", key="fechar_visualizacao"):
-                        st.session_state.conversa_visualizada = None
-                        st.rerun()
-            else:
-                st.info("Nenhuma conversa anterior encontrada")
-    
-    # Mostrar informações de herança se aplicável
-    if 'agente_mae_id' in agente and agente['agente_mae_id']:
-        agente_original = obter_agente(agente['_id'])
-        if agente_original and agente_original.get('herdar_elementos'):
-            st.info(f"🔗 Este agente herda {len(agente_original['herdar_elementos'])} elementos do agente mãe")
-    
-    # Controles de segmentos na sidebar do chat
-    st.sidebar.subheader("🔧 Configurações do Agente")
-    st.sidebar.write("Selecione quais bases de conhecimento usar:")
-    
-    segmentos_disponiveis = {
-        "Prompt do Sistema": "system_prompt",
-        "Brand Guidelines": "base_conhecimento", 
-        "Comentários do Cliente": "comments",
-        "Planejamento": "planejamento"
-    }
-    
-    segmentos_selecionados = []
-    for nome, chave in segmentos_disponiveis.items():
-        if st.sidebar.checkbox(nome, value=chave in st.session_state.segmentos_selecionados, key=f"seg_{chave}"):
-            segmentos_selecionados.append(chave)
-    
-    st.session_state.segmentos_selecionados = segmentos_selecionados
-    
-    # Exibir status dos segmentos
-    if segmentos_selecionados:
-        st.sidebar.success(f"✅ Usando {len(segmentos_selecionados)} segmento(s)")
-    else:
-        st.sidebar.warning("⚠️ Nenhum segmento selecionado")
-    
-    # Indicador de posição na conversa
-    if len(st.session_state.messages) > 4:
-        st.caption(f"📄 Conversa com {len(st.session_state.messages)} mensagens")
-    
-    # CORREÇÃO: Exibir histórico de mensagens DENTRO do contexto correto
-    # Verificar se messages existe e é iterável
-    if hasattr(st.session_state, 'messages') and st.session_state.messages:
-        for message in st.session_state.messages:
-            # Verificar se message é um dicionário e tem a chave 'role'
-            if isinstance(message, dict) and "role" in message:
-                with st.chat_message(message["role"]):
-                    st.markdown(message.get("content", ""))
-            else:
-                # Se a estrutura não for a esperada, pular esta mensagem
-                continue
-    else:
-        # Se não houver mensagens, mostrar estado vazio
-        st.info("💬 Inicie uma conversa digitando uma mensagem abaixo!")
-    
-    # Input do usuário
-    if prompt := st.chat_input("Digite sua mensagem..."):
-        # Adicionar mensagem do usuário ao histórico
-        st.session_state.messages.append({"role": "user", "content": prompt})
-        with st.chat_message("user"):
-            st.markdown(prompt)
-        
-        # Construir contexto com segmentos selecionados
-        contexto = construir_contexto(
-            agente, 
-            st.session_state.segmentos_selecionados, 
-            st.session_state.messages
-        )
-        
-        # Gerar resposta
-        with st.chat_message("assistant"):
-            with st.spinner('Pensando...'):
+            st.info("""
+            Faça upload de um arquivo CSV exportado do Google Sheets.
+            O sistema irá processar cada linha a partir da segunda linha (ignorando cabeçalhos)
+            e gerar briefings apenas para as linhas que contêm produtos reconhecidos.
+            """)
+            
+            uploaded_file = st.file_uploader(
+                "Escolha o arquivo CSV", 
+                type=['csv'],
+                help="Selecione o arquivo CSV exportado do Google Sheets"
+            )
+            
+            if uploaded_file is not None:
                 try:
-                    resposta = modelo_texto.generate_content(contexto)
-                    st.markdown(resposta.text)
+                    # Ler o CSV
+                    df = pd.read_csv(uploaded_file)
+                    st.success(f"CSV carregado com sucesso! {len(df)} linhas encontradas.")
                     
-                    # Adicionar ao histórico
-                    st.session_state.messages.append({"role": "assistant", "content": resposta.text})
+                    # Mostrar prévia do arquivo
+                    with st.expander("Visualizar primeiras linhas do CSV"):
+                        st.dataframe(df.head())
                     
-                    # Salvar conversa com segmentos utilizados
-                    salvar_conversa(
-                        agente['_id'], 
-                        st.session_state.messages,
-                        st.session_state.segmentos_selecionados
+                    # Configurações para processamento em lote
+                    st.markdown("### Configurações do Processamento em Lote")
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        data_padrao = st.date_input(
+                            "Data padrão para todos os briefings:",
+                            value=datetime.datetime.now(),
+                            key="batch_date"
+                        )
+                    
+                    with col2:
+                        formato_padrao = st.selectbox(
+                            "Formato principal padrão:",
+                            ["Reels + capa", "Carrossel + stories", "Blog + redes", "Vídeo + stories", "Multiplataforma"],
+                            key="batch_format"
+                        )
+                    
+                    # Identificar coluna com conteúdo
+                    colunas = df.columns.tolist()
+                    coluna_conteudo = st.selectbox(
+                        "Selecione a coluna que contém o conteúdo das células:",
+                        colunas,
+                        help="Selecione a coluna que contém os textos das células do calendário"
                     )
                     
+                    processar_lote = st.button("Processar CSV e Gerar Briefings", type="primary", key="batch_btn")
+                    
+                    if processar_lote:
+                        briefings_gerados = []
+                        linhas_processadas = 0
+                        linhas_com_produto = 0
+                        
+                        progress_bar = st.progress(0)
+                        status_text = st.empty()
+                        
+                        for index, row in df.iterrows():
+                            linhas_processadas += 1
+                            progress_bar.progress(linhas_processadas / len(df))
+                            status_text.text(f"Processando linha {linhas_processadas} de {len(df)}...")
+                            
+                            # Pular a primeira linha (cabeçalhos)
+                            if index == 0:
+                                continue
+                            
+                            # Obter conteúdo da célula
+                            content = str(row[coluna_conteudo]) if pd.notna(row[coluna_conteudo]) else ""
+                            
+                            if content:
+                                # Extrair informações do produto
+                                product, culture, action = extract_product_info(content)
+                                
+                                if product and product in PRODUCT_DESCRIPTIONS:
+                                    linhas_com_produto += 1
+                                    # Gerar briefing
+                                    briefing = generate_briefing(
+                                        content, 
+                                        product, 
+                                        culture, 
+                                        action, 
+                                        data_padrao, 
+                                        formato_padrao
+                                    )
+                                    
+                                    briefings_gerados.append({
+                                        'linha': index + 1,
+                                        'produto': product,
+                                        'conteudo': content,
+                                        'briefing': briefing,
+                                        'arquivo': f"briefing_{product}_{index+1}.txt"
+                                    })
+                        
+                        progress_bar.empty()
+                        status_text.empty()
+                        
+                        # Resultados do processamento
+                        st.success(f"Processamento concluído! {linhas_com_produto} briefings gerados de {linhas_processadas-1} linhas processadas.")
+                        
+                        if briefings_gerados:
+                            # Exibir resumo
+                            st.markdown("### Briefings Gerados")
+                            resumo_df = pd.DataFrame([{
+                                'Linha': b['linha'],
+                                'Produto': b['produto'],
+                                'Conteúdo': b['conteudo'][:50] + '...' if len(b['conteudo']) > 50 else b['conteudo']
+                            } for b in briefings_gerados])
+                            
+                            st.dataframe(resumo_df)
+                            
+                            # Criar arquivo ZIP com todos os briefings
+                            import zipfile
+                            from io import BytesIO
+                            
+                            zip_buffer = BytesIO()
+                            with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+                                for briefing_info in briefings_gerados:
+                                    zip_file.writestr(
+                                        briefing_info['arquivo'], 
+                                        briefing_info['briefing']
+                                    )
+                            
+                            zip_buffer.seek(0)
+                            
+                            # Botão para download do ZIP
+                            st.download_button(
+                                label="📥 Baixar Todos os Briefings (ZIP)",
+                                data=zip_buffer,
+                                file_name="briefings_syngenta.zip",
+                                mime="application/zip",
+                                key="batch_download_zip"
+                            )
+                            
+                            # Também permitir download individual
+                            st.markdown("---")
+                            st.markdown("### Download Individual")
+                            
+                            for briefing_info in briefings_gerados:
+                                col1, col2 = st.columns([3, 1])
+                                with col1:
+                                    st.text(f"Linha {briefing_info['linha']}: {briefing_info['produto']} - {briefing_info['conteudo'][:30]}...")
+                                with col2:
+                                    st.download_button(
+                                        label="📄 Baixar",
+                                        data=briefing_info['briefing'],
+                                        file_name=briefing_info['arquivo'],
+                                        mime="text/plain",
+                                        key=f"download_{briefing_info['linha']}"
+                                    )
+                        else:
+                            st.warning("Nenhum briefing foi gerado. Verifique se o CSV contém produtos reconhecidos.")
+                            st.info("Produtos reconhecidos: " + ", ".join(list(PRODUCT_DESCRIPTIONS.keys())[:15]) + "...")
+                            
                 except Exception as e:
-                    st.error(f"Erro ao gerar resposta: {str(e)}")
+                    st.error(f"Erro ao processar o arquivo CSV: {str(e)}")
 
-# --- ABA UNIFICADA DE VALIDAÇÃO ---
-with tab_validacao:
+        # Seção de exemplos
+        with st.expander("Exemplos de Conteúdo", expanded=True):
+            st.markdown("""
+            Formatos Reconhecidos:
+
+            Padrão: PRODUTO - CULTURA - AÇÃO ou PRODUTO - AÇÃO
+
+            Exemplos:
+            - megafol - série - potencial máximo, todo o tempo
+            - verdavis - milho - resultados do produto
+            - engeo pleno s - soja - resultados GTEC
+            - miravis duo - algodão - depoimento produtor
+            - axial - trigo - reforço pós-emergente
+            - manejo limpo - importância manejo antecipado
+            - certano HF - a jornada de certano
+            - elestal neo - soja - depoimento de produtor
+            - fortenza - a jornada da semente mais forte - EP 01
+            - reverb - vídeo conceito
+            """)
+
+        # Lista de produtos reconhecidos
+        with st.expander("Produtos Reconhecidos"):
+            col1, col2, col3 = st.columns(3)
+            products = list(PRODUCT_DESCRIPTIONS.keys())
+            
+            with col1:
+                for product in products[:10]:
+                    st.write(f"• {product}")
+            
+            with col2:
+                for product in products[10:20]:
+                    st.write(f"• {product}")
+            
+            with col3:
+                for product in products[20:]:
+                    st.write(f"• {product}")
+
+        # Rodapé
+        st.markdown("---")
+        st.caption("Ferramenta de geração automática de briefings - Padrão SYN. Digite o conteúdo da célula do calendário para gerar briefings completos.")
+
+# --- ABA: VALIDAÇÃO UNIFICADA ---
+with tab_mapping["✅ Validação Unificada"]:
     st.header("✅ Validação Unificada de Conteúdo")
     
     if not st.session_state.get('agente_selecionado'):
@@ -1654,9 +1551,9 @@ with tab_validacao:
                             
                         except Exception as e:
                             st.error(f"❌ Erro ao validar texto: {str(e)}")
-                            
-# ========== ABA: GERAÇÃO DE CONTEÚDO ==========
-with tab_geracao:
+
+# --- ABA: GERAÇÃO DE CONTEÚDO ---
+with tab_mapping["✨ Geração de Conteúdo"]:
     st.header("✨ Geração de Conteúdo com Múltiplos Insumos")
     
     # Conexão com MongoDB para briefings
@@ -2013,7 +1910,7 @@ Pontos-chave: [lista os principais pontos]""")
                 historico = list(db_briefings['historico_geracao'].find().sort("data_criacao", -1).limit(5))
                 if historico:
                     for item in historico:
-                        st.write(f"**{item['tipo_conteudo']}** - {item['data_criacao'].strftime('%d/%m/%Y %H:%M')}")
+                        st.write(f"**{item['tipo_conteúdo']}** - {item['data_criacao'].strftime('%d/%m/%Y %H:%M')}")
                         st.caption(f"Palavras-chave: {item.get('palavras_chave', 'Nenhuma')} | Tom: {item['tom_voz']}")
                         with st.expander("Ver conteúdo"):
                             st.write(item['conteudo_gerado'][:500] + "..." if len(item['conteudo_gerado']) > 500 else item['conteudo_gerado'])
@@ -2022,7 +1919,8 @@ Pontos-chave: [lista os principais pontos]""")
             except Exception as e:
                 st.warning(f"Erro ao carregar histórico: {str(e)}")
 
-with tab_resumo:
+# --- ABA: RESUMO DE TEXTOS ---
+with tab_mapping["📝 Resumo de Textos"]:
     st.header("📝 Resumo de Textos")
     
     if not st.session_state.agente_selecionado:
@@ -2114,7 +2012,8 @@ with tab_resumo:
                         except Exception as e:
                             st.error(f"Erro ao gerar resumo: {str(e)}")
 
-with tab_busca:
+# --- ABA: BUSCA WEB ---
+with tab_mapping["🌐 Busca Web"]:
     st.header("🌐 Busca Web com Perplexity")
     
     if not perp_api_key:
@@ -2312,10 +2211,8 @@ with tab_busca:
             - Limite de 5 URLs por análise para melhor performance
             """)
 
-
-
 # --- ABA: REVISÃO ORTOGRÁFICA ---
-with tab_revisao:
+with tab_mapping["📝 Revisão Ortográfica"]:
     st.header("📝 Revisão Ortográfica e Gramatical")
     
     if not st.session_state.agente_selecionado:
@@ -2499,8 +2396,8 @@ with tab_revisao:
             - **Eficiência**: Reduz tempo de revisão manual
             """)
 
-# ========== ABA: AGENTE DE MONITORAMENTO ==========
-with tab_monitoramento:
+# --- ABA: MONITORAMENTO DE REDES ---
+with tab_mapping["Monitoramento de Redes"]:
     st.header("🤖 Agente de Monitoramento")
     st.markdown("**Especialista que fala como gente** - Conectando conhecimento técnico e engajamento social")
     
