@@ -14,7 +14,7 @@ import PyPDF2
 from pptx import Presentation
 import docx
 import openai
-from typing import List, Dict
+from typing import List, Dict, Tuple
 import hashlib
 import pandas as pd
 import re
