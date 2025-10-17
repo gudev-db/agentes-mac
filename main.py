@@ -26,62 +26,42 @@ st.set_page_config(
     page_icon="🤖"
 )
 
-# --- FUNÇÃO PARA EXTRAIR FRAMES DO VÍDEO ---
-def extrair_frames_video(video_path, num_frames=5):
+import os
+import PyPDF2
+import pdfplumber
+from pathlib import Path
+
+def extract_text_from_pdf(pdf_path):
     """
-    Extrai frames equidistantes de um vídeo
+    Extract text from a PDF file using multiple methods for better coverage
     """
+    text = ""
+
+    # Method 1: Try with pdfplumber (better for some PDFs)
     try:
-        import cv2
-        import numpy as np
-        
-        # Abrir o vídeo
-        cap = cv2.VideoCapture(video_path)
-        
-        if not cap.isOpened():
-            st.error("❌ Não foi possível abrir o vídeo")
-            return []
-        
-        # Obter informações do vídeo
-        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        fps = cap.get(cv2.CAP_PROP_FPS)
-        duration = total_frames / fps if fps > 0 else 0
-        
-        st.info(f"📊 Informações do vídeo: {total_frames} frames, {duration:.1f} segundos, {fps:.1f} FPS")
-        
-        # Calcular intervalos para frames equidistantes
-        frame_interval = max(1, total_frames // num_frames)
-        frames_to_capture = [min(i * frame_interval, total_frames - 1) for i in range(num_frames)]
-        
-        frames = []
-        for frame_num in frames_to_capture:
-            cap.set(cv2.CAP_PROP_POS_FRAMES, frame_num)
-            ret, frame = cap.read()
-            
-            if ret:
-                # Converter BGR para RGB
-                frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                
-                # Converter para PIL Image
-                from PIL import Image
-                pil_image = Image.fromarray(frame_rgb)
-                
-                # Redimensionar se muito grande (para economia de tokens)
-                max_size = (800, 600)
-                pil_image.thumbnail(max_size, Image.Resampling.LANCZOS)
-                
-                frames.append(pil_image)
-        
-        cap.release()
-        
-        if len(frames) < num_frames:
-            st.warning(f"⚠️ Apenas {len(frames)} frames puderam ser extraídos")
-        
-        return frames
-        
+        with pdfplumber.open(pdf_path) as pdf:
+            for page in pdf.pages:
+                page_text = page.extract_text()
+                if page_text:
+                    text += page_text + "\n"
     except Exception as e:
-        st.error(f"❌ Erro ao extrair frames: {str(e)}")
-        return []
+        print(f"pdfplumber failed for {pdf_path}: {e}")
+
+    # Method 2: Fallback to PyPDF2 if pdfplumber didn't extract much text
+    if len(text.strip()) < 100:  # If very little text was extracted
+        try:
+            with open(pdf_path, 'rb') as file:
+                pdf_reader = PyPDF2.PdfReader(file)
+                for page in pdf_reader.pages:
+                    page_text = page.extract_text()
+                    if page_text:
+                        text += page_text + "\n"
+        except Exception as e:
+            print(f"PyPDF2 also failed for {pdf_path}: {e}")
+
+    return text
+    
+
 
 # --- Sistema de Autenticação ---
 def make_hashes(password):
@@ -96,6 +76,63 @@ users = {
     "user1": make_hashes("password1"),  # user1/password1
     "user2": make_hashes("password2")   # user2/password2
 }
+
+
+import os
+from pathlib import Path
+from pptx import Presentation
+
+def extract_text_from_pptx(pptx_path):
+    """
+    Extract text from a PowerPoint file (.pptx)
+    """
+    text = ""
+    
+    try:
+        # Open the presentation
+        prs = Presentation(pptx_path)
+        
+        # Process each slide
+        for slide_number, slide in enumerate(prs.slides, 1):
+            text += f"\n--- Slide {slide_number} ---\n"
+            
+            # Extract text from shapes
+            for shape in slide.shapes:
+                if hasattr(shape, "text") and shape.text:
+                    text += shape.text + "\n"
+                
+                # Handle tables
+                if shape.shape_type == 19:  # Table shape type
+                    table = shape.table
+                    for row in table.rows:
+                        row_text = " | ".join(cell.text for cell in row.cells if cell.text)
+                        if row_text:
+                            text += row_text + "\n"
+            
+            text += "\n"  # Add spacing between slides
+    
+    except Exception as e:
+        print(f"Error processing {pptx_path}: {e}")
+        text = f"ERROR: Could not extract text from {pptx_path}\nError: {e}"
+    
+    return text
+
+def extract_metadata_from_pptx(pptx_path):
+    """
+    Extract metadata from PowerPoint file
+    """
+    try:
+        prs = Presentation(pptx_path)
+        metadata = {
+            'slides_count': len(prs.slides),
+            'slide_layouts': len(prs.slide_layouts),
+            'slide_masters': len(prs.slide_masters)
+        }
+        return metadata
+    except Exception as e:
+        return {'error': str(e)}
+
+
 
 def login():
     """Formulário de login"""
