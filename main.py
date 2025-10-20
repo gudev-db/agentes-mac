@@ -1384,7 +1384,7 @@ with tab_mapping["✅ Validação Unificada"]:
                                             ### 🎯 RESUMO DA IMAGEM
                                             [Avaliação geral de conformidade]
                                             
-                                            ### ✅ ELEMENTOS ALINHADOS
+                                            ### ✅ ELEMENTOS ALINHADOS (tanto imagem como texto na imagem analisado ortograficamente e em termos de alinhamento com branding. Revise e corrija o texto também)
                                             - [Itens que seguem as diretrizes]
                                             
                                             ### ⚠️ ELEMENTOS FORA DO PADRÃO
