@@ -1347,7 +1347,7 @@ with tab_mapping["✅ Validação Unificada"]:
                                     with col_img:
                                         # Exibir imagem
                                         image = Image.open(uploaded_image)
-                                        st.image(image, use_column_width=True, caption=f"Imagem {idx+1}: {uploaded_image.name}")
+                                        st.image(image, use_container_width=True, caption=f"Imagem {idx+1}: {uploaded_image.name}")
                                     
                                     with col_info:
                                         # Informações da imagem
@@ -1372,7 +1372,7 @@ with tab_mapping["✅ Validação Unificada"]:
                                             prompt_analise = f"""
                                             {contexto}
                                             
-                                            Analise esta imagem e verifique o alinhamento com as diretrizes de branding.
+                                            Analise esta imagem e verifique o alinhamento (tanto imagem como texto na imagem analisado ortograficamente e em termos de alinhamento com branding. Revise e corrija o texto também) com as diretrizes de branding.
                                             
                                             Forneça a análise em formato claro:
                                             
@@ -1382,16 +1382,16 @@ with tab_mapping["✅ Validação Unificada"]:
                                             **Dimensões:** {image.width} x {image.height}
                                             
                                             ### 🎯 RESUMO DA IMAGEM
-                                            [Avaliação geral de conformidade]
+                                            [Avaliação geral de conformidade visual e textual]
                                             
-                                            ### ✅ ELEMENTOS ALINHADOS (tanto imagem como texto na imagem analisado ortograficamente e em termos de alinhamento com branding. Revise e corrija o texto também)
-                                            - [Itens que seguem as diretrizes]
+                                            ### ✅ ELEMENTOS ALINHADOS 
+                                            - [Itens visuais e textuais que seguem as diretrizes]
                                             
                                             ### ⚠️ ELEMENTOS FORA DO PADRÃO
-                                            - [Itens que não seguem as diretrizes]
+                                            - [Itens visuais e textuais que não seguem as diretrizes]
                                             
                                             ### 💡 RECOMENDAÇÕES
-                                            - [Sugestões para melhorar o alinhamento]
+                                            - [Sugestões para melhorar o alinhamento visual e textual]
                                             
                                             ### 🎨 ASPECTOS TÉCNICOS
                                             - [Composição, cores, tipografia, etc.]
