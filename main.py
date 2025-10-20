@@ -1365,7 +1365,8 @@ with tab_mapping["✅ Validação Unificada"]:
                                                 DIRETRIZES DE BRANDING DO AGENTE:
                                                 {agente['base_conhecimento']}
                                                 
-                                                Analise esta imagem e verifique se está alinhada com as diretrizes de branding acima.
+                                                Analise esta imagem e verifique se está alinhada com as diretrizes de branding acima. Ademais, analise o
+                                                alinhamento tanto ortogtáficamente como alinhamento com a marca de todo ou qualquer texto na imagem analisada.
                                                 """
                                             
                                             prompt_analise = f"""
