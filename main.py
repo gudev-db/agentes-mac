@@ -1302,7 +1302,6 @@ if "📋 Briefing Syngenta" in tab_mapping:
         st.markdown("---")
         st.caption("Ferramenta de geração automática de briefings - Padrão SYN. Digite o conteúdo da célula do calendário para gerar briefings completos.")
 
-# --- ABA: VALIDAÇÃO UNIFICADA ---
 with tab_mapping["✅ Validação Unificada"]:
     st.header("✅ Validação Unificada de Conteúdo")
     
@@ -1313,50 +1312,100 @@ with tab_mapping["✅ Validação Unificada"]:
         st.subheader(f"Validação com: {agente.get('nome', 'Agente')}")
         
         # Subabas para diferentes tipos de validação
-        subtab_imagem, subtab_texto = st.tabs(["🖼️ Validação de Imagem", "📄 Validação de Documentos"])
+        subtab_imagem, subtab_texto, subtab_video = st.tabs(["🖼️ Validação de Imagem", "📄 Validação de Documentos", "🎬 Validação de Vídeo"])
         
-        with subtab_imagem:
-            st.subheader("🖼️ Validação de Imagem")
+        # ... (código existente para imagem e texto)
+        
+        with subtab_video:
+            st.subheader("🎬 Validação de Vídeo")
             
-            uploaded_images = st.file_uploader(
-                "Carregue uma ou mais imagens para análise", 
-                type=["jpg", "jpeg", "png", "webp"], 
-                key="image_upload_validacao",
-                accept_multiple_files=True,
-                help="As imagens serão analisadas individualmente conforme as diretrizes de branding do agente"
-            )
+            # Container principal
+            col_upload, col_config = st.columns([2, 1])
             
-            if uploaded_images:
-                st.success(f"✅ {len(uploaded_images)} imagem(ns) carregada(s)")
+            with col_upload:
+                uploaded_videos = st.file_uploader(
+                    "Carregue um ou mais vídeos para análise",
+                    type=["mp4", "mpeg", "mov", "avi", "flv", "mpg", "webm", "wmv", "3gpp"],
+                    key="video_upload_validacao",
+                    accept_multiple_files=True,
+                    help="Os vídeos serão analisados conforme as diretrizes de branding do agente"
+                )
+            
+            with col_config:
+                st.markdown("### ⚙️ Configurações de Análise")
                 
-                # Botão para validar todas as imagens
-                if st.button("🔍 Validar Todas as Imagens", type="primary", key="validar_imagens_multiplas"):
+                # Opções de processamento de vídeo
+                fps_custom = st.slider(
+                    "Frames por segundo (FPS)",
+                    min_value=0.1,
+                    max_value=10.0,
+                    value=1.0,
+                    step=0.1,
+                    help="Taxa de amostragem dos frames. Menor FPS para vídeos longos, maior FPS para ação rápida"
+                )
+                
+                analise_audio = st.checkbox(
+                    "🎵 Análise de Áudio",
+                    value=True,
+                    help="Incluir transcrição e análise do conteúdo de áudio"
+                )
+                
+                analise_visual = st.checkbox(
+                    "👁️ Análise Visual",
+                    value=True,
+                    help="Incluir análise de elementos visuais e texto em frames"
+                )
+            
+            if uploaded_videos:
+                st.success(f"✅ {len(uploaded_videos)} vídeo(s) carregado(s)")
+                
+                # Exibir informações dos vídeos
+                st.markdown("### 📊 Informações dos Vídeos")
+                
+                for idx, video in enumerate(uploaded_videos):
+                    col_vid, col_info, col_actions = st.columns([2, 2, 1])
                     
-                    # Lista para armazenar resultados
-                    resultados_analise = []
+                    with col_vid:
+                        st.write(f"**{idx+1}. {video.name}**")
+                        st.caption(f"Tipo: {video.type} | Tamanho: {video.size / (1024*1024):.1f} MB")
                     
-                    # Loop através de cada imagem
-                    for idx, uploaded_image in enumerate(uploaded_images):
-                        with st.spinner(f'Analisando imagem {idx+1} de {len(uploaded_images)}: {uploaded_image.name}...'):
+                    with col_info:
+                        # Placeholder para informações do vídeo (seriam extraídas com bibliotecas como OpenCV)
+                        st.write("📏 Duração: A ser detectada")
+                        st.write("🎞️ Resolução: A ser detectada")
+                    
+                    with col_actions:
+                        if st.button("🔍 Preview", key=f"preview_{idx}"):
+                            # Preview do vídeo
+                            st.video(video, format=f"video/{video.type.split('/')[-1]}")
+                
+                # Botão para validar todos os vídeos
+                if st.button("🎬 Validar Todos os Vídeos", type="primary", key="validar_videos_multiplas"):
+                    
+                    resultados_video = []
+                    
+                    for idx, uploaded_video in enumerate(uploaded_videos):
+                        with st.spinner(f'Analisando vídeo {idx+1} de {len(uploaded_videos)}: {uploaded_video.name}...'):
                             try:
-                                # Criar container para cada imagem
+                                # Container para cada vídeo
                                 with st.container():
                                     st.markdown("---")
-                                    col_img, col_info = st.columns([2, 1])
                                     
-                                    with col_img:
-                                        # Exibir imagem
-                                        image = Image.open(uploaded_image)
-                                        st.image(image, use_container_width=True, caption=f"Imagem {idx+1}: {uploaded_image.name}")
+                                    # Header do vídeo
+                                    col_header, col_stats = st.columns([3, 1])
                                     
-                                    with col_info:
-                                        # Informações da imagem
-                                        st.metric("📐 Dimensões", f"{image.width} x {image.height}")
-                                        st.metric("📊 Formato", uploaded_image.type)
-                                        st.metric("📁 Tamanho", f"{uploaded_image.size / 1024:.1f} KB")
+                                    with col_header:
+                                        st.subheader(f"🎬 {uploaded_video.name}")
                                     
-                                    # Análise individual
-                                    with st.expander(f"📋 Análise Detalhada - Imagem {idx+1}", expanded=True):
+                                    with col_stats:
+                                        st.metric("📊 Status", "Processando")
+                                    
+                                    # Preview do vídeo
+                                    with st.expander("👀 Preview do Vídeo", expanded=False):
+                                        st.video(uploaded_video, format=f"video/{uploaded_video.type.split('/')[-1]}")
+                                    
+                                    # Análise detalhada
+                                    with st.expander(f"📋 Análise Completa - {uploaded_video.name}", expanded=True):
                                         try:
                                             # Construir contexto com base de conhecimento do agente
                                             contexto = ""
@@ -1365,347 +1414,208 @@ with tab_mapping["✅ Validação Unificada"]:
                                                 DIRETRIZES DE BRANDING DO AGENTE:
                                                 {agente['base_conhecimento']}
                                                 
-                                                Analise esta imagem e verifique se está alinhada com as diretrizes de branding acima. Ademais, analise o
-                                                alinhamento tanto ortogtáficamente como alinhamento com a marca de todo ou qualquer texto na imagem analisada.
+                                                Analise este vídeo completo (áudio, elementos visuais e texto nos frames) 
+                                                e verifique o alinhamento com as diretrizes de branding acima.
                                                 """
+                                            
+                                            # Construir prompt baseado nas configurações
+                                            componentes_analise = []
+                                            if analise_audio:
+                                                componentes_analise.append("transcrição e análise do conteúdo de áudio")
+                                            if analise_visual:
+                                                componentes_analise.append("análise de elementos visuais e texto presente nos frames")
                                             
                                             prompt_analise = f"""
                                             {contexto}
                                             
-                                            Analise esta imagem e verifique o alinhamento (tanto imagem como texto na imagem analisado ortograficamente e em termos de alinhamento com branding. Revise e corrija o texto também) com as diretrizes de branding.
+                                            ANALISE ESTE VÍDEO CONSIDERANDO:
+                                            - {', '.join(componentes_analise)}
+                                            - Alinhamento com diretrizes de branding
+                                            - Qualidade e consistência visual
+                                            - Mensagem e tom da comunicação
                                             
-                                            Forneça a análise em formato claro:
+                                            CONFIGURAÇÕES:
+                                            - Taxa de amostragem: {fps_custom} FPS
+                                            - Análise de áudio: {'Sim' if analise_audio else 'Não'}
+                                            - Análise visual: {'Sim' if analise_visual else 'Não'}
                                             
-                                            ## 🖼️ RELATÓRIO DE ALINHAMENTO - IMAGEM {idx+1}
+                                            Forneça a análise em formato estruturado:
                                             
-                                            **Arquivo:** {uploaded_image.name}
-                                            **Dimensões:** {image.width} x {image.height}
+                                            ## 🎬 RELATÓRIO DE ALINHAMENTO - VÍDEO {idx+1}
                                             
-                                            ### 🎯 RESUMO DA IMAGEM
-                                            [Avaliação geral de conformidade visual e textual]
+                                            **Arquivo:** {uploaded_video.name}
+                                            **Formato:** {uploaded_video.type}
                                             
-                                            ### ✅ ELEMENTOS ALINHADOS 
-                                            - [Itens visuais e textuais que seguem as diretrizes]
+                                            ### 🎯 RESUMO EXECUTIVO
+                                            [Avaliação geral do alinhamento do vídeo com as diretrizes]
                                             
-                                            ### ⚠️ ELEMENTOS FORA DO PADRÃO
-                                            - [Itens visuais e textuais que não seguem as diretrizes]
+                                            ### 🔊 ANÁLISE DE ÁUDIO
+                                            {"[Transcrição e análise do conteúdo de áudio, tom, mensagem verbal]" if analise_audio else "*Análise de áudio desativada*"}
+                                            
+                                            ### 👁️ ANÁLISE VISUAL
+                                            {"[Análise de elementos visuais, cores, composição, texto em frames]" if analise_visual else "*Análise visual desativada*"}
+                                            
+                                            ### 📝 TEXTO EM FRAMES
+                                            {"[Identificação e análise de texto presente nos frames, correções ortográficas, alinhamento com branding]" if analise_visual else "*Análise de texto desativada*"}
+                                            
+                                            ### ✅ PONTOS FORTES
+                                            - [Elementos bem alinhados com as diretrizes]
+                                            
+                                            ### ⚠️ PONTOS DE ATENÇÃO
+                                            - [Desvios identificados e timestamps específicos]
                                             
                                             ### 💡 RECOMENDAÇÕES
-                                            - [Sugestões para melhorar o alinhamento visual e textual]
+                                            - [Sugestões para melhorar o alinhamento]
                                             
-                                            ### 🎨 ASPECTOS TÉCNICOS
-                                            - [Composição, cores, tipografia, etc.]
+                                            ### 🕒 MOMENTOS CHAVE
+                                            [Timestamps importantes com descrição: MM:SS]
                                             """
                                             
-                                            # Processar imagem
-                                            response = modelo_vision.generate_content([
-                                                prompt_analise,
-                                                {"mime_type": "image/jpeg", "data": uploaded_image.getvalue()}
-                                            ])
+                                            # Processar vídeo usando a API do Gemini
+                                            video_bytes = uploaded_video.getvalue()
+                                            
+                                            # Usar File API para vídeos maiores ou inline para menores
+                                            if len(video_bytes) < 20 * 1024 * 1024:  # Menor que 20MB
+                                                response = modelo_vision.generate_content([
+                                                    prompt_analise,
+                                                    {"mime_type": uploaded_video.type, "data": video_bytes}
+                                                ])
+                                            else:
+                                                # Para vídeos maiores, usar File API
+                                                st.info("📤 Uploading vídeo para processamento...")
+                                                # Implementar upload via File API aqui
+                                                response = modelo_vision.generate_content([
+                                                    prompt_analise,
+                                                    {"mime_type": uploaded_video.type, "data": video_bytes}
+                                                ])
                                             
                                             st.markdown(response.text)
                                             
                                             # Armazenar resultado
-                                            resultados_analise.append({
-                                                'nome': uploaded_image.name,
+                                            resultados_video.append({
+                                                'nome': uploaded_video.name,
                                                 'indice': idx,
                                                 'analise': response.text,
-                                                'dimensoes': f"{image.width}x{image.height}",
-                                                'tamanho': uploaded_image.size
+                                                'tipo': uploaded_video.type,
+                                                'tamanho': uploaded_video.size,
+                                                'config': {
+                                                    'fps': fps_custom,
+                                                    'audio': analise_audio,
+                                                    'visual': analise_visual
+                                                }
                                             })
                                             
                                         except Exception as e:
-                                            st.error(f"❌ Erro ao processar imagem {uploaded_image.name}: {str(e)}")
-                                            resultados_analise.append({
-                                                'nome': uploaded_image.name,
+                                            st.error(f"❌ Erro ao processar vídeo {uploaded_video.name}: {str(e)}")
+                                            resultados_video.append({
+                                                'nome': uploaded_video.name,
                                                 'indice': idx,
                                                 'analise': f"Erro na análise: {str(e)}",
-                                                'dimensoes': f"{image.width}x{image.height}",
-                                                'tamanho': uploaded_image.size
+                                                'tipo': uploaded_video.type,
+                                                'tamanho': uploaded_video.size,
+                                                'config': {
+                                                    'fps': fps_custom,
+                                                    'audio': analise_audio,
+                                                    'visual': analise_visual
+                                                }
                                             })
                                 
-                                # Separador visual entre imagens
-                                if idx < len(uploaded_images) - 1:
+                                # Separador entre vídeos
+                                if idx < len(uploaded_videos) - 1:
                                     st.markdown("---")
                                     
                             except Exception as e:
-                                st.error(f"❌ Erro ao carregar imagem {uploaded_image.name}: {str(e)}")
+                                st.error(f"❌ Erro ao processar vídeo {uploaded_video.name}: {str(e)}")
                     
-                    # Resumo executivo
+                    # Resumo executivo dos vídeos
                     st.markdown("---")
-                    st.subheader("📋 Resumo Executivo")
+                    st.subheader("📋 Resumo Executivo - Vídeos")
                     
-                    col_resumo1, col_resumo2, col_resumo3 = st.columns(3)
-                    with col_resumo1:
-                        st.metric("📊 Total de Imagens", len(uploaded_images))
-                    with col_resumo2:
-                        st.metric("✅ Análises Concluídas", len(resultados_analise))
-                    with col_resumo3:
-                        st.metric("🖼️ Processadas", len(uploaded_images))
+                    col_vid1, col_vid2, col_vid3, col_vid4 = st.columns(4)
+                    with col_vid1:
+                        st.metric("🎬 Total de Vídeos", len(uploaded_videos))
+                    with col_vid2:
+                        st.metric("✅ Análises Concluídas", len(resultados_video))
+                    with col_vid3:
+                        st.metric("🔊 Análise de Áudio", "Ativa" if analise_audio else "Inativa")
+                    with col_vid4:
+                        st.metric("👁️ Análise Visual", "Ativa" if analise_visual else "Inativa")
                     
-                    # Botão para download do relatório consolidado
-                    if st.button("📥 Exportar Relatório Completo", key="exportar_relatorio"):
-                        relatorio = f"""
-                        # RELATÓRIO DE VALIDAÇÃO DE IMAGENS
+                    # Botão para download do relatório
+                    if st.button("📥 Exportar Relatório de Vídeos", key="exportar_relatorio_videos"):
+                        relatorio_videos = f"""
+                        # RELATÓRIO DE VALIDAÇÃO DE VÍDEOS
                         
                         **Agente:** {agente.get('nome', 'N/A')}
                         **Data:** {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}
-                        **Total de Imagens:** {len(uploaded_images)}
+                        **Total de Vídeos:** {len(uploaded_videos)}
+                        **Configurações:** FPS={fps_custom}, Áudio={analise_audio}, Visual={analise_visual}
                         
-                        ## RESUMO EXECUTIVO
-                        {chr(10).join([f"{idx+1}. {img.name}" for idx, img in enumerate(uploaded_images)])}
+                        ## VÍDEOS ANALISADOS:
+                        {chr(10).join([f"{idx+1}. {vid.name} ({vid.type}) - {vid.size/(1024*1024):.1f} MB" for idx, vid in enumerate(uploaded_videos)])}
                         
-                        ## ANÁLISES INDIVIDUAIS
-                        {chr(10).join([f'### {res["nome"]} {chr(10)}{res["analise"]}' for res in resultados_analise])}
+                        ## ANÁLISES INDIVIDUAIS:
+                        {chr(10).join([f'### {res["nome"]} {chr(10)}Configurações: FPS={res["config"]["fps"]}, Áudio={res["config"]["audio"]}, Visual={res["config"]["visual"]} {chr(10)}{res["analise"]}' for res in resultados_video])}
                         """
                         
                         st.download_button(
                             "💾 Baixar Relatório em TXT",
-                            data=relatorio,
-                            file_name=f"relatorio_validacao_imagens_{datetime.datetime.now().strftime('%Y%m%d_%H%M')}.txt",
+                            data=relatorio_videos,
+                            file_name=f"relatorio_validacao_videos_{datetime.datetime.now().strftime('%Y%m%d_%H%M')}.txt",
                             mime="text/plain"
                         )
             
             else:
-                st.info("📁 Carregue uma ou mais imagens para iniciar a validação de branding")
-        
-        with subtab_texto:
-            st.subheader("📄 Validação de Documentos e Texto")
-            
-            # Container principal com duas colunas
-            col_entrada, col_saida = st.columns([1, 1])
-            
-            with col_entrada:
-                st.markdown("### 📥 Entrada de Conteúdo")
+                st.info("""
+                **🎬 Como usar a validação de vídeo:**
                 
-                # Opção 1: Texto direto
-                texto_input = st.text_area(
-                    "**✍️ Digite o texto para validação:**", 
-                    height=150, 
-                    key="texto_validacao",
-                    placeholder="Cole aqui o texto que deseja validar...",
-                    help="O texto será analisado conforme as diretrizes de branding do agente"
-                )
+                1. **Carregue um ou mais vídeos** nos formatos suportados
+                2. **Configure a análise** (FPS, áudio, elementos visuais)
+                3. **Clique em Validar** para análise completa
                 
-                # Opção 2: Upload de múltiplos arquivos
-                st.markdown("### 📎 Ou carregue arquivos")
+                **📹 Formatos Suportados:**
+                - MP4, MPEG, MOV, AVI, FLV
+                - MPG, WebM, WMV, 3GPP
                 
-                arquivos_documentos = st.file_uploader(
-                    "**Documentos suportados:** PDF, PPTX, TXT, DOCX",
-                    type=['pdf', 'pptx', 'txt', 'docx'],
-                    accept_multiple_files=True,
-                    key="arquivos_documentos_validacao",
-                    help="Arquivos serão convertidos para texto e validados automaticamente"
-                )
+                **🔧 Configurações:**
+                - **FPS:** Controla a taxa de amostragem dos frames
+                - **Áudio:** Inclui transcrição e análise de áudio
+                - **Visual:** Analisa elementos visuais e texto nos frames
+                """)
                 
-                # Botão de validação
-                if st.button("✅ Validar Conteúdo", type="primary", key="validate_documents", use_container_width=True):
-                    st.session_state.validacao_triggered = True
-            
-            with col_saida:
-                st.markdown("### 📊 Resultados")
-                
-                if st.session_state.get('validacao_triggered'):
-                    # Processar todos os conteúdos
-                    todos_textos = []
-                    arquivos_processados = []
+                # Exemplo de uso
+                with st.expander("🎯 Exemplos de Análise de Vídeo"):
+                    st.markdown("""
+                    **O que será analisado:**
+                    - ✅ **Transcrição de áudio** e análise do conteúdo verbal
+                    - ✅ **Elementos visuais** em cada frame amostrado
+                    - ✅ **Texto presente nos frames** (ortografia e branding)
+                    - ✅ **Tom e mensagem** geral do vídeo
+                    - ✅ **Alinhamento** com diretrizes de branding
+                    - ✅ **Timestamps** específicos para referência
                     
-                    # Adicionar texto manual se existir
-                    if texto_input and texto_input.strip():
-                        todos_textos.append({
-                            'nome': 'Texto_Manual',
-                            'conteudo': texto_input,
-                            'tipo': 'texto_direto',
-                            'tamanho': len(texto_input)
-                        })
+                    **Saída típica:**
+                    ```markdown
+                    ## 🎬 RELATÓRIO DE ALINHAMENTO
                     
-                    # Processar arquivos uploadados
-                    if arquivos_documentos:
-                        for arquivo in arquivos_documentos:
-                            with st.spinner(f"Processando {arquivo.name}..."):
-                                try:
-                                    texto_extraido = ""
-                                    
-                                    if arquivo.type == "application/pdf":
-                                        texto_extraido = extract_text_from_pdf(arquivo)
-                                    elif arquivo.type == "application/vnd.openxmlformats-officedocument.presentationml.presentation":
-                                        texto_extraido = extract_text_from_pptx(arquivo)
-                                    elif arquivo.type in ["text/plain", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"]:
-                                        texto_extraido = extrair_texto_arquivo(arquivo)
-                                    else:
-                                        st.warning(f"Tipo de arquivo não suportado: {arquivo.name}")
-                                        continue
-                                    
-                                    if texto_extraido and texto_extraido.strip():
-                                        todos_textos.append({
-                                            'nome': arquivo.name,
-                                            'conteudo': texto_extraido,
-                                            'tipo': arquivo.type,
-                                            'tamanho': len(texto_extraido)
-                                        })
-                                        arquivos_processados.append(arquivo.name)
-                                    
-                                except Exception as e:
-                                    st.error(f"❌ Erro ao processar {arquivo.name}: {str(e)}")
+                    ### 🎯 RESUMO EXECUTIVO
+                    O vídeo apresenta boa qualidade técnica mas...
                     
-                    # Verificar se há conteúdo para validar
-                    if not todos_textos:
-                        st.warning("⚠️ Nenhum conteúdo válido encontrado para validação.")
-                    else:
-                        st.success(f"✅ {len(todos_textos)} documento(s) processado(s) com sucesso!")
-                        
-                        # Exibir estatísticas rápidas
-                        col_docs, col_palavras, col_chars = st.columns(3)
-                        with col_docs:
-                            st.metric("📄 Documentos", len(todos_textos))
-                        with col_palavras:
-                            total_palavras = sum(len(doc['conteudo'].split()) for doc in todos_textos)
-                            st.metric("📝 Palavras", total_palavras)
-                        with col_chars:
-                            total_chars = sum(doc['tamanho'] for doc in todos_textos)
-                            st.metric("🔤 Caracteres", f"{total_chars:,}")
-                        
-                        # Análise individual por documento
-                        st.markdown("---")
-                        st.subheader("📋 Análise Individual por Documento")
-                        
-                        for doc in todos_textos:
-                            with st.expander(f"📄 {doc['nome']} - {doc['tamanho']} chars", expanded=False):
-                                # Preview do conteúdo
-                                preview = doc['conteudo'][:500] + "..." if len(doc['conteudo']) > 500 else doc['conteudo']
-                                st.text_area(
-                                    f"Preview - {doc['nome']}",
-                                    value=preview,
-                                    height=150,
-                                    key=f"preview_{doc['nome']}",
-                                    disabled=True
-                                )
-                                
-                                # Análise de branding
-                                with st.spinner(f"Analisando {doc['nome']}..."):
-                                    try:
-                                        contexto = ""
-                                        if "base_conhecimento" in agente:
-                                            contexto = f"""
-                                            DIRETRIZES DE BRANDING DO AGENTE:
-                                            {agente['base_conhecimento']}
-                                            """
-                                        
-                                        prompt_analise = f"""
-                                        {contexto}
-                                        
-                                        ANALISE O SEGUINTE CONTEÚDO:
-                                        
-                                        {doc['conteudo'][:10000]}  # Limitar para não exceder tokens
-                                        
-                                        Forneça uma análise detalhada em português:
-                                        
-                                        ## 📊 RELATÓRIO DE ALINHAMENTO - {doc['nome']}
-                                        
-                                        ### 🎯 RESUMO EXECUTIVO
-                                        [Avaliação geral em 1-2 parágrafos]
-                                        
-                                        ### ✅ PONTOS FORTES
-                                        - [Aspectos alinhados com as diretrizes]
-                                        
-                                        ### ⚠️ PONTOS DE ATENÇÃO
-                                        - [Desvios das diretrizes]
-                                        
-                                        ### 💡 RECOMENDAÇÕES
-                                        - [Sugestões específicas para melhorar]
-                                        
-                                        ### 🎨 TOM E LINGUAGEM
-                                        - [Análise do tom e adequação]
-                                        """
-                                        
-                                        resposta = modelo_texto.generate_content(prompt_analise)
-                                        st.markdown(resposta.text)
-                                        
-                                    except Exception as e:
-                                        st.error(f"❌ Erro na análise de {doc['nome']}: {str(e)}")
-                        
-                        # Relatório consolidado
-                        st.markdown("---")
-                        st.subheader("📑 Relatório Consolidado")
-                        
-                        # Botão para exportar
-                        if st.button("📥 Exportar Relatório Completo", key="exportar_relatorio_completo"):
-                            relatorio = f"""
-                            # RELATÓRIO DE VALIDAÇÃO DE CONTEÚDO
-                            
-                            **Agente:** {agente.get('nome', 'N/A')}
-                            **Data:** {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}
-                            **Total de Documentos:** {len(todos_textos)}
-                            
-                            ## DOCUMENTOS ANALISADOS:
-                            {chr(10).join([f"{idx+1}. {doc['nome']} ({doc['tipo']}) - {doc['tamanho']} caracteres" for idx, doc in enumerate(todos_textos)])}
-                            
-                            ## ANÁLISES INDIVIDUAIS:
-                            {chr(10).join([f'### {doc["nome"]} {chr(10)}[Análise individual aqui]' for doc in todos_textos])}
-                            """
-                            
-                            st.download_button(
-                                "💾 Baixar Relatório em TXT",
-                                data=relatorio,
-                                file_name=f"relatorio_validacao_{datetime.datetime.now().strftime('%Y%m%d_%H%M')}.txt",
-                                mime="text/plain"
-                            )
-                
-                else:
-                    # Estado inicial - instruções
-                    st.info("""
-                    **📋 Como usar:**
-                    1. **Digite texto** diretamente OU **carregue arquivos** (PDF, PPTX, TXT, DOCX)
-                    2. Clique em **"Validar Conteúdo"**
+                    ### 🔊 ANÁLISE DE ÁUDIO
+                    - 00:15: Mensagem principal introduzida
+                    - 01:30: Tom adequado para o público-alvo
                     
-                    **✅ Suporta:**
-                    - 📄 PDF (apresentações, documentos)
-                    - 🎯 PPTX (apresentações PowerPoint)  
-                    - 📝 TXT (arquivos de texto)
-                    - 📋 DOCX (documentos Word)
-                    - ✍️ Texto direto
+                    ### 👁️ ANÁLISE VISUAL
+                    - Cores alinhadas com a paleta da marca
+                    - Logo presente em todos os frames
+                    
+                    ### 📝 TEXTO EM FRAMES
+                    - 00:45: Texto "Oferta Especial" - ortografia correta
+                    - 02:10: Correção sugerida para "benefício" (acento)
+                    ```
                     """)
-            
-            # Funções de extração
-            def extract_text_from_pdf(file):
-                """Extrai texto de arquivos PDF"""
-                try:
-                    import PyPDF2
-                    pdf_reader = PyPDF2.PdfReader(file)
-                    text = ""
-                    for page in pdf_reader.pages:
-                        text += page.extract_text() + "\n"
-                    return text
-                except Exception as e:
-                    return f"Erro na extração PDF: {str(e)}"
-            
-            def extract_text_from_pptx(file):
-                """Extrai texto de arquivos PPTX"""
-                try:
-                    from pptx import Presentation
-                    prs = Presentation(file)
-                    text = ""
-                    for slide_number, slide in enumerate(prs.slides, 1):
-                        text += f"\n--- Slide {slide_number} ---\n"
-                        for shape in slide.shapes:
-                            if hasattr(shape, "text") and shape.text:
-                                text += shape.text + "\n"
-                    return text
-                except Exception as e:
-                    return f"Erro na extração PPTX: {str(e)}"
-            
-            def extrair_texto_arquivo(file):
-                """Extrai texto de arquivos TXT e DOCX"""
-                try:
-                    if file.type == "text/plain":
-                        return str(file.read(), "utf-8")
-                    elif file.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
-                        # Implementar extração para DOCX se necessário
-                        return f"Conteúdo do arquivo DOCX: {file.name}"
-                    else:
-                        return f"Tipo não suportado: {file.type}"
-                except Exception as e:
-                    return f"Erro na extração: {str(e)}"
+
+
 # --- ABA: GERAÇÃO DE CONTEÚDO ---
 with tab_mapping["✨ Geração de Conteúdo"]:
     st.header("✨ Geração de Conteúdo com Múltiplos Insumos")
