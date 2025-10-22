@@ -349,7 +349,7 @@ def selecionar_agente_interface():
     
     # Selectbox para seleção de agente
     agente_selecionado_desc = st.selectbox(
-        "Selecione um agente para usar o sistema:",
+        "Selecione uma base de conhecimento para usar o sistema:",
         options=[op[0] for op in opcoes_agentes],
         index=0,
         key="selectbox_agente_principal"
