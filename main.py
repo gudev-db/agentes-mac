@@ -62,7 +62,6 @@ def extract_text_from_pdf(pdf_path):
     return text
     
 
-
 # --- Sistema de Autenticação ---
 def make_hashes(password):
     return hashlib.sha256(str.encode(password)).hexdigest()
@@ -327,61 +326,58 @@ def construir_contexto(agente, segmentos_selecionados, historico_mensagens=None)
     
     return contexto
 
-# --- NOVA SEÇÃO: SELEÇÃO DE AGENTE ANTES DA INTERFACE ---
-def selecionar_agente():
-    """Tela para seleção do agente antes de ativar a interface principal"""
-    st.title("🤖 Selecione um Agente")
-    st.markdown("Escolha um agente para começar a usar o sistema:")
+# --- MODIFICAÇÃO: SELECTBOX PARA SELEÇÃO DE AGENTE ---
+def selecionar_agente_interface():
+    """Interface para seleção de agente usando selectbox"""
+    st.title("🤖 Agente Social")
     
+    # Carregar agentes disponíveis
     agentes = listar_agentes()
+    
     if not agentes:
         st.error("❌ Nenhum agente disponível. Crie um agente primeiro na aba de Gerenciamento.")
-        return False
+        return None
     
-    # Agrupar agentes por categoria
-    agentes_por_categoria = {}
+    # Preparar opções para o selectbox
+    opcoes_agentes = []
     for agente in agentes:
-        categoria = agente.get('categoria', 'Social')
-        if categoria not in agentes_por_categoria:
-            agentes_por_categoria[categoria] = []
-        agentes_por_categoria[categoria].append(agente)
+        agente_completo = obter_agente_com_heranca(agente['_id'])
+        descricao = f"{agente['nome']} - {agente.get('categoria', 'Social')}"
+        if agente.get('agente_mae_id'):
+            descricao += " 🔗"
+        opcoes_agentes.append((descricao, agente_completo))
     
-    # Exibir agentes por categoria
-    for categoria, agentes_cat in agentes_por_categoria.items():
-        st.subheader(f"📁 {categoria}")
-        
-        for agente in agentes_cat:
-            agente_completo = obter_agente_com_heranca(agente['_id'])
-            
-            col1, col2 = st.columns([3, 1])
-            with col1:
-                st.write(f"**{agente['nome']}**")
-                if agente.get('agente_mae_id'):
-                    st.caption("🔗 Agente com herança")
-                
-                # Preview das informações
-                if agente_completo.get('system_prompt'):
-                    st.caption(f"📝 {agente_completo['system_prompt'][:100]}...")
-            
-            with col2:
-                if st.button("Selecionar", key=f"select_{agente['_id']}"):
-                    st.session_state.agente_selecionado = agente_completo
-                    st.session_state.messages = []
-                    st.session_state.segmentos_selecionados = ["system_prompt", "base_conhecimento", "comments", "planejamento"]
-                    st.success(f"✅ Agente '{agente['nome']}' selecionado!")
-                    st.rerun()
-            
-            st.divider()
+    # Selectbox para seleção de agente
+    agente_selecionado_desc = st.selectbox(
+        "Selecione um agente para usar o sistema:",
+        options=[op[0] for op in opcoes_agentes],
+        index=0,
+        key="selectbox_agente_principal"
+    )
     
-    return False
+    # Encontrar o agente completo correspondente
+    agente_completo = None
+    for desc, agente in opcoes_agentes:
+        if desc == agente_selecionado_desc:
+            agente_completo = agente
+            break
+    
+    if agente_completo and st.button("✅ Confirmar Seleção", key="confirmar_agente"):
+        st.session_state.agente_selecionado = agente_completo
+        st.session_state.messages = []
+        st.session_state.segmentos_selecionados = ["system_prompt", "base_conhecimento", "comments", "planejamento"]
+        st.success(f"✅ Agente '{agente_completo['nome']}' selecionado!")
+        st.rerun()
+    
+    return agente_completo
 
 # --- Verificar se o agente já foi selecionado ---
 if "agente_selecionado" not in st.session_state:
     st.session_state.agente_selecionado = None
 
-# Se não há agente selecionado, mostrar tela de seleção
+# Se não há agente selecionado, mostrar interface de seleção
 if not st.session_state.agente_selecionado:
-    selecionar_agente()
+    selecionar_agente_interface()
     st.stop()
 
 # --- INTERFACE PRINCIPAL (apenas se agente estiver selecionado) ---
@@ -589,15 +585,48 @@ if st.sidebar.button("🔄 Trocar Agente", key="trocar_agente_global"):
     st.session_state.messages = []
     st.rerun()
 
-st.title(f"Agente Social - {agente_selecionado['nome']}")
+# --- SELECTBOX PARA TROCAR AGENTE ACIMA DAS ABAS ---
+st.title("🤖 Agente Social")
 
-# Inicializar estado da sessão
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-if "segmentos_selecionados" not in st.session_state:
-    st.session_state.segmentos_selecionados = ["system_prompt", "base_conhecimento", "comments", "planejamento"]
-if "show_historico" not in st.session_state:
-    st.session_state.show_historico = False
+# Carregar agentes disponíveis
+agentes = listar_agentes()
+
+if agentes:
+    # Preparar opções para o selectbox
+    opcoes_agentes = []
+    for agente in agentes:
+        agente_completo = obter_agente_com_heranca(agente['_id'])
+        descricao = f"{agente['nome']} - {agente.get('categoria', 'Social')}"
+        if agente.get('agente_mae_id'):
+            descricao += " 🔗"
+        opcoes_agentes.append((descricao, agente_completo))
+    
+    # Encontrar o índice atual
+    indice_atual = 0
+    for i, (desc, agente) in enumerate(opcoes_agentes):
+        if agente['_id'] == st.session_state.agente_selecionado['_id']:
+            indice_atual = i
+            break
+    
+    # Selectbox para trocar agente
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        novo_agente_desc = st.selectbox(
+            "Selecionar Agente:",
+            options=[op[0] for op in opcoes_agentes],
+            index=indice_atual,
+            key="selectbox_trocar_agente"
+        )
+    with col2:
+        if st.button("🔄 Trocar", key="botao_trocar_agente"):
+            # Encontrar o agente completo correspondente
+            for desc, agente in opcoes_agentes:
+                if desc == novo_agente_desc:
+                    st.session_state.agente_selecionado = agente
+                    st.session_state.messages = []
+                    st.success(f"✅ Agente alterado para '{agente['nome']}'!")
+                    st.rerun()
+                    break
 
 # Menu de abas - DETERMINAR QUAIS ABAS MOSTRAR
 abas_base = [
