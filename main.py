@@ -3442,53 +3442,8 @@ with tab_mapping["Monitoramento de Redes"]:
         **🤖 AGENTE:** "Poxa, que pena saber disso! Vamos entender melhor o que aconteceu. Pode me contar sobre as condições de aplicação? Assim conseguimos te orientar melhor da próxima vez. A equipe técnica também está à disposição! 📞"
         """)
 
-    # Seção de configurações avançadas
-    with st.expander("⚙️ Configurações Avançadas do RAG"):
-        st.subheader("Configurações da Busca Vetorial")
-        
-        col_rag1, col_rag2 = st.columns(2)
-        
-        with col_rag1:
-            limite_documentos = st.slider(
-                "Número de documentos para busca:",
-                min_value=1,
-                max_value=10,
-                value=5,
-                help="Quantos documentos similares buscar na base de conhecimento"
-            )
-        
-        with col_rag2:
-            similaridade_minima = st.slider(
-                "Similaridade mínima:",
-                min_value=0.0,
-                max_value=1.0,
-                value=0.7,
-                help="Limite de similaridade para considerar documentos relevantes"
-            )
-        
-        if st.button("🔄 Testar Conexão RAG", key="testar_rag"):
-            with st.spinner("Testando conexão com Astra DB..."):
-                try:
-                    # Teste simples de busca
-                    embedding_teste = get_embedding("teste de conexão")
-                    documentos = astra_client.vector_search(os.getenv('ASTRA_DB_COLLECTION'), embedding_teste, limit=1)
-                    if documentos:
-                        st.success(f"✅ Conexão funcionando! {len(documentos)} documento(s) encontrado(s)")
-                    else:
-                        st.warning("⚠️ Conexão funcionando, mas nenhum documento encontrado")
-                except Exception as e:
-                    st.error(f"❌ Erro na conexão: {str(e)}")
-
-    # Footer
-    st.markdown("---")
-    st.markdown(
-        """
-        <div style='text-align: center; color: #666;'>
-        <i>Agente Social • Especialista que fala como gente • Conectando conhecimento técnico e pessoas</i>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+   
+   
 # --- Estilização ---
 st.markdown("""
 <style>
