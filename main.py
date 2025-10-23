@@ -3209,90 +3209,8 @@ with tab_mapping["📝 Revisão Ortográfica"]:
 # --- ABA: MONITORAMENTO DE REDES ---
 with tab_mapping["Monitoramento de Redes"]:
     st.header("🤖 Agente de Monitoramento")
-    st.markdown("**Especialista que fala como gente** - Conectando conhecimento técnico e engajamento social")
-    
-    # --- CONFIGURAÇÃO DO ASTRA DB DENTRO DA ABA ---
-    class AstraDBClient:
-        def __init__(self):
-            self.base_url = f"{os.getenv('ASTRA_DB_API_ENDPOINT')}/api/json/v1/{os.getenv('ASTRA_DB_NAMESPACE')}"
-            self.headers = {
-                "Content-Type": "application/json",
-                "x-cassandra-token": os.getenv('ASTRA_DB_APPLICATION_TOKEN'),
-                "Accept": "application/json"
-            }
-        
-        def vector_search(self, collection: str, vector: List[float], limit: int = 5) -> List[Dict]:
-            """Realiza busca por similaridade vetorial"""
-            url = f"{self.base_url}/{collection}"
-            payload = {
-                "find": {
-                    "sort": {"$vector": vector},
-                    "options": {"limit": limit}
-                }
-            }
-            try:
-                response = requests.post(url, json=payload, headers=self.headers, timeout=30)
-                response.raise_for_status()
-                data = response.json()
-                return data.get("data", {}).get("documents", [])
-            except Exception as e:
-                st.error(f"Erro na busca vetorial: {str(e)}")
-                return []
+    st.markdown("**Especialista que fala como gente**")
 
-    # Inicializa o cliente AstraDB
-    try:
-        astra_client = AstraDBClient()
-        st.success("✅ Conectado ao Astra DB")
-    except Exception as e:
-        st.error(f"❌ Erro ao conectar com Astra DB: {str(e)}")
-        astra_client = None
-
-    def get_embedding(text: str) -> List[float]:
-        """Obtém embedding do texto usando OpenAI"""
-        try:
-            client = openai.OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
-            response = client.embeddings.create(
-                input=text,
-                model="text-embedding-3-small"
-            )
-            return response.data[0].embedding
-        except Exception as e:
-            st.warning(f"Embedding OpenAI não disponível: {str(e)}")
-            # Fallback para embedding simples
-            import numpy as np
-            text_hash = hashlib.md5(text.encode()).hexdigest()
-            vector = [float(int(text_hash[i:i+2], 16) / 255.0) for i in range(0, 32, 2)]
-            # Preenche para ter 1536 dimensões
-            while len(vector) < 1536:
-                vector.append(0.0)
-            return vector[:1536]
-
-    def buscar_conhecimento_tecnico(pergunta: str) -> str:
-        """Busca conhecimento técnico na Astra DB usando RAG"""
-        try:
-            # Gera embedding para a pergunta
-            embedding = get_embedding(pergunta)
-            
-            # Busca documentos relevantes
-            relevant_docs = astra_client.vector_search(os.getenv('ASTRA_DB_COLLECTION'), embedding, limit=5)
-            
-            # Constrói contexto dos documentos
-            contexto_tecnico = ""
-            if relevant_docs:
-                contexto_tecnico = "INFORMAÇÕES TÉCNICAS DA BASE:\n\n"
-                for i, doc in enumerate(relevant_docs, 1):
-                    doc_content = str(doc)
-                    # Limpa e formata o documento
-                    doc_clean = doc_content.replace('{', '').replace('}', '').replace("'", "").replace('"', '')
-                    contexto_tecnico += f"--- Fonte {i} ---\n{doc_clean[:600]}...\n\n"
-            else:
-                contexto_tecnico = "Consulta não retornou informações técnicas específicas da base."
-            
-            return contexto_tecnico
-            
-        except Exception as e:
-            st.error(f"Erro na busca de conhecimento técnico: {str(e)}")
-            return ""
 
     def gerar_resposta_agente(pergunta_usuario: str, historico: List[Dict] = None, agente_monitoramento=None) -> str:
         """Gera resposta do agente usando RAG e base do agente de monitoramento"""
@@ -3326,8 +3244,6 @@ with tab_mapping["Monitoramento de Redes"]:
         prompt_final = f"""
         {system_prompt}
         
-        CONTEXTO TÉCNICO DA BASE:
-        {contexto_tecnico}
         
         PERGUNTA DO USUÁRIO:
         {pergunta_usuario}
@@ -3336,8 +3252,6 @@ with tab_mapping["Monitoramento de Redes"]:
         {historico if historico else "Nenhum histórico anterior"}
         
         INSTRUÇÕES FINAIS:
-        Baseie sua resposta principalmente nas informações técnicas da base.
-        Se a pergunta for técnica e não houver informações suficientes na base, seja honesto e diga que não tem a informação específica.
         Adapte seu tom ao tipo de pergunta:
         - Perguntas técnicas: seja preciso e didático
         - Perguntas sociais: seja leve e engajador  
