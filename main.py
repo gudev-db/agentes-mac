@@ -3332,13 +3332,7 @@ with tab_mapping["Monitoramento de Redes"]:
         - Suporte a produtores
         - Esclarecimento de dúvidas
         """)
-        
-        st.header("🔧 Configurações")
-        modo_resposta = st.selectbox(
-            "Modo de Resposta:",
-            ["Automático", "Técnico", "Social", "Institucional"],
-            key="modo_resposta_monitoramento"
-        )
+
         
         if st.button("🔄 Reiniciar Conversa", key="reiniciar_monitoramento"):
             if "messages_monitoramento" in st.session_state:
@@ -3346,11 +3340,6 @@ with tab_mapping["Monitoramento de Redes"]:
             st.rerun()
 
         # Status da conexão
-        st.header("📊 Status do Sistema")
-        if astra_client:
-            st.success("✅ Astra DB: Conectado")
-        else:
-            st.error("❌ Astra DB: Desconectado")
         
         if os.getenv('OPENAI_API_KEY'):
             st.success("✅ OpenAI: Configurado")
