@@ -1967,9 +1967,10 @@ with tab_mapping["✅ Validação Unificada"]:
                                             
                                             ### 👁️ ANÁLISE VISUAL
                                             {"[Análise de elementos visuais, cores, composição, texto em frames]" if analise_visual else "*Análise visual desativada*"}
-                                            
+
+                        
                                             ### 📝 TEXTO EM FRAMES
-                                            {"[Identificação e análise de texto presente nos frames, correções ortográficas, alinhamento com branding]" if analise_visual else "*Análise de texto desativada*"}
+                                            {"[Identificação e análise de texto presente nos frames, correções ortográficas, alinhamento com branding. Se atente a consistência no uso de pontos e vírgulas, uso de bullets. Revise se o texto está 100% aceitável como um entregável profissional.]" if analise_visual else "*Análise de texto desativada*"}
                                             
                                             ### ✅ PONTOS FORTES
                                             - [Elementos bem alinhados com as diretrizes]
