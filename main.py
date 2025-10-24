@@ -383,24 +383,22 @@ if not st.session_state.agente_selecionado:
 # --- INTERFACE PRINCIPAL (apenas se agente estiver selecionado) ---
 agente_selecionado = st.session_state.agente_selecionado
 
-# --- FUNCIONALIDADE DE BRIEFING SYNGENTA ---
-def is_syngenta_agent(agent_name):
-    """Verifica se o agente é da Syngenta baseado no nome"""
-    return agent_name and any(keyword in agent_name.upper() for keyword in ['SYN', 'SYNGENTA'])
+def is_syn_agent(agent_name):
+    """Verifica se o agente é da baseado no nome"""
+    return agent_name and any(keyword in agent_name.upper() for keyword in ['SYN'])
 
-# Dicionário de descrições de produtos Syngenta
 PRODUCT_DESCRIPTIONS = {
     "FORTENZA": "Tratamento de sementes inseticida, focado no Cerrado e posicionado para controle do complexo de lagartas e outras pragas iniciais. Comunicação focada no mercado 'on farm' (tratamento feito na fazenda).",
     "ALADE": "Fungicida para controle de doenças em soja, frequentemente posicionado em programa com Mitrion para controle de podridões de vagens e grãos.",
     "VERDAVIS": "Inseticida e acaricida composto por PLINAZOLIN® technology (nova molécula, novo grupo químico, modo de ação inédito) + lambda-cialotrina. KBFs: + mais choque, + mais espectro e + mais dias de controle.",
     "ENGEO PLENO S": "Inseticida de tradição, referência no controle de percevejos. Mote: 'Nunca foi sorte. Sempre foi Engeo Pleno S'.",
-    "MEGAFOL": "Bioativador da Syngenta Biologicals. Origem 100% natural (extratos vegetais e de algas Ascophyllum nodosum). Desenvolvido para garantir que a planta alcance todo seu potencial produtivo.",
+    "MEGAFOL": "Bioativador da Syn Biologicals. Origem 100% natural (extratos vegetais e de algas Ascophyllum nodosum). Desenvolvido para garantir que a planta alcance todo seu potencial produtivo.",
     "MIRAVIS DUO": "Fungicida da família Miravis. Traz ADEPIDYN technology (novo ingrediente ativo, novo grupo químico). Focado no controle de manchas foliares.",
     "AVICTA COMPLETO": "Oferta comercial de tratamento industrial de sementes (TSI). Composto por inseticida, fungicida e nematicida.",
     "MITRION": "Fungicida para controle de doenças em soja, frequentemente posicionado em programa com Alade.",
     "AXIAL": "Herbicida para trigo. Composto por um novo ingrediente ativo. Foco no controle do azevém.",
     "CERTANO": "Bionematicida e biofungicida. Composto pela bactéria Bacillus velezensis. Controla nematoides e fungos de solo.",
-    "MANEJO LIMPO": "Programa da Syngenta para manejo integrado de plantas daninhas.",
+    "MANEJO LIMPO": "Programa da Syn para manejo integrado de plantas daninhas.",
     "ELESTAL NEO": "Fungicida para controle de doenças em soja e algodão.",
     "FRONDEO": "Inseticida para cana-de-açúcar com foco no controle da broca da cana.",
     "FORTENZA ELITE": "Oferta comercial de TSI. Solução robusta contre pragas, doenças e nematoides do Cerrado.",
@@ -462,7 +460,7 @@ def generate_context(content, product_name, culture, action, data_input, formato
     mes = meses[data_input.month]
     
     prompt = f"""
-    Como redator especializado em agronegócio da Syngenta, elabore um texto contextual discursivo de 3-4 parágrafos para uma pauta de conteúdo.
+    Como redator especializado em agronegócio da Syn, elabore um texto contextual discursivo de 3-4 parágrafos para uma pauta de conteúdo.
 
     Informações da pauta:
     - Produto: {product_name}
@@ -472,7 +470,7 @@ def generate_context(content, product_name, culture, action, data_input, formato
     - Formato principal: {formato_principal}
     - Conteúdo original: {content}
 
-    Descrição do produto: {PRODUCT_DESCRIPTIONS.get(product_name, 'Produto agrícola Syngenta')}
+    Descrição do produto: {PRODUCT_DESCRIPTIONS.get(product_name, 'Produto agrícola')}
 
     Instruções:
     - Escreva em formato discursivo e fluido, com 3-4 parágrafos bem estruturados
@@ -498,13 +496,13 @@ def generate_platform_strategy(product_name, culture, action, content):
         return "API key do Gemini não configurada. Estratégias por plataforma não disponíveis."
     
     prompt = f"""
-    Como especialista em mídias sociais para o agronegócio Syngenta, crie uma estratégia de conteúdo detalhada:
+    Como especialista em mídias sociais para o agronegócio, crie uma estratégia de conteúdo detalhada:
 
     PRODUTO: {product_name}
     CULTURA: {culture}
     AÇÃO: {action}
     CONTEÚDO ORIGINAL: {content}
-    DESCRIÇÃO DO PRODUTO: {PRODUCT_DESCRIPTIONS.get(product_name, 'Produto agrícola Syngenta')}
+    DESCRIÇÃO DO PRODUTO: {PRODUCT_DESCRIPTIONS.get(product_name, 'Produto agrícola')}
 
     FORNECER ESTRATÉGIA PARA:
     - Instagram (Feed, Reels, Stories)
@@ -560,7 +558,7 @@ CONTATOS E OBSERVAÇÕES
 - Validar com especialista técnico
 - Checar disponibilidade de imagens/vídeos
 - Incluir CTA para portal Mais Agro
-- Seguir guidelines de marca Syngenta
+- Seguir guidelines de marca
 - Revisar compliance regulatório
 
 DATA PREVISTA: {data_input.strftime('%d/%m/%Y')}
@@ -640,9 +638,8 @@ abas_base = [
     "Monitoramento de Redes"
 ]
 
-# Adicionar aba de Briefing Syngenta apenas se o agente for da Syngenta
-if is_syngenta_agent(agente_selecionado['nome']):
-    abas_base.append("📋 Briefing Syngenta")
+if is_syn_agent(agente_selecionado['nome']):
+    abas_base.append("📋 Briefing")
 
 # Criar abas dinamicamente
 tabs = st.tabs(abas_base)
@@ -865,7 +862,6 @@ with tab_mapping["⚙️ Gerenciar Agentes"]:
                             height=300,
                             placeholder="""Cole aqui a base de conhecimento específica para monitoramento de redes sociais.
 
-Exemplo para Syngenta:
 PERSONALIDADE: Especialista técnico do agronegócio com habilidade social - "Especialista que fala como gente"
 
 TOM DE VOZ:
@@ -875,7 +871,7 @@ TOM DE VOZ:
 - Frases curtas e diretas, mais simpáticas
 - Toque de leveza e ironia pontual quando o contexto permite
 
-PRODUTOS SYNGENTA:
+PRODUTOS SYN:
 - Fortenza: Tratamento de sementes inseticida para Cerrado
 - Verdatis: Inseticida com tecnologia PLINAZOLIN
 - Megafol: Bioativador natural
@@ -1145,9 +1141,8 @@ DIRETRIZES:
                                     st.rerun()
                 else:
                     st.info("Nenhum agente encontrado para esta categoria.")
-# --- ABA: BRIEFING SYNGENTA (APENAS SE AGENTE FOR DA SYNGENTA) ---
-if "📋 Briefing Syngenta" in tab_mapping:
-    with tab_mapping["📋 Briefing Syngenta"]:
+if "📋 Briefing Syn" in tab_mapping:
+    with tab_mapping["📋 Briefing Syn"]:
         st.header("📋 Gerador de Briefings - SYN")
         st.markdown("Digite o conteúdo da célula do calendário para gerar um briefing completo no padrão SYN.")
         
@@ -1356,7 +1351,7 @@ if "📋 Briefing Syngenta" in tab_mapping:
                             st.download_button(
                                 label="📥 Baixar Todos os Briefings (ZIP)",
                                 data=zip_buffer,
-                                file_name="briefings_syngenta.zip",
+                                file_name="briefings_syn.zip",
                                 mime="application/zip",
                                 key="batch_download_zip"
                             )
