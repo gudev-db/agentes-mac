@@ -1498,6 +1498,213 @@ with tab_mapping["✅ Validação Unificada"]:
         # Subabas para diferentes tipos de validação
         subtab_imagem, subtab_texto, subtab_video = st.tabs(["🖼️ Validação de Imagem", "📄 Validação de Documentos", "🎬 Validação de Vídeo"])
         
+        with subtab_texto:
+            st.subheader("📄 Validação de Documentos e Texto")
+            
+            # Container principal com duas colunas
+            col_entrada, col_saida = st.columns([1, 1])
+            
+            with col_entrada:
+                st.markdown("### 📥 Entrada de Conteúdo")
+                
+                # Opção 1: Texto direto
+                texto_input = st.text_area(
+                    "**✍️ Digite o texto para validação:**", 
+                    height=150, 
+                    key="texto_validacao",
+                    placeholder="Cole aqui o texto que deseja validar...",
+                    help="O texto será analisado conforme as diretrizes de branding do agente"
+                )
+                
+                # Opção 2: Upload de múltiplos arquivos
+                st.markdown("### 📎 Ou carregue arquivos")
+                
+                arquivos_documentos = st.file_uploader(
+                    "**Documentos suportados:** PDF, PPTX, TXT, DOCX",
+                    type=['pdf', 'pptx', 'txt', 'docx'],
+                    accept_multiple_files=True,
+                    key="arquivos_documentos_validacao",
+                    help="Arquivos serão convertidos para texto e validados automaticamente"
+                )
+                
+                # Configurações de análise
+                with st.expander("⚙️ Configurações de Análise"):
+                    analise_detalhada = st.checkbox(
+                        "Análise detalhada por slide/página",
+                        value=True,
+                        help="Analisar cada slide/página individualmente e identificar alterações específicas"
+                    )
+                    
+                    incluir_sugestoes = st.checkbox(
+                        "Incluir sugestões de melhoria",
+                        value=True,
+                        help="Fornecer sugestões específicas para cada problema identificado"
+                    )
+                
+                # Botão de validação
+                if st.button("✅ Validar Conteúdo", type="primary", key="validate_documents", use_container_width=True):
+                    st.session_state.validacao_triggered = True
+                    st.session_state.analise_detalhada = analise_detalhada
+            
+            with col_saida:
+                st.markdown("### 📊 Resultados")
+                
+                if st.session_state.get('validacao_triggered'):
+                    # Processar todos os conteúdos
+                    todos_textos = []
+                    arquivos_processados = []
+                    
+                    # Adicionar texto manual se existir
+                    if texto_input and texto_input.strip():
+                        todos_textos.append({
+                            'nome': 'Texto_Manual',
+                            'conteudo': texto_input,
+                            'tipo': 'texto_direto',
+                            'tamanho': len(texto_input),
+                            'slides': []  # Para texto simples, não há slides
+                        })
+                    
+                    # Processar arquivos uploadados
+                    if arquivos_documentos:
+                        for arquivo in arquivos_documentos:
+                            with st.spinner(f"Processando {arquivo.name}..."):
+                                try:
+                                    if arquivo.type == "application/pdf":
+                                        texto_extraido, slides_info = extract_text_from_pdf_com_slides(arquivo)
+                                    elif arquivo.type == "application/vnd.openxmlformats-officedocument.presentationml.presentation":
+                                        texto_extraido, slides_info = extract_text_from_pptx_com_slides(arquivo)
+                                    elif arquivo.type in ["text/plain", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"]:
+                                        texto_extraido = extrair_texto_arquivo(arquivo)
+                                        slides_info = []  # Para TXT/DOCX, não há slides
+                                    else:
+                                        st.warning(f"Tipo de arquivo não suportado: {arquivo.name}")
+                                        continue
+                                    
+                                    if texto_extraido and texto_extraido.strip():
+                                        todos_textos.append({
+                                            'nome': arquivo.name,
+                                            'conteudo': texto_extraido,
+                                            'slides': slides_info,
+                                            'tipo': arquivo.type,
+                                            'tamanho': len(texto_extraido)
+                                        })
+                                        arquivos_processados.append(arquivo.name)
+                                    
+                                except Exception as e:
+                                    st.error(f"❌ Erro ao processar {arquivo.name}: {str(e)}")
+                    
+                    # Verificar se há conteúdo para validar
+                    if not todos_textos:
+                        st.warning("⚠️ Nenhum conteúdo válido encontrado para validação.")
+                    else:
+                        st.success(f"✅ {len(todos_textos)} documento(s) processado(s) com sucesso!")
+                        
+                        # Exibir estatísticas rápidas
+                        col_docs, col_palavras, col_chars = st.columns(3)
+                        with col_docs:
+                            st.metric("📄 Documentos", len(todos_textos))
+                        with col_palavras:
+                            total_palavras = sum(len(doc['conteudo'].split()) for doc in todos_textos)
+                            st.metric("📝 Palavras", total_palavras)
+                        with col_chars:
+                            total_chars = sum(doc['tamanho'] for doc in todos_textos)
+                            st.metric("🔤 Caracteres", f"{total_chars:,}")
+                        
+                        # Análise individual por documento
+                        st.markdown("---")
+                        st.subheader("📋 Análise Individual por Documento")
+                        
+                        for doc in todos_textos:
+                            with st.expander(f"📄 {doc['nome']} - {doc['tamanho']} chars", expanded=True):
+                                # Informações básicas do documento
+                                col_info1, col_info2 = st.columns(2)
+                                with col_info1:
+                                    st.write(f"**Tipo:** {doc['tipo']}")
+                                    st.write(f"**Tamanho:** {doc['tamanho']} caracteres")
+                                with col_info2:
+                                    if doc['slides']:
+                                        st.write(f"**Slides/Páginas:** {len(doc['slides'])}")
+                                    else:
+                                        st.write("**Estrutura:** Texto simples")
+                                
+                                # Análise de branding
+                                with st.spinner(f"Analisando {doc['nome']}..."):
+                                    try:
+                                        # Construir contexto do agente
+                                        contexto_agente = ""
+                                        if "base_conhecimento" in agente:
+                                            contexto_agente = f"""
+                                            DIRETRIZES DE BRANDING DO AGENTE:
+                                            {agente['base_conhecimento']}
+                                            """
+                                        
+                                        # Preparar conteúdo para análise
+                                        if st.session_state.analise_detalhada and doc['slides']:
+                                            # Análise detalhada por slide
+                                            resultado_analise = analisar_documento_por_slides(
+                                                doc, 
+                                                contexto_agente
+                                            )
+                                            st.markdown(resultado_analise)
+                                        else:
+                                            # Análise geral do documento
+                                            prompt_analise = criar_prompt_validacao_preciso(
+                                                doc['conteudo'], 
+                                                doc['nome'], 
+                                                contexto_agente
+                                            )
+                                            
+                                            resposta = modelo_texto.generate_content(prompt_analise)
+                                            st.markdown(resposta.text)
+                                        
+                                    except Exception as e:
+                                        st.error(f"❌ Erro na análise de {doc['nome']}: {str(e)}")
+                        
+                        # Relatório consolidado
+                        st.markdown("---")
+                        st.subheader("📑 Relatório Consolidado")
+                        
+                        # Botão para exportar
+                        if st.button("📥 Exportar Relatório Completo", key="exportar_relatorio_completo"):
+                            relatorio = f"""
+                            # RELATÓRIO DE VALIDAÇÃO DE CONTEÚDO
+                            
+                            **Agente:** {agente.get('nome', 'N/A')}
+                            **Data:** {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}
+                            **Total de Documentos:** {len(todos_textos)}
+                            
+                            ## DOCUMENTOS ANALISADOS:
+                            {chr(10).join([f"{idx+1}. {doc['nome']} ({doc['tipo']}) - {doc['tamanho']} caracteres" for idx, doc in enumerate(todos_textos)])}
+                            """
+                            
+                            st.download_button(
+                                "💾 Baixar Relatório em TXT",
+                                data=relatorio,
+                                file_name=f"relatorio_validacao_{datetime.datetime.now().strftime('%Y%m%d_%H%M')}.txt",
+                                mime="text/plain"
+                            )
+                
+                else:
+                    # Estado inicial - instruções
+                    st.info("""
+                    **📋 Como usar:**
+                    1. **Digite texto** diretamente OU **carregue arquivos** (PDF, PPTX, TXT, DOCX)
+                    2. **Configure a análise** (detalhada por slide)
+                    3. Clique em **"Validar Conteúdo"**
+                    
+                    **✅ Suporta:**
+                    - 📄 PDF (apresentações, documentos) - com análise por página
+                    - 🎯 PPTX (apresentações PowerPoint) - com análise por slide  
+                    - 📝 TXT (arquivos de texto)
+                    - 📋 DOCX (documentos Word)
+                    - ✍️ Texto direto
+                    
+                    **🔍 Análise por Slide/Página:**
+                    - Identifica slides/páginas específicos com problemas
+                    - Sugere alterações pontuais
+                    - Destaca elementos que precisam de atenção
+                    """)
+        
         with subtab_imagem:
             st.subheader("🖼️ Validação de Imagem")
             
@@ -1599,13 +1806,6 @@ with tab_mapping["✅ Validação Unificada"]:
                                             
                                         except Exception as e:
                                             st.error(f"❌ Erro ao processar imagem {uploaded_image.name}: {str(e)}")
-                                            resultados_analise.append({
-                                                'nome': uploaded_image.name,
-                                                'indice': idx,
-                                                'analise': f"Erro na análise: {str(e)}",
-                                                'dimensoes': f"{image.width}x{image.height}",
-                                                'tamanho': uploaded_image.size
-                                            })
                                 
                                 # Separador visual entre imagens
                                 if idx < len(uploaded_images) - 1:
@@ -1651,244 +1851,6 @@ with tab_mapping["✅ Validação Unificada"]:
             
             else:
                 st.info("📁 Carregue uma ou mais imagens para iniciar a validação de branding")
-        
-        with subtab_texto:
-            st.subheader("📄 Validação de Documentos e Texto")
-            
-            # Container principal com duas colunas
-            col_entrada, col_saida = st.columns([1, 1])
-            
-            with col_entrada:
-                st.markdown("### 📥 Entrada de Conteúdo")
-                
-                # Opção 1: Texto direto
-                texto_input = st.text_area(
-                    "**✍️ Digite o texto para validação:**", 
-                    height=150, 
-                    key="texto_validacao",
-                    placeholder="Cole aqui o texto que deseja validar...",
-                    help="O texto será analisado conforme as diretrizes de branding do agente"
-                )
-                
-                # Opção 2: Upload de múltiplos arquivos
-                st.markdown("### 📎 Ou carregue arquivos")
-                
-                arquivos_documentos = st.file_uploader(
-                    "**Documentos suportados:** PDF, PPTX, TXT, DOCX",
-                    type=['pdf', 'pptx', 'txt', 'docx'],
-                    accept_multiple_files=True,
-                    key="arquivos_documentos_validacao",
-                    help="Arquivos serão convertidos para texto e validados automaticamente"
-                )
-                
-                # Botão de validação
-                if st.button("✅ Validar Conteúdo", type="primary", key="validate_documents", use_container_width=True):
-                    st.session_state.validacao_triggered = True
-            
-            with col_saida:
-                st.markdown("### 📊 Resultados")
-                
-                if st.session_state.get('validacao_triggered'):
-                    # Processar todos os conteúdos
-                    todos_textos = []
-                    arquivos_processados = []
-                    
-                    # Adicionar texto manual se existir
-                    if texto_input and texto_input.strip():
-                        todos_textos.append({
-                            'nome': 'Texto_Manual',
-                            'conteudo': texto_input,
-                            'tipo': 'texto_direto',
-                            'tamanho': len(texto_input)
-                        })
-                    
-                    # Processar arquivos uploadados
-                    if arquivos_documentos:
-                        for arquivo in arquivos_documentos:
-                            with st.spinner(f"Processando {arquivo.name}..."):
-                                try:
-                                    texto_extraido = ""
-                                    
-                                    if arquivo.type == "application/pdf":
-                                        texto_extraido = extract_text_from_pdf(arquivo)
-                                    elif arquivo.type == "application/vnd.openxmlformats-officedocument.presentationml.presentation":
-                                        texto_extraido = extract_text_from_pptx(arquivo)
-                                    elif arquivo.type in ["text/plain", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"]:
-                                        texto_extraido = extrair_texto_arquivo(arquivo)
-                                    else:
-                                        st.warning(f"Tipo de arquivo não suportado: {arquivo.name}")
-                                        continue
-                                    
-                                    if texto_extraido and texto_extraido.strip():
-                                        todos_textos.append({
-                                            'nome': arquivo.name,
-                                            'conteudo': texto_extraido,
-                                            'tipo': arquivo.type,
-                                            'tamanho': len(texto_extraido)
-                                        })
-                                        arquivos_processados.append(arquivo.name)
-                                    
-                                except Exception as e:
-                                    st.error(f"❌ Erro ao processar {arquivo.name}: {str(e)}")
-                    
-                    # Verificar se há conteúdo para validar
-                    if not todos_textos:
-                        st.warning("⚠️ Nenhum conteúdo válido encontrado para validação.")
-                    else:
-                        st.success(f"✅ {len(todos_textos)} documento(s) processado(s) com sucesso!")
-                        
-                        # Exibir estatísticas rápidas
-                        col_docs, col_palavras, col_chars = st.columns(3)
-                        with col_docs:
-                            st.metric("📄 Documentos", len(todos_textos))
-                        with col_palavras:
-                            total_palavras = sum(len(doc['conteudo'].split()) for doc in todos_textos)
-                            st.metric("📝 Palavras", total_palavras)
-                        with col_chars:
-                            total_chars = sum(doc['tamanho'] for doc in todos_textos)
-                            st.metric("🔤 Caracteres", f"{total_chars:,}")
-                        
-                        # Análise individual por documento
-                        st.markdown("---")
-                        st.subheader("📋 Análise Individual por Documento")
-                        
-                        for doc in todos_textos:
-                            with st.expander(f"📄 {doc['nome']} - {doc['tamanho']} chars", expanded=False):
-                                # Preview do conteúdo
-                                preview = doc['conteudo'][:500] + "..." if len(doc['conteudo']) > 500 else doc['conteudo']
-                                st.text_area(
-                                    f"Preview - {doc['nome']}",
-                                    value=preview,
-                                    height=150,
-                                    key=f"preview_{doc['nome']}",
-                                    disabled=True
-                                )
-                                
-                                # Análise de branding
-                                with st.spinner(f"Analisando {doc['nome']}..."):
-                                    try:
-                                        contexto = ""
-                                        if "base_conhecimento" in agente:
-                                            contexto = f"""
-                                            DIRETRIZES DE BRANDING DO AGENTE:
-                                            {agente['base_conhecimento']}
-                                            """
-                                        
-                                        prompt_analise = f"""
-                                        {contexto}
-                                        
-                                        ANALISE O SEGUINTE CONTEÚDO:
-                                        
-                                        {doc['conteudo'][:10000]}  # Limitar para não exceder tokens
-                                        
-                                        Forneça uma análise detalhada em português:
-                                        
-                                        ## 📊 RELATÓRIO DE ALINHAMENTO - {doc['nome']}
-                                        
-                                        ### 🎯 RESUMO EXECUTIVO
-                                        [Avaliação geral em 1-2 parágrafos]
-                                        
-                                        ### ✅ PONTOS FORTES
-                                        - [Aspectos alinhados com as diretrizes]
-                                        
-                                        ### ⚠️ PONTOS DE ATENÇÃO
-                                        - [Desvios das diretrizes]
-                                        
-                                        ### 💡 RECOMENDAÇÕES
-                                        - [Sugestões específicas para melhorar]
-                                        
-                                        ### 🎨 TOM E LINGUAGEM
-                                        - [Análise do tom e adequação]
-                                        """
-                                        
-                                        resposta = modelo_texto.generate_content(prompt_analise)
-                                        st.markdown(resposta.text)
-                                        
-                                    except Exception as e:
-                                        st.error(f"❌ Erro na análise de {doc['nome']}: {str(e)}")
-                        
-                        # Relatório consolidado
-                        st.markdown("---")
-                        st.subheader("📑 Relatório Consolidado")
-                        
-                        # Botão para exportar
-                        if st.button("📥 Exportar Relatório Completo", key="exportar_relatorio_completo"):
-                            relatorio = f"""
-                            # RELATÓRIO DE VALIDAÇÃO DE CONTEÚDO
-                            
-                            **Agente:** {agente.get('nome', 'N/A')}
-                            **Data:** {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}
-                            **Total de Documentos:** {len(todos_textos)}
-                            
-                            ## DOCUMENTOS ANALISADOS:
-                            {chr(10).join([f"{idx+1}. {doc['nome']} ({doc['tipo']}) - {doc['tamanho']} caracteres" for idx, doc in enumerate(todos_textos)])}
-                            
-                            ## ANÁLISES INDIVIDUAIS:
-                            {chr(10).join([f'### {doc["nome"]} {chr(10)}[Análise individual aqui]' for doc in todos_textos])}
-                            """
-                            
-                            st.download_button(
-                                "💾 Baixar Relatório em TXT",
-                                data=relatorio,
-                                file_name=f"relatorio_validacao_{datetime.datetime.now().strftime('%Y%m%d_%H%M')}.txt",
-                                mime="text/plain"
-                            )
-                
-                else:
-                    # Estado inicial - instruções
-                    st.info("""
-                    **📋 Como usar:**
-                    1. **Digite texto** diretamente OU **carregue arquivos** (PDF, PPTX, TXT, DOCX)
-                    2. Clique em **"Validar Conteúdo"**
-                    
-                    **✅ Suporta:**
-                    - 📄 PDF (apresentações, documentos)
-                    - 🎯 PPTX (apresentações PowerPoint)  
-                    - 📝 TXT (arquivos de texto)
-                    - 📋 DOCX (documentos Word)
-                    - ✍️ Texto direto
-                    """)
-            
-            # Funções de extração
-            def extract_text_from_pdf(file):
-                """Extrai texto de arquivos PDF"""
-                try:
-                    import PyPDF2
-                    pdf_reader = PyPDF2.PdfReader(file)
-                    text = ""
-                    for page in pdf_reader.pages:
-                        text += page.extract_text() + "\n"
-                    return text
-                except Exception as e:
-                    return f"Erro na extração PDF: {str(e)}"
-            
-            def extract_text_from_pptx(file):
-                """Extrai texto de arquivos PPTX"""
-                try:
-                    from pptx import Presentation
-                    prs = Presentation(file)
-                    text = ""
-                    for slide_number, slide in enumerate(prs.slides, 1):
-                        text += f"\n--- Slide {slide_number} ---\n"
-                        for shape in slide.shapes:
-                            if hasattr(shape, "text") and shape.text:
-                                text += shape.text + "\n"
-                    return text
-                except Exception as e:
-                    return f"Erro na extração PPTX: {str(e)}"
-            
-            def extrair_texto_arquivo(file):
-                """Extrai texto de arquivos TXT e DOCX"""
-                try:
-                    if file.type == "text/plain":
-                        return str(file.read(), "utf-8")
-                    elif file.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
-                        # Implementar extração para DOCX se necessário
-                        return f"Conteúdo do arquivo DOCX: {file.name}"
-                    else:
-                        return f"Tipo não suportado: {file.type}"
-                except Exception as e:
-                    return f"Erro na extração: {str(e)}"
 
         with subtab_video:
             st.subheader("🎬 Validação de Vídeo")
@@ -2180,7 +2142,7 @@ with tab_mapping["✅ Validação Unificada"]:
                     - 00:15: Mensagem principal introduzida
                     - 01:30: Tom adequado para o público-alvo
                     
-                    ### 👁️ ANÁLISE VISUAL
+                    ### 👁️ ANálISE VISUAL
                     - Cores alinhadas com a paleta da marca
                     - Logo presente em todos os frames
                     
@@ -2189,6 +2151,206 @@ with tab_mapping["✅ Validação Unificada"]:
                     - 02:10: Correção sugerida para "benefício" (acento)
                     ```
                     """)
+
+# --- FUNÇÕES AUXILIARES MELHORADAS ---
+
+def criar_prompt_validacao_preciso(texto, nome_arquivo, contexto_agente):
+    """Cria um prompt de validação muito mais preciso para evitar falsos positivos"""
+    
+    prompt = f"""
+{contexto_agente}
+
+## INSTRUÇÕES CRÍTICAS PARA ANÁLISE:
+
+**PRECISÃO ABSOLUTA - EVITE FALSOS POSITIVOS:**
+- NÃO INVENTE erros que não existem
+- NÃO SUGIRA adicionar vírgulas que JÁ EXISTEM no texto
+- NÃO INVENTE palavras separadas incorretamente se elas estão CORRETAS no original
+- Só aponte erros que REALMENTE EXISTEM no texto fornecido
+
+**TEXTO PARA ANÁLISE:**
+**Arquivo:** {nome_arquivo}
+**Conteúdo:**
+{texto[:12000]}  # Limite para não exceder tokens
+
+## FORMATO DE RESPOSTA OBRIGATÓRIO:
+
+### 🎯 RESUMO EXECUTIVO
+[Breve avaliação geral - 1 parágrafo]
+
+### ✅ CONFORMIDADE COM DIRETRIZES
+- [Itens que estão alinhados com as diretrizes de branding]
+
+### ⚠️ PROBLEMAS REAIS IDENTIFICADOS
+**CRITÉRIO: Só liste problemas que EFETIVAMENTE EXISTEM no texto acima**
+
+**ERROS ORTOGRÁFICOS REAIS:**
+- [Só liste palavras REALMENTE escritas errado no texto]
+- [Exemplo CORRETO: "te lefone" → "telefone" (se estiver errado no texto)]
+- [Exemplo INCORRETO: Não aponte "telefone" como erro se estiver escrito certo]
+
+**ERROS DE PONTUAÇÃO REAIS:**
+- [Só liste vírgulas/pontos que REALMENTE faltam ou estão em excesso]
+- [NÃO SUGIRA adicionar vírgulas que JÁ EXISTEM]
+- [Exemplo CORRETO: Frase sem vírgula onde claramente precisa]
+- [Exemplo INCORRETO: Não aponte falta de vírgula se a frase está clara]
+
+**PROBLEMAS DE FORMATAÇÃO:**
+- [Só liste problemas REAIS de formatação]
+- [Exemplo: Texto em caixa alta desnecessária, espaçamento inconsistente]
+
+**INCONSISTÊNCIAS COM BRANDING:**
+- [Só liste desvios REAIS das diretrizes de branding]
+
+### 💡 SUGESTÕES DE MELHORIA (OPCIONAL)
+- [Sugestões para aprimorar, mas NÃO como correções de erros inexistentes]
+
+### 📊 STATUS FINAL
+**Documento:** [Aprovado/Necessita ajustes/Reprovado]
+**Principais ações necessárias:** [Lista resumida]
+
+**REGRA DOURADA: SE NÃO TEM CERTEZA ABSOLUTA DE QUE É UM ERRO, NÃO APONTE COMO ERRO.**
+"""
+    return prompt
+
+def analisar_documento_por_slides(doc, contexto_agente):
+    """Analisa documento slide por slide com alta precisão"""
+    
+    resultados = []
+    
+    for i, slide in enumerate(doc['slides']):
+        with st.spinner(f"Analisando slide {i+1}..."):
+            try:
+                prompt_slide = f"""
+{contexto_agente}
+
+## ANÁLISE POR SLIDE - PRECISÃO ABSOLUTA
+
+**SLIDE {i+1}:**
+{slide['conteudo'][:2000]}
+
+**INSTRUÇÕES CRÍTICAS:**
+- NÃO INVENTE erros que não existem
+- Só aponte problemas REAIS e OBJETIVOS
+- NÃO crie falsos positivos de pontuação ou ortografia
+
+**ANÁLISE DO SLIDE {i+1}:**
+
+### ✅ Pontos Fortes:
+[O que está bom neste slide]
+
+### ⚠️ Problemas REAIS (só os que EFETIVAMENTE existem):
+- [Lista CURTA de problemas REAIS]
+
+### 💡 Sugestões Específicas:
+[Melhorias para ESTE slide específico]
+
+**STATUS:** [✔️ Aprovado / ⚠️ Ajustes Menores / ❌ Problemas Sérios]
+"""
+                
+                resposta = modelo_texto.generate_content(prompt_slide)
+                resultados.append({
+                    'slide_num': i+1,
+                    'analise': resposta.text,
+                    'tem_alteracoes': '❌' in resposta.text or '⚠️' in resposta.text
+                })
+                
+            except Exception as e:
+                resultados.append({
+                    'slide_num': i+1,
+                    'analise': f"❌ Erro na análise do slide: {str(e)}",
+                    'tem_alteracoes': False
+                })
+    
+    # Construir relatório consolidado
+    relatorio = f"# 📊 RELATÓRIO DE VALIDAÇÃO - {doc['nome']}\n\n"
+    relatorio += f"**Total de Slides:** {len(doc['slides'])}\n"
+    relatorio += f"**Slides com Alterações:** {sum(1 for r in resultados if r['tem_alteracoes'])}\n\n"
+    
+    # Slides que precisam de atenção
+    slides_com_problemas = [r for r in resultados if r['tem_alteracoes']]
+    if slides_com_problemas:
+        relatorio += "## 🚨 SLIDES QUE PRECISAM DE ATENÇÃO:\n\n"
+        for resultado in slides_com_problemas:
+            relatorio += f"### 📋 Slide {resultado['slide_num']}\n"
+            relatorio += f"{resultado['analise']}\n\n"
+    
+    # Resumo executivo
+    relatorio += "## 📈 RESUMO EXECUTIVO\n\n"
+    if slides_com_problemas:
+        relatorio += f"**⚠️ {len(slides_com_problemas)} slide(s) necessitam de ajustes**\n"
+        relatorio += f"**✅ {len(doc['slides']) - len(slides_com_problemas)} slide(s) estão adequados**\n"
+    else:
+        relatorio += "**🎉 Todos os slides estão em conformidade com as diretrizes!**\n"
+    
+    return relatorio
+
+def extract_text_from_pdf_com_slides(arquivo_pdf):
+    """Extrai texto de PDF com informação de páginas"""
+    try:
+        import PyPDF2
+        pdf_reader = PyPDF2.PdfReader(arquivo_pdf)
+        slides_info = []
+        
+        for pagina_num, pagina in enumerate(pdf_reader.pages):
+            texto = pagina.extract_text()
+            slides_info.append({
+                'numero': pagina_num + 1,
+                'conteudo': texto,
+                'tipo': 'página'
+            })
+        
+        texto_completo = "\n\n".join([f"--- PÁGINA {s['numero']} ---\n{s['conteudo']}" for s in slides_info])
+        return texto_completo, slides_info
+        
+    except Exception as e:
+        return f"Erro na extração PDF: {str(e)}", []
+
+def extract_text_from_pptx_com_slides(arquivo_pptx):
+    """Extrai texto de PPTX com informação de slides"""
+    try:
+        from pptx import Presentation
+        import io
+        
+        prs = Presentation(io.BytesIO(arquivo_pptx.read()))
+        slides_info = []
+        
+        for slide_num, slide in enumerate(prs.slides):
+            texto_slide = f"--- SLIDE {slide_num + 1} ---\n"
+            
+            for shape in slide.shapes:
+                if hasattr(shape, "text") and shape.text:
+                    texto_slide += shape.text + "\n"
+            
+            slides_info.append({
+                'numero': slide_num + 1,
+                'conteudo': texto_slide,
+                'tipo': 'slide'
+            })
+        
+        texto_completo = "\n\n".join([s['conteudo'] for s in slides_info])
+        return texto_completo, slides_info
+        
+    except Exception as e:
+        return f"Erro na extração PPTX: {str(e)}", []
+
+def extrair_texto_arquivo(arquivo):
+    """Extrai texto de arquivos TXT e DOCX"""
+    try:
+        if arquivo.type == "text/plain":
+            return str(arquivo.read(), "utf-8")
+        elif arquivo.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+            import docx
+            import io
+            doc = docx.Document(io.BytesIO(arquivo.read()))
+            texto = ""
+            for para in doc.paragraphs:
+                texto += para.text + "\n"
+            return texto
+        else:
+            return f"Tipo não suportado: {arquivo.type}"
+    except Exception as e:
+        return f"Erro na extração: {str(e)}"
 
 
 # --- ABA: GERAÇÃO DE CONTEÚDO ---
