@@ -2572,12 +2572,10 @@ def criar_prompt_validacao_preciso(texto, nome_arquivo, contexto_agente):
 
 
 
-**ERROS (SE REALMENTE EXISTIREM):**
-
 **INCONSISTÊNCIAS COM BRANDING:**
 - [Só liste desvios REAIS das diretrizes de branding]
 
-### 💡 SUGESTÕES DE MELHORIA (OPCIONAL)
+### 💡 TEXTO REVISADO
 - [Sugestões para aprimorar, mas NÃO como correções de erros inexistentes]
 
 ### 📊 STATUS FINAL
@@ -3387,7 +3385,8 @@ with tab_mapping["🌐 Busca Web"]:
             - Limite de 5 URLs por análise para melhor performance
             """)
 
-# Função para revisão ortográfica usando a API do Gemini
+# --- FUNÇÕES DE REVISÃO ORTOGRÁFICA ---
+
 def revisar_texto_ortografia(texto, agente, segmentos_selecionados, revisao_estilo=True, manter_estrutura=True, explicar_alteracoes=True):
     """
     Realiza revisão ortográfica e gramatical do texto considerando as diretrizes do agente
@@ -3486,6 +3485,102 @@ def revisar_texto_ortografia(texto, agente, segmentos_selecionados, revisao_esti
         
     except Exception as e:
         return f"❌ Erro durante a revisão: {str(e)}"
+
+def revisar_documento_por_slides(doc, agente, segmentos_selecionados, revisao_estilo=True, explicar_alteracoes=True):
+    """Revisa documento slide por slide com análise detalhada"""
+    
+    resultados = []
+    
+    for i, slide in enumerate(doc['slides']):
+        with st.spinner(f"Revisando slide {i+1} de {len(doc['slides'])}..."):
+            try:
+                # Construir contexto do agente para este slide
+                contexto_agente = "CONTEXTO DO AGENTE PARA REVISÃO:\n\n"
+                
+                if "system_prompt" in segmentos_selecionados and "system_prompt" in agente:
+                    contexto_agente += f"DIRETRIZES PRINCIPAIS:\n{agente['system_prompt']}\n\n"
+                
+                if "base_conhecimento" in segmentos_selecionados and "base_conhecimento" in agente:
+                    contexto_agente += f"BASE DE CONHECIMENTO:\n{agente['base_conhecimento']}\n\n"
+                
+                prompt_slide = f"""
+{contexto_agente}
+
+## REVISÃO ORTOGRÁFICA - SLIDE {i+1}
+
+**CONTEÚDO DO SLIDE {i+1}:**
+{slide['conteudo'][:1500]}
+
+**INSTRUÇÕES:**
+- Faça uma revisão ortográfica e gramatical detalhada
+- Corrija erros de português, acentuação e pontuação
+- Mantenha o conteúdo original sempre que possível
+- { "Inclua sugestões de melhoria de estilo" if revisao_estilo else "Foque apenas em correções gramaticais" }
+- { "Explique as principais alterações" if explicar_alteracoes else "Apenas apresente o texto corrigido" }
+
+**FORMATO DE RESPOSTA:**
+
+### 📋 SLIDE {i+1} - TEXTO REVISADO
+[Texto corrigido do slide]
+
+### 🔍 ALTERAÇÕES REALIZADAS
+- [Lista das correções com explicação]
+
+### ✅ STATUS
+[✔️ Sem erros / ⚠️ Pequenos ajustes / ❌ Correções necessárias]
+"""
+                
+                resposta = modelo_texto.generate_content(prompt_slide)
+                resultados.append({
+                    'slide_num': i+1,
+                    'analise': resposta.text,
+                    'tem_alteracoes': '❌' in resposta.text or '⚠️' in resposta.text or 'Correções' in resposta.text
+                })
+                
+            except Exception as e:
+                resultados.append({
+                    'slide_num': i+1,
+                    'analise': f"❌ Erro na revisão do slide: {str(e)}",
+                    'tem_alteracoes': False
+                })
+    
+    # Construir relatório consolidado
+    relatorio = f"# 📊 RELATÓRIO DE REVISÃO ORTOGRÁFICA - {doc['nome']}\n\n"
+    relatorio += f"**Total de Slides:** {len(doc['slides'])}\n"
+    relatorio += f"**Slides com Correções:** {sum(1 for r in resultados if r['tem_alteracoes'])}\n\n"
+    
+    # Slides que precisam de atenção
+    slides_com_correcoes = [r for r in resultados if r['tem_alteracoes']]
+    if slides_com_correcoes:
+        relatorio += "## 🚨 SLIDES COM CORREÇÕES:\n\n"
+        for resultado in slides_com_correcoes:
+            relatorio += f"### 📋 Slide {resultado['slide_num']}\n"
+            relatorio += f"{resultado['analise']}\n\n"
+    
+    # Resumo executivo
+    relatorio += "## 📈 RESUMO EXECUTIVO\n\n"
+    if slides_com_correcoes:
+        relatorio += f"**⚠️ {len(slides_com_correcoes)} slide(s) necessitam de correções**\n"
+        relatorio += f"**✅ {len(doc['slides']) - len(slides_com_correcoes)} slide(s) estão corretos**\n"
+        
+        # Lista resumida de problemas
+        relatorio += "\n**📝 PRINCIPAIS TIPOS DE CORREÇÕES:**\n"
+        problemas_comuns = []
+        for resultado in slides_com_correcoes:
+            if "ortográfico" in resultado['analise'].lower():
+                problemas_comuns.append("Erros ortográficos")
+            if "pontuação" in resultado['analise'].lower():
+                problemas_comuns.append("Problemas de pontuação")
+            if "concordância" in resultado['analise'].lower():
+                problemas_comuns.append("Erros de concordância")
+        
+        problemas_unicos = list(set(problemas_comuns))
+        for problema in problemas_unicos:
+            relatorio += f"- {problema}\n"
+    else:
+        relatorio += "**🎉 Todos os slides estão ortograficamente corretos!**\n"
+    
+    return relatorio
 
 # --- ABA: REVISÃO ORTOGRÁFICA ---
 with tab_mapping["📝 Revisão Ortográfica"]:
@@ -3633,8 +3728,8 @@ with tab_mapping["📝 Revisão Ortográfica"]:
             
             # Upload de múltiplos arquivos
             arquivos_upload = st.file_uploader(
-                "Selecione arquivos PDF ou PPTX para revisão:",
-                type=['pdf', 'pptx'],
+                "Selecione arquivos para revisão:",
+                type=['pdf', 'pptx', 'txt', 'docx'],
                 accept_multiple_files=True,
                 help="Arquivos serão convertidos para texto e revisados ortograficamente",
                 key="arquivos_revisao"
@@ -3642,18 +3737,18 @@ with tab_mapping["📝 Revisão Ortográfica"]:
             
             # Configurações para arquivos
             with st.expander("⚙️ Configurações da Revisão para Arquivos"):
+                analise_por_slide = st.checkbox(
+                    "Análise detalhada por slide/página",
+                    value=True,
+                    help="Analisar cada slide/página individualmente",
+                    key="analise_por_slide"
+                )
+                
                 revisao_estilo_arquivos = st.checkbox(
                     "Incluir revisão de estilo",
                     value=True,
                     help="Analisar clareza, coesão e adequação ao tom da marca",
                     key="revisao_estilo_arquivos"
-                )
-                
-                manter_estrutura_arquivos = st.checkbox(
-                    "Manter estrutura original",
-                    value=True,
-                    help="Preservar a estrutura geral do texto quando possível",
-                    key="manter_estrutura_arquivos"
                 )
                 
                 explicar_alteracoes_arquivos = st.checkbox(
@@ -3679,30 +3774,54 @@ with tab_mapping["📝 Revisão Ortográfica"]:
                             try:
                                 # Extrair texto do arquivo
                                 texto_extraido = ""
+                                slides_info = []
                                 
                                 if arquivo.type == "application/pdf":
-                                    texto_extraido = extract_text_from_pdf(arquivo)
+                                    texto_extraido, slides_info = extract_text_from_pdf_com_slides(arquivo)
                                 elif arquivo.type == "application/vnd.openxmlformats-officedocument.presentationml.presentation":
-                                    texto_extraido = extract_text_from_pptx(arquivo)
+                                    texto_extraido, slides_info = extract_text_from_pptx_com_slides(arquivo)
+                                elif arquivo.type == "text/plain":
+                                    texto_extraido = extrair_texto_arquivo(arquivo)
+                                elif arquivo.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+                                    texto_extraido = extrair_texto_arquivo(arquivo)
                                 else:
                                     st.warning(f"Tipo de arquivo não suportado: {arquivo.name}")
                                     continue
                                 
                                 if texto_extraido and len(texto_extraido.strip()) > 0:
-                                    # Realizar revisão
-                                    resultado = revisar_texto_ortografia(
-                                        texto=texto_extraido,
-                                        agente=agente,
-                                        segmentos_selecionados=segmentos_revisao,
-                                        revisao_estilo=revisao_estilo_arquivos,
-                                        manter_estrutura=manter_estrutura_arquivos,
-                                        explicar_alteracoes=explicar_alteracoes_arquivos
-                                    )
+                                    doc_info = {
+                                        'nome': arquivo.name,
+                                        'conteudo': texto_extraido,
+                                        'slides': slides_info,
+                                        'tipo': arquivo.type
+                                    }
+                                    
+                                    # Escolher o método de revisão baseado nas configurações
+                                    if analise_por_slide and slides_info:
+                                        # Revisão detalhada por slide
+                                        resultado = revisar_documento_por_slides(
+                                            doc_info,
+                                            agente,
+                                            segmentos_revisao,
+                                            revisao_estilo_arquivos,
+                                            explicar_alteracoes_arquivos
+                                        )
+                                    else:
+                                        # Revisão geral do documento
+                                        resultado = revisar_texto_ortografia(
+                                            texto=texto_extraido,
+                                            agente=agente,
+                                            segmentos_selecionados=segmentos_revisao,
+                                            revisao_estilo=revisao_estilo_arquivos,
+                                            manter_estrutura=True,
+                                            explicar_alteracoes=explicar_alteracoes_arquivos
+                                        )
                                     
                                     resultados_completos.append({
                                         'nome': arquivo.name,
                                         'texto_original': texto_extraido,
-                                        'resultado': resultado
+                                        'resultado': resultado,
+                                        'tipo': 'por_slide' if (analise_por_slide and slides_info) else 'geral'
                                     })
                                     
                                     # Exibir resultado individual
@@ -3712,6 +3831,8 @@ with tab_mapping["📝 Revisão Ortográfica"]:
                                         # Estatísticas do arquivo processado
                                         palavras_orig = len(texto_extraido.split())
                                         st.info(f"📊 Arquivo original: {palavras_orig} palavras")
+                                        if slides_info:
+                                            st.info(f"📑 {len(slides_info)} slides/páginas processados")
                                         
                                 else:
                                     st.warning(f"❌ Não foi possível extrair texto do arquivo: {arquivo.name}")
@@ -3747,18 +3868,20 @@ with tab_mapping["📝 Revisão Ortográfica"]:
                 st.info("""
                 **📎 Como usar o upload de arquivos:**
                 
-                1. Selecione um ou mais arquivos PDF ou PPTX
+                1. Selecione um ou mais arquivos (PDF, PPTX, TXT, DOCX)
                 2. Configure as opções de revisão
                 3. Clique em **"Revisar Todos os Arquivos"**
                 
                 **📋 Formatos suportados:**
-                - PDF (documentos, apresentações)
-                - PPTX (apresentações PowerPoint)
+                - PDF (documentos, apresentações) - com análise por página
+                - PPTX (apresentações PowerPoint) - com análise por slide
+                - TXT (arquivos de texto)
+                - DOCX (documentos Word)
                 
-                **⚡ Processamento:**
-                - Arquivos são convertidos para texto automaticamente
-                - Texto é revisado ortograficamente
-                - Resultados podem ser baixados individualmente ou em lote
+                **🔍 Análise por Slide/Página:**
+                - Identifica slides/páginas específicos com problemas
+                - Revisão detalhada de cada seção
+                - Facilita a localização e correção de erros
                 """)
         
         # Seção informativa
