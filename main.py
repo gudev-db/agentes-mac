@@ -1848,12 +1848,13 @@ def revisar_texto_ortografia(texto, agente, segmentos_selecionados, revisao_esti
     
     INSTRUÇÕES PARA REVISÃO:
     
-    1. **REVISÃO ORTOGRÁFICA E GRAMATICAL:**
+
     
-    2. **REVISÃO DE ESTILO E CLAREZA:**
+     **REVISÃO DE ESTILO E CLAREZA:**
        {instrucoes_revisao}
     
-    3. **CONFORMIDADE COM AS DIRETRIZES:**
+    
+    **CONFORMIDADE COM AS DIRETRIZES:**
        - Alinhe o texto ao tom e estilo definidos
        - Mantenha consistência terminológica
        - Preserve a estrutura original quando possível
@@ -2555,13 +2556,6 @@ def criar_prompt_validacao_preciso(texto, nome_arquivo, contexto_agente):
     prompt = f"""
 {contexto_agente}
 
-## INSTRUÇÕES CRÍTICAS PARA ANÁLISE:
-
-**PRECISÃO ABSOLUTA - EVITE FALSOS POSITIVOS:**
-- NÃO INVENTE erros que não existem
-- NÃO SUGIRA adicionar vírgulas que JÁ EXISTEM no texto
-- NÃO INVENTE palavras separadas incorretamente se elas estão CORRETAS no original
-- Só aponte erros que REALMENTE EXISTEM no texto fornecido
 
 **TEXTO PARA ANÁLISE:**
 **Arquivo:** {nome_arquivo}
@@ -2576,23 +2570,9 @@ def criar_prompt_validacao_preciso(texto, nome_arquivo, contexto_agente):
 ### ✅ CONFORMIDADE COM DIRETRIZES
 - [Itens que estão alinhados com as diretrizes de branding]
 
-### ⚠️ PROBLEMAS REAIS IDENTIFICADOS
-**CRITÉRIO: Só liste problemas que EFETIVAMENTE EXISTEM no texto acima**
 
-**ERROS ORTOGRÁFICOS REAIS:**
-- [Só liste palavras REALMENTE escritas errado no texto]
-- [Exemplo CORRETO: "te lefone" → "telefone" (se estiver errado no texto)]
-- [Exemplo INCORRETO: Não aponte "telefone" como erro se estiver escrito certo]
 
-**ERROS DE PONTUAÇÃO REAIS:**
-- [Só liste vírgulas/pontos que REALMENTE faltam ou estão em excesso]
-- [NÃO SUGIRA adicionar vírgulas que JÁ EXISTEM]
-- [Exemplo CORRETO: Frase sem vírgula onde claramente precisa]
-- [Exemplo INCORRETO: Não aponte falta de vírgula se a frase está clara]
-
-**PROBLEMAS DE FORMATAÇÃO:**
-- [Só liste problemas REAIS de formatação]
-- [Exemplo: Texto em caixa alta desnecessária, espaçamento inconsistente]
+**ERROS (SE REALMENTE EXISTIREM):**
 
 **INCONSISTÊNCIAS COM BRANDING:**
 - [Só liste desvios REAIS das diretrizes de branding]
