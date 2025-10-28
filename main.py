@@ -72,10 +72,14 @@ def check_hashes(password, hashed_text):
 # Dados de usuário (em produção, isso deve vir de um banco de dados seguro)
 users = {
     "admin": make_hashes("senha1234"),  # admin/senha1234
-    "user1": make_hashes("password1"),  # user1/password1
-    "user2": make_hashes("password2")   # user2/password2
+    "SYN": make_hashes("senha1"),  # user1/password1
+    "SME": make_hashes("senha2"),   # user2/password2
+    "Enterprise": make_hashes("senha3")   # user2/password2
 }
 
+def get_current_user():
+    """Retorna o usuário atual da sessão"""
+    return st.session_state.get('user', 'unknown')
 
 import os
 from pathlib import Path
@@ -198,35 +202,65 @@ def criar_agente(nome, system_prompt, base_conhecimento, comments, planejamento,
         "agente_mae_id": agente_mae_id,
         "herdar_elementos": herdar_elementos or [],
         "data_criacao": datetime.datetime.now(),
-        "ativo": True
+        "ativo": True,
+        "criado_por": get_current_user()  # NOVO CAMPO
     }
     result = collection_agentes.insert_one(agente)
     return result.inserted_id
 
 def listar_agentes():
-    """Retorna todos os agentes ativos"""
-    return list(collection_agentes.find({"ativo": True}).sort("data_criacao", -1))
+    """Retorna todos os agentes ativos do usuário atual ou todos se admin"""
+    current_user = get_current_user()
+    if current_user == "admin":
+        return list(collection_agentes.find({"ativo": True}).sort("data_criacao", -1))
+    else:
+        return list(collection_agentes.find({
+            "ativo": True, 
+            "criado_por": current_user
+        }).sort("data_criacao", -1))
 
 def listar_agentes_para_heranca(agente_atual_id=None):
     """Retorna todos os agentes ativos que podem ser usados como mãe"""
+    current_user = get_current_user()
     query = {"ativo": True}
+    
+    # Filtro por usuário (admin vê todos, outros só os seus)
+    if current_user != "admin":
+        query["criado_por"] = current_user
+    
     if agente_atual_id:
         # Excluir o próprio agente da lista de opções para evitar auto-herança
         if isinstance(agente_atual_id, str):
             agente_atual_id = ObjectId(agente_atual_id)
         query["_id"] = {"$ne": agente_atual_id}
+    
     return list(collection_agentes.find(query).sort("data_criacao", -1))
 
 def obter_agente(agente_id):
-    """Obtém um agente específico pelo ID"""
+    """Obtém um agente específico pelo ID com verificação de permissão"""
     if isinstance(agente_id, str):
         agente_id = ObjectId(agente_id)
-    return collection_agentes.find_one({"_id": agente_id})
+    
+    agente = collection_agentes.find_one({"_id": agente_id})
+    
+    # Verificar permissão
+    if agente and agente.get('ativo', True):
+        current_user = get_current_user()
+        if current_user == "admin" or agente.get('criado_por') == current_user:
+            return agente
+    
+    return None
 
 def atualizar_agente(agente_id, nome, system_prompt, base_conhecimento, comments, planejamento, categoria, agente_mae_id=None, herdar_elementos=None):
-    """Atualiza um agente existente"""
+    """Atualiza um agente existente com verificação de permissão"""
     if isinstance(agente_id, str):
         agente_id = ObjectId(agente_id)
+    
+    # Verificar se o usuário tem permissão para editar este agente
+    agente_existente = obter_agente(agente_id)
+    if not agente_existente:
+        raise PermissionError("Agente não encontrado ou sem permissão de edição")
+    
     return collection_agentes.update_one(
         {"_id": agente_id},
         {
@@ -245,9 +279,15 @@ def atualizar_agente(agente_id, nome, system_prompt, base_conhecimento, comments
     )
 
 def desativar_agente(agente_id):
-    """Desativa um agente (soft delete)"""
+    """Desativa um agente (soft delete) com verificação de permissão"""
     if isinstance(agente_id, str):
         agente_id = ObjectId(agente_id)
+    
+    # Verificar se o usuário tem permissão para desativar este agente
+    agente_existente = obter_agente(agente_id)
+    if not agente_existente:
+        raise PermissionError("Agente não encontrado ou sem permissão para desativar")
+    
     return collection_agentes.update_one(
         {"_id": agente_id},
         {"$set": {"ativo": False, "data_desativacao": datetime.datetime.now()}}
@@ -342,34 +382,42 @@ def selecionar_agente_interface():
     opcoes_agentes = []
     for agente in agentes:
         agente_completo = obter_agente_com_heranca(agente['_id'])
-        descricao = f"{agente['nome']} - {agente.get('categoria', 'Social')}"
-        if agente.get('agente_mae_id'):
-            descricao += " 🔗"
-        opcoes_agentes.append((descricao, agente_completo))
+        if agente_completo:  # Só adiciona se tiver permissão
+            descricao = f"{agente['nome']} - {agente.get('categoria', 'Social')}"
+            if agente.get('agente_mae_id'):
+                descricao += " 🔗"
+            # Adicionar indicador de proprietário se não for admin
+            if get_current_user() != "admin" and agente.get('criado_por'):
+                descricao += f" 👤"
+            opcoes_agentes.append((descricao, agente_completo))
     
-    # Selectbox para seleção de agente
-    agente_selecionado_desc = st.selectbox(
-        "Selecione uma base de conhecimento para usar o sistema:",
-        options=[op[0] for op in opcoes_agentes],
-        index=0,
-        key="selectbox_agente_principal"
-    )
-    
-    # Encontrar o agente completo correspondente
-    agente_completo = None
-    for desc, agente in opcoes_agentes:
-        if desc == agente_selecionado_desc:
-            agente_completo = agente
-            break
-    
-    if agente_completo and st.button("✅ Confirmar Seleção", key="confirmar_agente"):
-        st.session_state.agente_selecionado = agente_completo
-        st.session_state.messages = []
-        st.session_state.segmentos_selecionados = ["system_prompt", "base_conhecimento", "comments", "planejamento"]
-        st.success(f"✅ Agente '{agente_completo['nome']}' selecionado!")
-        st.rerun()
-    
-    return agente_completo
+    if opcoes_agentes:
+        # Selectbox para seleção de agente
+        agente_selecionado_desc = st.selectbox(
+            "Selecione uma base de conhecimento para usar o sistema:",
+            options=[op[0] for op in opcoes_agentes],
+            index=0,
+            key="selectbox_agente_principal"
+        )
+        
+        # Encontrar o agente completo correspondente
+        agente_completo = None
+        for desc, agente in opcoes_agentes:
+            if desc == agente_selecionado_desc:
+                agente_completo = agente
+                break
+        
+        if agente_completo and st.button("✅ Confirmar Seleção", key="confirmar_agente"):
+            st.session_state.agente_selecionado = agente_completo
+            st.session_state.messages = []
+            st.session_state.segmentos_selecionados = ["system_prompt", "base_conhecimento", "comments", "planejamento"]
+            st.success(f"✅ Agente '{agente_completo['nome']}' selecionado!")
+            st.rerun()
+        
+        return agente_completo
+    else:
+        st.info("Nenhum agente disponível com as permissões atuais.")
+        return None
 
 # --- Verificar se o agente já foi selecionado ---
 if "agente_selecionado" not in st.session_state:
@@ -594,37 +642,44 @@ if agentes:
     opcoes_agentes = []
     for agente in agentes:
         agente_completo = obter_agente_com_heranca(agente['_id'])
-        descricao = f"{agente['nome']} - {agente.get('categoria', 'Social')}"
-        if agente.get('agente_mae_id'):
-            descricao += " 🔗"
-        opcoes_agentes.append((descricao, agente_completo))
+        if agente_completo:  # Só adiciona se tiver permissão
+            descricao = f"{agente['nome']} - {agente.get('categoria', 'Social')}"
+            if agente.get('agente_mae_id'):
+                descricao += " 🔗"
+            # Adicionar indicador de proprietário se não for admin
+            if get_current_user() != "admin" and agente.get('criado_por'):
+                descricao += f" 👤"
+            opcoes_agentes.append((descricao, agente_completo))
     
-    # Encontrar o índice atual
-    indice_atual = 0
-    for i, (desc, agente) in enumerate(opcoes_agentes):
-        if agente['_id'] == st.session_state.agente_selecionado['_id']:
-            indice_atual = i
-            break
-    
-    # Selectbox para trocar agente
-    col1, col2 = st.columns([3, 1])
-    with col1:
-        novo_agente_desc = st.selectbox(
-            "Selecionar Agente:",
-            options=[op[0] for op in opcoes_agentes],
-            index=indice_atual,
-            key="selectbox_trocar_agente"
-        )
-    with col2:
-        if st.button("🔄 Trocar", key="botao_trocar_agente"):
-            # Encontrar o agente completo correspondente
-            for desc, agente in opcoes_agentes:
-                if desc == novo_agente_desc:
-                    st.session_state.agente_selecionado = agente
-                    st.session_state.messages = []
-                    st.success(f"✅ Agente alterado para '{agente['nome']}'!")
-                    st.rerun()
-                    break
+    if opcoes_agentes:
+        # Encontrar o índice atual
+        indice_atual = 0
+        for i, (desc, agente) in enumerate(opcoes_agentes):
+            if agente['_id'] == st.session_state.agente_selecionado['_id']:
+                indice_atual = i
+                break
+        
+        # Selectbox para trocar agente
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            novo_agente_desc = st.selectbox(
+                "Selecionar Agente:",
+                options=[op[0] for op in opcoes_agentes],
+                index=indice_atual,
+                key="selectbox_trocar_agente"
+            )
+        with col2:
+            if st.button("🔄 Trocar", key="botao_trocar_agente"):
+                # Encontrar o agente completo correspondente
+                for desc, agente in opcoes_agentes:
+                    if desc == novo_agente_desc:
+                        st.session_state.agente_selecionado = agente
+                        st.session_state.messages = []
+                        st.success(f"✅ Agente alterado para '{agente['nome']}'!")
+                        st.rerun()
+                        break
+    else:
+        st.info("Nenhum agente disponível com as permissões atuais.")
 
 # Menu de abas - DETERMINAR QUAIS ABAS MOSTRAR
 abas_base = [
@@ -694,7 +749,7 @@ with tab_mapping["💬 Chat"]:
     # Modal para seleção de histórico
     if st.session_state.show_historico:
         with st.expander("📚 Selecionar Histórico de Conversa", expanded=True):
-            conversas_anteriores = listar_conversas(agente['_id'])
+            conversas_anteriores = obter_conversas(agente['_id'])
             
             if conversas_anteriores:
                 for i, conversa in enumerate(conversas_anteriores[:10]):  # Últimas 10 conversas
@@ -819,48 +874,45 @@ with tab_mapping["⚙️ Gerenciar Agentes"]:
     st.header("Gerenciamento de Agentes")
     
     # Verificar autenticação apenas para gerenciamento
-    if st.session_state.user != "admin":
-        st.warning("Acesso restrito a administradores")
+    current_user = get_current_user()
+    
+    if current_user not in ["admin", "SYN", "SME", "Enterprise"]:
+        st.warning("Acesso restrito a usuários autorizados")
     else:
-        # Verificar senha de admin
-        if not check_admin_password():
-            st.warning("Digite a senha de administrador")
+        # Para admin, verificar senha adicional
+        if current_user == "admin":
+            if not check_admin_password():
+                st.warning("Digite a senha de administrador")
+            else:
+                st.write(f'Bem-vindo administrador!')
         else:
-            # Mostra o botão de logout admin
-            if st.button("Logout Admin", key="admin_logout"):
-                if "admin_password_correct" in st.session_state:
-                    del st.session_state["admin_password_correct"]
-                if "admin_user" in st.session_state:
-                    del st.session_state["admin_user"]
-                st.rerun()
+            st.write(f'Bem-vindo {current_user}!')
             
-            st.write(f'Bem-vindo administrador!')
+        # Subabas para gerenciamento
+        sub_tab1, sub_tab2, sub_tab3 = st.tabs(["Criar Agente", "Editar Agente", "Gerenciar Agentes"])
+        
+        with sub_tab1:
+            st.subheader("Criar Novo Agente")
             
-            # Subabas para gerenciamento
-            sub_tab1, sub_tab2, sub_tab3 = st.tabs(["Criar Agente", "Editar Agente", "Gerenciar Agentes"])
-            
-            with sub_tab1:
-                st.subheader("Criar Novo Agente")
+            with st.form("form_criar_agente"):
+                nome_agente = st.text_input("Nome do Agente:")
                 
-                with st.form("form_criar_agente"):
-                    nome_agente = st.text_input("Nome do Agente:")
+                # Seleção de categoria - AGORA COM MONITORAMENTO
+                categoria = st.selectbox(
+                    "Categoria:",
+                    ["Social", "SEO", "Conteúdo", "Monitoramento"],
+                    help="Organize o agente por área de atuação"
+                )
+                
+                # Configurações específicas para agentes de monitoramento
+                if categoria == "Monitoramento":
+                    st.info("🔍 **Agente de Monitoramento**: Este agente será usado apenas na aba de Monitoramento de Redes e terá uma estrutura simplificada.")
                     
-                    # Seleção de categoria - AGORA COM MONITORAMENTO
-                    categoria = st.selectbox(
-                        "Categoria:",
-                        ["Social", "SEO", "Conteúdo", "Monitoramento"],
-                        help="Organize o agente por área de atuação"
-                    )
-                    
-                    # Configurações específicas para agentes de monitoramento
-                    if categoria == "Monitoramento":
-                        st.info("🔍 **Agente de Monitoramento**: Este agente será usado apenas na aba de Monitoramento de Redes e terá uma estrutura simplificada.")
-                        
-                        # Para monitoramento, apenas base de conhecimento
-                        base_conhecimento = st.text_area(
-                            "Base de Conhecimento para Monitoramento:", 
-                            height=300,
-                            placeholder="""Cole aqui a base de conhecimento específica para monitoramento de redes sociais.
+                    # Para monitoramento, apenas base de conhecimento
+                    base_conhecimento = st.text_area(
+                        "Base de Conhecimento para Monitoramento:", 
+                        height=300,
+                        placeholder="""Cole aqui a base de conhecimento específica para monitoramento de redes sociais.
 
 PERSONALIDADE: Especialista técnico do agronegócio com habilidade social - "Especialista que fala como gente"
 
@@ -882,267 +934,280 @@ DIRETRIZES:
 - Sempre basear respostas em fatos
 - Manter tom profissional mas acessível
 - Adaptar resposta ao tipo de pergunta""",
-                            help="Esta base será usada exclusivamente para monitoramento de redes sociais"
+                        help="Esta base será usada exclusivamente para monitoramento de redes sociais"
+                    )
+                    
+                    # Campos específicos ocultos para monitoramento
+                    system_prompt = ""
+                    comments = ""
+                    planejamento = ""
+                    criar_como_filho = False
+                    agente_mae_id = None
+                    herdar_elementos = []
+                    
+                else:
+                    # Para outras categorias, manter estrutura original
+                    criar_como_filho = st.checkbox("Criar como agente filho (herdar elementos)")
+                    
+                    agente_mae_id = None
+                    herdar_elementos = []
+                    
+                    if criar_como_filho:
+                        # Listar TODOS os agentes disponíveis para herança (exceto monitoramento)
+                        agentes_mae = listar_agentes_para_heranca()
+                        agentes_mae = [agente for agente in agentes_mae if agente.get('categoria') != 'Monitoramento']
+                        
+                        if agentes_mae:
+                            agente_mae_options = {f"{agente['nome']} ({agente.get('categoria', 'Social')})": agente['_id'] for agente in agentes_mae}
+                            agente_mae_selecionado = st.selectbox(
+                                "Agente Mãe:",
+                                list(agente_mae_options.keys()),
+                                help="Selecione o agente do qual este agente irá herdar elementos"
+                            )
+                            agente_mae_id = agente_mae_options[agente_mae_selecionado]
+                            
+                            st.subheader("Elementos para Herdar")
+                            herdar_elementos = st.multiselect(
+                                "Selecione os elementos a herdar do agente mãe:",
+                                ["system_prompt", "base_conhecimento", "comments", "planejamento"],
+                                help="Estes elementos serão herdados do agente mãe se não preenchidos abaixo"
+                            )
+                        else:
+                            st.info("Nenhum agente disponível para herança. Crie primeiro um agente mãe.")
+                    
+                    system_prompt = st.text_area("Prompt de Sistema:", height=150, 
+                                                placeholder="Ex: Você é um assistente especializado em...",
+                                                help="Deixe vazio se for herdar do agente mãe")
+                    base_conhecimento = st.text_area("Brand Guidelines:", height=200,
+                                                   placeholder="Cole aqui informações, diretrizes, dados...",
+                                                   help="Deixe vazio se for herdar do agente mãe")
+                    comments = st.text_area("Comentários do cliente:", height=200,
+                                                   placeholder="Cole aqui os comentários de ajuste do cliente (Se houver)",
+                                                   help="Deixe vazio se for herdar do agente mãe")
+                    planejamento = st.text_area("Planejamento:", height=200,
+                                               placeholder="Estratégias, planejamentos, cronogramas...",
+                                               help="Deixe vazio se for herdar do agente mãe")
+                
+                submitted = st.form_submit_button("Criar Agente")
+                if submitted:
+                    if nome_agente:
+                        agente_id = criar_agente(
+                            nome_agente, 
+                            system_prompt, 
+                            base_conhecimento, 
+                            comments, 
+                            planejamento,
+                            categoria,
+                            agente_mae_id if criar_como_filho else None,
+                            herdar_elementos if criar_como_filho else []
+                        )
+                        st.success(f"Agente '{nome_agente}' criado com sucesso na categoria {categoria}!")
+                    else:
+                        st.error("Nome é obrigatório!")
+        
+        with sub_tab2:
+            st.subheader("Editar Agente Existente")
+            
+            agentes = listar_agentes()
+            if agentes:
+                agente_options = {agente['nome']: agente for agente in agentes}
+                agente_selecionado_nome = st.selectbox("Selecione o agente para editar:", 
+                                                     list(agente_options.keys()))
+                
+                if agente_selecionado_nome:
+                    agente = agente_options[agente_selecionado_nome]
+                    
+                    with st.form("form_editar_agente"):
+                        novo_nome = st.text_input("Nome do Agente:", value=agente['nome'])
+                        
+                        # Categoria - AGORA COM MONITORAMENTO
+                        categorias_disponiveis = ["Social", "SEO", "Conteúdo", "Monitoramento"]
+                        if agente.get('categoria') in categorias_disponiveis:
+                            index_categoria = categorias_disponiveis.index(agente.get('categoria', 'Social'))
+                        else:
+                            index_categoria = 0
+                            
+                        nova_categoria = st.selectbox(
+                            "Categoria:",
+                            categorias_disponiveis,
+                            index=index_categoria,
+                            help="Organize o agente por área de atuação"
                         )
                         
-                        # Campos específicos ocultos para monitoramento
-                        system_prompt = ""
-                        comments = ""
-                        planejamento = ""
-                        criar_como_filho = False
-                        agente_mae_id = None
-                        herdar_elementos = []
-                        
-                    else:
-                        # Para outras categorias, manter estrutura original
-                        criar_como_filho = st.checkbox("Criar como agente filho (herdar elementos)")
-                        
-                        agente_mae_id = None
-                        herdar_elementos = []
-                        
-                        if criar_como_filho:
-                            # Listar TODOS os agentes disponíveis para herança (exceto monitoramento)
-                            agentes_mae = listar_agentes_para_heranca()
-                            agentes_mae = [agente for agente in agentes_mae if agente.get('categoria') != 'Monitoramento']
+                        # Interface diferente para agentes de monitoramento
+                        if nova_categoria == "Monitoramento":
+                            st.info("🔍 **Agente de Monitoramento**: Este agente será usado apenas na aba de Monitoramento de Redes.")
                             
-                            if agentes_mae:
-                                agente_mae_options = {f"{agente['nome']} ({agente.get('categoria', 'Social')})": agente['_id'] for agente in agentes_mae}
-                                agente_mae_selecionado = st.selectbox(
-                                    "Agente Mãe:",
-                                    list(agente_mae_options.keys()),
-                                    help="Selecione o agente do qual este agente irá herdar elementos"
-                                )
-                                agente_mae_id = agente_mae_options[agente_mae_selecionado]
-                                
-                                st.subheader("Elementos para Herdar")
-                                herdar_elementos = st.multiselect(
-                                    "Selecione os elementos a herdar do agente mãe:",
-                                    ["system_prompt", "base_conhecimento", "comments", "planejamento"],
-                                    help="Estes elementos serão herdados do agente mãe se não preenchidos abaixo"
-                                )
-                            else:
-                                st.info("Nenhum agente disponível para herança. Crie primeiro um agente mãe.")
-                        
-                        system_prompt = st.text_area("Prompt de Sistema:", height=150, 
-                                                    placeholder="Ex: Você é um assistente especializado em...",
-                                                    help="Deixe vazio se for herdar do agente mãe")
-                        base_conhecimento = st.text_area("Brand Guidelines:", height=200,
-                                                       placeholder="Cole aqui informações, diretrizes, dados...",
-                                                       help="Deixe vazio se for herdar do agente mãe")
-                        comments = st.text_area("Comentários do cliente:", height=200,
-                                                       placeholder="Cole aqui os comentários de ajuste do cliente (Se houver)",
-                                                       help="Deixe vazio se for herdar do agente mãe")
-                        planejamento = st.text_area("Planejamento:", height=200,
-                                                   placeholder="Estratégias, planejamentos, cronogramas...",
-                                                   help="Deixe vazio se for herdar do agente mãe")
-                    
-                    submitted = st.form_submit_button("Criar Agente")
-                    if submitted:
-                        if nome_agente:
-                            agente_id = criar_agente(
-                                nome_agente, 
-                                system_prompt, 
-                                base_conhecimento, 
-                                comments, 
-                                planejamento,
-                                categoria,
-                                agente_mae_id if criar_como_filho else None,
-                                herdar_elementos if criar_como_filho else []
+                            # Para monitoramento, apenas base de conhecimento
+                            nova_base = st.text_area(
+                                "Base de Conhecimento para Monitoramento:", 
+                                value=agente.get('base_conhecimento', ''),
+                                height=300,
+                                help="Esta base será usada exclusivamente para monitoramento de redes sociais"
                             )
-                            st.success(f"Agente '{nome_agente}' criado com sucesso na categoria {categoria}!")
+                            
+                            # Campos específicos ocultos para monitoramento
+                            novo_prompt = ""
+                            nova_comment = ""
+                            novo_planejamento = ""
+                            agente_mae_id = None
+                            herdar_elementos = []
+                            
+                            # Remover herança se existir
+                            if agente.get('agente_mae_id'):
+                                st.warning("⚠️ Agentes de monitoramento não suportam herança. A herança será removida.")
+                            
                         else:
-                            st.error("Nome é obrigatório!")
-            
-            with sub_tab2:
-                st.subheader("Editar Agente Existente")
-                
-                agentes = listar_agentes()
-                if agentes:
-                    agente_options = {agente['nome']: agente for agente in agentes}
-                    agente_selecionado_nome = st.selectbox("Selecione o agente para editar:", 
-                                                         list(agente_options.keys()))
-                    
-                    if agente_selecionado_nome:
-                        agente = agente_options[agente_selecionado_nome]
-                        
-                        with st.form("form_editar_agente"):
-                            novo_nome = st.text_input("Nome do Agente:", value=agente['nome'])
+                            # Para outras categorias, manter estrutura original
                             
-                            # Categoria - AGORA COM MONITORAMENTO
-                            categorias_disponiveis = ["Social", "SEO", "Conteúdo", "Monitoramento"]
-                            if agente.get('categoria') in categorias_disponiveis:
-                                index_categoria = categorias_disponiveis.index(agente.get('categoria', 'Social'))
-                            else:
-                                index_categoria = 0
-                                
-                            nova_categoria = st.selectbox(
-                                "Categoria:",
-                                categorias_disponiveis,
-                                index=index_categoria,
-                                help="Organize o agente por área de atuação"
-                            )
+                            # Informações de herança (apenas se não for monitoramento)
+                            if agente.get('agente_mae_id'):
+                                agente_mae = obter_agente(agente['agente_mae_id'])
+                                if agente_mae:
+                                    st.info(f"🔗 Este agente é filho de: {agente_mae['nome']}")
+                                    st.write(f"Elementos herdados: {', '.join(agente.get('herdar_elementos', []))}")
                             
-                            # Interface diferente para agentes de monitoramento
-                            if nova_categoria == "Monitoramento":
-                                st.info("🔍 **Agente de Monitoramento**: Este agente será usado apenas na aba de Monitoramento de Redes.")
-                                
-                                # Para monitoramento, apenas base de conhecimento
-                                nova_base = st.text_area(
-                                    "Base de Conhecimento para Monitoramento:", 
-                                    value=agente.get('base_conhecimento', ''),
-                                    height=300,
-                                    help="Esta base será usada exclusivamente para monitoramento de redes sociais"
-                                )
-                                
-                                # Campos específicos ocultos para monitoramento
-                                novo_prompt = ""
-                                nova_comment = ""
-                                novo_planejamento = ""
-                                agente_mae_id = None
-                                herdar_elementos = []
-                                
-                                # Remover herança se existir
-                                if agente.get('agente_mae_id'):
-                                    st.warning("⚠️ Agentes de monitoramento não suportam herança. A herança será removida.")
-                                
-                            else:
-                                # Para outras categorias, manter estrutura original
-                                
-                                # Informações de herança (apenas se não for monitoramento)
-                                if agente.get('agente_mae_id'):
-                                    agente_mae = obter_agente(agente['agente_mae_id'])
-                                    if agente_mae:
-                                        st.info(f"🔗 Este agente é filho de: {agente_mae['nome']}")
-                                        st.write(f"Elementos herdados: {', '.join(agente.get('herdar_elementos', []))}")
-                                
-                                # Opção para tornar independente
-                                if agente.get('agente_mae_id'):
-                                    tornar_independente = st.checkbox("Tornar agente independente (remover herança)")
-                                    if tornar_independente:
-                                        agente_mae_id = None
-                                        herdar_elementos = []
-                                    else:
-                                        agente_mae_id = agente.get('agente_mae_id')
-                                        herdar_elementos = agente.get('herdar_elementos', [])
-                                else:
+                            # Opção para tornar independente
+                            if agente.get('agente_mae_id'):
+                                tornar_independente = st.checkbox("Tornar agente independente (remover herança)")
+                                if tornar_independente:
                                     agente_mae_id = None
                                     herdar_elementos = []
-                                    # Opção para adicionar herança
-                                    adicionar_heranca = st.checkbox("Adicionar herança de agente mãe")
-                                    if adicionar_heranca:
-                                        # Listar TODOS os agentes disponíveis para herança (excluindo o próprio e monitoramento)
-                                        agentes_mae = listar_agentes_para_heranca(agente['_id'])
-                                        agentes_mae = [agente_mae for agente_mae in agentes_mae if agente_mae.get('categoria') != 'Monitoramento']
-                                        
-                                        if agentes_mae:
-                                            agente_mae_options = {f"{agente_mae['nome']} ({agente_mae.get('categoria', 'Social')})": agente_mae['_id'] for agente_mae in agentes_mae}
-                                            if agente_mae_options:
-                                                agente_mae_selecionado = st.selectbox(
-                                                    "Agente Mãe:",
-                                                    list(agente_mae_options.keys()),
-                                                    help="Selecione o agente do qual este agente irá herdar elementos"
-                                                )
-                                                agente_mae_id = agente_mae_options[agente_mae_selecionado]
-                                                herdar_elementos = st.multiselect(
-                                                    "Elementos para herdar:",
-                                                    ["system_prompt", "base_conhecimento", "comments", "planejamento"],
-                                                    default=herdar_elementos
-                                                )
-                                            else:
-                                                st.info("Nenhum agente disponível para herança.")
+                                else:
+                                    agente_mae_id = agente.get('agente_mae_id')
+                                    herdar_elementos = agente.get('herdar_elementos', [])
+                            else:
+                                agente_mae_id = None
+                                herdar_elementos = []
+                                # Opção para adicionar herança
+                                adicionar_heranca = st.checkbox("Adicionar herança de agente mãe")
+                                if adicionar_heranca:
+                                    # Listar TODOS os agentes disponíveis para herança (excluindo o próprio e monitoramento)
+                                    agentes_mae = listar_agentes_para_heranca(agente['_id'])
+                                    agentes_mae = [agente_mae for agente_mae in agentes_mae if agente_mae.get('categoria') != 'Monitoramento']
+                                    
+                                    if agentes_mae:
+                                        agente_mae_options = {f"{agente_mae['nome']} ({agente_mae.get('categoria', 'Social')})": agente_mae['_id'] for agente_mae in agentes_mae}
+                                        if agente_mae_options:
+                                            agente_mae_selecionado = st.selectbox(
+                                                "Agente Mãe:",
+                                                list(agente_mae_options.keys()),
+                                                help="Selecione o agente do qual este agente irá herdar elementos"
+                                            )
+                                            agente_mae_id = agente_mae_options[agente_mae_selecionado]
+                                            herdar_elementos = st.multiselect(
+                                                "Elementos para herdar:",
+                                                ["system_prompt", "base_conhecimento", "comments", "planejamento"],
+                                                default=herdar_elementos
+                                            )
                                         else:
                                             st.info("Nenhum agente disponível para herança.")
-                                
-                                novo_prompt = st.text_area("Prompt de Sistema:", value=agente['system_prompt'], height=150)
-                                nova_base = st.text_area("Brand Guidelines:", value=agente.get('base_conhecimento', ''), height=200)
-                                nova_comment = st.text_area("Comentários:", value=agente.get('comments', ''), height=200)
-                                novo_planejamento = st.text_area("Planejamento:", value=agente.get('planejamento', ''), height=200)
+                                    else:
+                                        st.info("Nenhum agente disponível para herança.")
                             
-                            submitted = st.form_submit_button("Atualizar Agente")
-                            if submitted:
-                                if novo_nome:
-                                    atualizar_agente(
-                                        agente['_id'], 
-                                        novo_nome, 
-                                        novo_prompt, 
-                                        nova_base, 
-                                        nova_comment, 
-                                        novo_planejamento,
-                                        nova_categoria,
-                                        agente_mae_id,
-                                        herdar_elementos
-                                    )
-                                    st.success(f"Agente '{novo_nome}' atualizado com sucesso!")
-                                    st.rerun()
-                                else:
-                                    st.error("Nome é obrigatório!")
-                else:
-                    st.info("Nenhum agente criado ainda.")
-            
-            with sub_tab3:
-                st.subheader("Gerenciar Agentes")
-                
-                # Filtros por categoria - AGORA COM MONITORAMENTO
-                categorias = ["Todos", "Social", "SEO", "Conteúdo", "Monitoramento"]
-                categoria_filtro = st.selectbox("Filtrar por categoria:", categorias)
-                
-                agentes = listar_agentes()
-                
-                # Aplicar filtro
-                if categoria_filtro != "Todos":
-                    agentes = [agente for agente in agentes if agente.get('categoria') == categoria_filtro]
-                
-                if agentes:
-                    for i, agente in enumerate(agentes):
-                        with st.expander(f"{agente['nome']} - {agente.get('categoria', 'Social')} - Criado em {agente['data_criacao'].strftime('%d/%m/%Y')}"):
-                            
-                            # Mostrar informações específicas por categoria
-                            if agente.get('categoria') == 'Monitoramento':
-                                st.info("🔍 **Agente de Monitoramento** - Usado apenas na aba de Monitoramento de Redes")
-                                
-                                if agente.get('base_conhecimento'):
-                                    st.write(f"**Base de Conhecimento:** {agente['base_conhecimento'][:200]}...")
-                                else:
-                                    st.warning("⚠️ Base de conhecimento não configurada")
-                                
-                                # Agentes de monitoramento não mostram outros campos
-                                st.write("**System Prompt:** (Não utilizado em monitoramento)")
-                                st.write("**Comentários:** (Não utilizado em monitoramento)")
-                                st.write("**Planejamento:** (Não utilizado em monitoramento)")
-                                
+                            novo_prompt = st.text_area("Prompt de Sistema:", value=agente['system_prompt'], height=150)
+                            nova_base = st.text_area("Brand Guidelines:", value=agente.get('base_conhecimento', ''), height=200)
+                            nova_comment = st.text_area("Comentários:", value=agente.get('comments', ''), height=200)
+                            novo_planejamento = st.text_area("Planejamento:", value=agente.get('planejamento', ''), height=200)
+                        
+                        submitted = st.form_submit_button("Atualizar Agente")
+                        if submitted:
+                            if novo_nome:
+                                atualizar_agente(
+                                    agente['_id'], 
+                                    novo_nome, 
+                                    novo_prompt, 
+                                    nova_base, 
+                                    nova_comment, 
+                                    novo_planejamento,
+                                    nova_categoria,
+                                    agente_mae_id,
+                                    herdar_elementos
+                                )
+                                st.success(f"Agente '{novo_nome}' atualizado com sucesso!")
+                                st.rerun()
                             else:
-                                # Para outras categorias, mostrar estrutura completa
-                                if agente.get('agente_mae_id'):
-                                    agente_mae = obter_agente(agente['agente_mae_id'])
-                                    if agente_mae:
-                                        st.write(f"**🔗 Herda de:** {agente_mae['nome']}")
-                                        st.write(f"**Elementos herdados:** {', '.join(agente.get('herdar_elementos', []))}")
-                                
-                                st.write(f"**Prompt de Sistema:** {agente['system_prompt'][:100]}..." if agente['system_prompt'] else "**Prompt de Sistema:** (herdado ou vazio)")
-                                if agente.get('base_conhecimento'):
-                                    st.write(f"**Brand Guidelines:** {agente['base_conhecimento'][:200]}...")
-                                if agente.get('comments'):
-                                    st.write(f"**Comentários do cliente:** {agente['comments'][:200]}...")
-                                if agente.get('planejamento'):
-                                    st.write(f"**Planejamento:** {agente['planejamento'][:200]}...")
+                                st.error("Nome é obrigatório!")
+            else:
+                st.info("Nenhum agente criado ainda.")
+        
+        with sub_tab3:
+            st.subheader("Gerenciar Agentes")
+            
+            # Mostrar informações do usuário atual
+            if current_user == "admin":
+                st.info("👑 Modo Administrador: Visualizando todos os agentes do sistema")
+            else:
+                st.info(f"👤 Visualizando apenas seus agentes ({current_user})")
+            
+            # Filtros por categoria - AGORA COM MONITORAMENTO
+            categorias = ["Todos", "Social", "SEO", "Conteúdo", "Monitoramento"]
+            categoria_filtro = st.selectbox("Filtrar por categoria:", categorias)
+            
+            agentes = listar_agentes()
+            
+            # Aplicar filtro
+            if categoria_filtro != "Todos":
+                agentes = [agente for agente in agentes if agente.get('categoria') == categoria_filtro]
+            
+            if agentes:
+                for i, agente in enumerate(agentes):
+                    with st.expander(f"{agente['nome']} - {agente.get('categoria', 'Social')} - Criado em {agente['data_criacao'].strftime('%d/%m/%Y')}"):
+                        
+                        # Mostrar proprietário se for admin
+                        owner_info = ""
+                        if current_user == "admin" and agente.get('criado_por'):
+                            owner_info = f" | 👤 {agente['criado_por']}"
+                            st.write(f"**Proprietário:** {agente['criado_por']}")
+                        
+                        # Mostrar informações específicas por categoria
+                        if agente.get('categoria') == 'Monitoramento':
+                            st.info("🔍 **Agente de Monitoramento** - Usado apenas na aba de Monitoramento de Redes")
                             
-                            col1, col2 = st.columns(2)
-                            with col1:
-                                if st.button("Selecionar para Chat", key=f"select_{i}"):
-                                    agente_completo = obter_agente_com_heranca(agente['_id'])
-                                    st.session_state.agente_selecionado = agente_completo
-                                    st.session_state.messages = []
-                                    st.success(f"Agente '{agente['nome']}' selecionado!")
-                                    st.rerun()
-                            with col2:
-                                if st.button("Desativar", key=f"delete_{i}"):
-                                    desativar_agente(agente['_id'])
-                                    st.success(f"Agente '{agente['nome']}' desativado!")
-                                    st.rerun()
-                else:
-                    st.info("Nenhum agente encontrado para esta categoria.")
-if "📋 Briefing Syn" in tab_mapping:
-    with tab_mapping["📋 Briefing Syn"]:
+                            if agente.get('base_conhecimento'):
+                                st.write(f"**Base de Conhecimento:** {agente['base_conhecimento'][:200]}...")
+                            else:
+                                st.warning("⚠️ Base de conhecimento não configurada")
+                            
+                            # Agentes de monitoramento não mostram outros campos
+                            st.write("**System Prompt:** (Não utilizado em monitoramento)")
+                            st.write("**Comentários:** (Não utilizado em monitoramento)")
+                            st.write("**Planejamento:** (Não utilizado em monitoramento)")
+                            
+                        else:
+                            # Para outras categorias, mostrar estrutura completa
+                            if agente.get('agente_mae_id'):
+                                agente_mae = obter_agente(agente['agente_mae_id'])
+                                if agente_mae:
+                                    st.write(f"**🔗 Herda de:** {agente_mae['nome']}")
+                                    st.write(f"**Elementos herdados:** {', '.join(agente.get('herdar_elementos', []))}")
+                            
+                            st.write(f"**Prompt de Sistema:** {agente['system_prompt'][:100]}..." if agente['system_prompt'] else "**Prompt de Sistema:** (herdado ou vazio)")
+                            if agente.get('base_conhecimento'):
+                                st.write(f"**Brand Guidelines:** {agente['base_conhecimento'][:200]}...")
+                            if agente.get('comments'):
+                                st.write(f"**Comentários do cliente:** {agente['comments'][:200]}...")
+                            if agente.get('planejamento'):
+                                st.write(f"**Planejamento:** {agente['planejamento'][:200]}...")
+                        
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            if st.button("Selecionar para Chat", key=f"select_{i}"):
+                                agente_completo = obter_agente_com_heranca(agente['_id'])
+                                st.session_state.agente_selecionado = agente_completo
+                                st.session_state.messages = []
+                                st.success(f"Agente '{agente['nome']}' selecionado!")
+                                st.rerun()
+                        with col2:
+                            if st.button("Desativar", key=f"delete_{i}"):
+                                desativar_agente(agente['_id'])
+                                st.success(f"Agente '{agente['nome']}' desativado!")
+                                st.rerun()
+            else:
+                st.info("Nenhum agente encontrado para esta categoria.")
+
+if "📋 Briefing" in tab_mapping:
+    with tab_mapping["📋 Briefing"]:
         st.header("📋 Gerador de Briefings - SYN")
         st.markdown("Digite o conteúdo da célula do calendário para gerar um briefing completo no padrão SYN.")
         
@@ -1420,6 +1485,7 @@ if "📋 Briefing Syn" in tab_mapping:
         st.markdown("---")
         st.caption("Ferramenta de geração automática de briefings - Padrão SYN. Digite o conteúdo da célula do calendário para gerar briefings completos.")
 
+# --- ABA: VALIDAÇÃO UNIFICADA ---
 with tab_mapping["✅ Validação Unificada"]:
     st.header("✅ Validação Unificada de Conteúdo")
     
@@ -2216,7 +2282,7 @@ with tab_mapping["✨ Geração de Conteúdo"]:
         st.subheader("📝 Fontes de Conteúdo")
         
         # Opção 1: Upload de múltiplos arquivos
-        st.write("**📎 Upload de Arquivos (PDF, TXT, PPTX, DOCX):**")
+        st.write("📎 Upload de Arquivos (PDF, TXT, PPTX, DOCX):")
         arquivos_upload = st.file_uploader(
             "Selecione um ou mais arquivos:",
             type=['pdf', 'txt', 'pptx', 'ppt', 'docx', 'doc'],
@@ -2249,7 +2315,7 @@ with tab_mapping["✨ Geração de Conteúdo"]:
                                        key=f"preview_{i}")
         
         # Opção 2: Selecionar briefing do banco de dados
-        st.write("**🗃️ Briefing do Banco de Dados:**")
+        st.write("🗃️ Briefing do Banco de Dados:")
         if mongo_connected_conteudo:
             briefings_disponiveis = list(collection_briefings.find().sort("data_criacao", -1).limit(20))
             if briefings_disponiveis:
@@ -2265,7 +2331,7 @@ with tab_mapping["✨ Geração de Conteúdo"]:
             st.warning("Conexão com MongoDB não disponível")
         
         # Opção 3: Inserir briefing manualmente
-        st.write("**✍️ Briefing Manual:**")
+        st.write("✍️ Briefing Manual:")
         briefing_manual = st.text_area("Ou cole o briefing completo aqui:", height=150,
                                       placeholder="""Exemplo:
 Título: Campanha de Lançamento
@@ -2274,7 +2340,7 @@ Público-alvo: Empresários...
 Pontos-chave: [lista os principais pontos]""")
         
         # Transcrição de áudio/vídeo
-        st.write("**🎤 Transcrição de Áudio/Video:**")
+        st.write("🎤 Transcrição de Áudio/Video:")
         arquivos_midia = st.file_uploader(
             "Áudios/Vídeos para transcrição:",
             type=['mp3', 'wav', 'mp4', 'mov', 'avi'],
@@ -3010,7 +3076,7 @@ with tab_mapping["📝 Revisão Ortográfica"]:
                                 with col_dl3:
                                     # Extrair apenas as explicações se disponível
                                     if "## 🔍 PRINCIPAIS ALTERAÇÕES REALIZADAS" in resultado:
-                                        explicacoes_start = resultado.find("## 🔍 PRINCIPAIS ALTERAÇÕES REALIZADAS")
+                                                                            explicacoes_start = resultado.find("## 🔍 PRINCIPAIS ALTERAÇÕES REALIZADAS")
                                         explicacoes_end = resultado.find("##", explicacoes_start + 1)
                                         explicacoes = resultado[explicacoes_start:explicacoes_end] if explicacoes_end != -1 else resultado[explicacoes_start:]
                                         
@@ -3200,19 +3266,14 @@ with tab_mapping["📝 Revisão Ortográfica"]:
             - **Otimização de Conteúdo**: Melhora a clareza e impacto da comunicação
             - **Eficiência**: Reduz tempo de revisão manual
             """)
-            
 
 # --- ABA: MONITORAMENTO DE REDES ---
 with tab_mapping["Monitoramento de Redes"]:
     st.header("🤖 Agente de Monitoramento")
     st.markdown("**Especialista que fala como gente**")
 
-
     def gerar_resposta_agente(pergunta_usuario: str, historico: List[Dict] = None, agente_monitoramento=None) -> str:
         """Gera resposta do agente usando RAG e base do agente de monitoramento"""
-        
-        # Busca conhecimento técnico relevante
-        contexto_tecnico = buscar_conhecimento_tecnico(pergunta_usuario)
         
         # Configuração do agente - usa base do agente selecionado ou padrão
         if agente_monitoramento and agente_monitoramento.get('base_conhecimento'):
@@ -3296,6 +3357,9 @@ with tab_mapping["Monitoramento de Redes"]:
                     st.warning("⚠️ Este agente não possui base de conhecimento configurada")
                 
                 st.write(f"**Criado em:** {agente_monitoramento['data_criacao'].strftime('%d/%m/%Y %H:%M')}")
+                # Mostrar proprietário se for admin
+                if get_current_user() == "admin" and agente_monitoramento.get('criado_por'):
+                    st.write(f"**👤 Proprietário:** {agente_monitoramento['criado_por']}")
         
         else:
             st.error("❌ Nenhum agente de monitoramento encontrado.")
@@ -3438,8 +3502,110 @@ with tab_mapping["Monitoramento de Redes"]:
         **🤖 AGENTE:** "Poxa, que pena saber disso! Vamos entender melhor o que aconteceu. Pode me contar sobre as condições de aplicação? Assim conseguimos te orientar melhor da próxima vez. A equipe técnica também está à disposição! 📞"
         """)
 
-   
-   
+# --- Funções auxiliares para busca web ---
+def buscar_perplexity(pergunta: str, contexto_agente: str = None) -> str:
+    """Realiza busca na web usando API do Perplexity"""
+    try:
+        headers = {
+            "Authorization": f"Bearer {perp_api_key}",
+            "Content-Type": "application/json"
+        }
+        
+        # Construir o conteúdo da mensagem
+        messages = []
+        
+        if contexto_agente:
+            messages.append({
+                "role": "system",
+                "content": f"Contexto do agente: {contexto_agente}"
+            })
+        
+        messages.append({
+            "role": "user",
+            "content": pergunta
+        })
+        
+        data = {
+            "model": "sonar-medium-online",
+            "messages": messages,
+            "max_tokens": 2000,
+            "temperature": 0.1
+        }
+        
+        response = requests.post(
+            "https://api.perplexity.ai/chat/completions",
+            headers=headers,
+            json=data,
+            timeout=30
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            return result['choices'][0]['message']['content']
+        else:
+            return f"❌ Erro na busca: {response.status_code} - {response.text}"
+            
+    except Exception as e:
+        return f"❌ Erro ao conectar com Perplexity: {str(e)}"
+
+def analisar_urls_perplexity(urls: List[str], pergunta: str, contexto_agente: str = None) -> str:
+    """Analisa URLs específicas usando Perplexity"""
+    try:
+        headers = {
+            "Authorization": f"Bearer {perp_api_key}",
+            "Content-Type": "application/json"
+        }
+        
+        # Construir contexto com URLs
+        urls_contexto = "\n".join([f"- {url}" for url in urls])
+        
+        messages = []
+        
+        if contexto_agente:
+            messages.append({
+                "role": "system",
+                "content": f"Contexto do agente: {contexto_agente}"
+            })
+        
+        messages.append({
+            "role": "user",
+            "content": f"""Analise as seguintes URLs e responda à pergunta:
+
+URLs para análise:
+{urls_contexto}
+
+Pergunta: {pergunta}
+
+Forneça uma análise detalhada baseada no conteúdo dessas URLs."""
+        })
+        
+        data = {
+            "model": "sonar-medium-online",
+            "messages": messages,
+            "max_tokens": 3000,
+            "temperature": 0.1
+        }
+        
+        response = requests.post(
+            "https://api.perplexity.ai/chat/completions",
+            headers=headers,
+            json=data,
+            timeout=45
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            return result['choices'][0]['message']['content']
+        else:
+            return f"❌ Erro na análise: {response.status_code} - {response.text}"
+            
+    except Exception as e:
+        return f"❌ Erro ao analisar URLs: {str(e)}"
+
+def transcrever_audio_video(arquivo, tipo):
+    """Função placeholder para transcrição de áudio/vídeo"""
+    return f"Transcrição do {tipo} {arquivo.name} - Esta funcionalidade requer configuração adicional de APIs de transcrição."
+
 # --- Estilização ---
 st.markdown("""
 <style>
@@ -3513,5 +3679,45 @@ st.markdown("""
         border-radius: 10px;
         margin: 1rem 0;
     }
+    .user-indicator {
+        background-color: #e8f5e8;
+        padding: 0.3rem 0.8rem;
+        border-radius: 15px;
+        font-size: 0.8rem;
+        color: #2e7d32;
+        border: 1px solid #c8e6c9;
+        margin-left: 0.5rem;
+    }
 </style>
 """, unsafe_allow_html=True)
+
+# --- Informações do sistema na sidebar ---
+with st.sidebar:
+    st.markdown("---")
+    st.subheader("🔐 Sistema de Isolamento")
+    
+    current_user = get_current_user()
+    if current_user == "admin":
+        st.success("👑 **Modo Administrador**")
+        st.info("Visualizando e gerenciando TODOS os agentes do sistema")
+    else:
+        st.success(f"👤 **Usuário: {current_user}**")
+        st.info("Visualizando e gerenciando apenas SEUS agentes")
+    
+    # Estatísticas rápidas
+    agentes_usuario = listar_agentes()
+    if agentes_usuario:
+        categorias_count = {}
+        for agente in agentes_usuario:
+            cat = agente.get('categoria', 'Social')
+            categorias_count[cat] = categorias_count.get(cat, 0) + 1
+        
+        st.markdown("### 📊 Seus Agentes")
+        for categoria, count in categorias_count.items():
+            st.write(f"- **{categoria}:** {count} agente(s)")
+        
+        st.write(f"**Total:** {len(agentes_usuario)} agente(s)")
+
+# --- Rodapé ---
+st.markdown("---")
+st.caption(f"🤖 Agente Social v2.0 | Usuário: {get_current_user()} | {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}")
