@@ -3076,7 +3076,7 @@ with tab_mapping["📝 Revisão Ortográfica"]:
                                 with col_dl3:
                                     # Extrair apenas as explicações se disponível
                                     if "## 🔍 PRINCIPAIS ALTERAÇÕES REALIZADAS" in resultado:
-                                                                            explicacoes_start = resultado.find("## 🔍 PRINCIPAIS ALTERAÇÕES REALIZADAS")
+                                        explicacoes_start = resultado.find("## 🔍 PRINCIPAIS ALTERAÇÕES REALIZADAS")
                                         explicacoes_end = resultado.find("##", explicacoes_start + 1)
                                         explicacoes = resultado[explicacoes_start:explicacoes_end] if explicacoes_end != -1 else resultado[explicacoes_start:]
                                         
