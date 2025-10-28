@@ -1485,6 +1485,414 @@ if "📋 Briefing" in tab_mapping:
         st.markdown("---")
         st.caption("Ferramenta de geração automática de briefings - Padrão SYN. Digite o conteúdo da célula do calendário para gerar briefings completos.")
 
+
+
+# --- FUNÇÕES DE EXTRAÇÃO DE TEXTO PARA VALIDAÇÃO ---
+
+def extract_text_from_pdf_com_slides(arquivo_pdf):
+    """Extrai texto de PDF com informação de páginas"""
+    try:
+        import PyPDF2
+        pdf_reader = PyPDF2.PdfReader(arquivo_pdf)
+        slides_info = []
+        
+        for pagina_num, pagina in enumerate(pdf_reader.pages):
+            texto = pagina.extract_text()
+            slides_info.append({
+                'numero': pagina_num + 1,
+                'conteudo': texto,
+                'tipo': 'página'
+            })
+        
+        texto_completo = "\n\n".join([f"--- PÁGINA {s['numero']} ---\n{s['conteudo']}" for s in slides_info])
+        return texto_completo, slides_info
+        
+    except Exception as e:
+        return f"Erro na extração PDF: {str(e)}", []
+
+def extract_text_from_pptx_com_slides(arquivo_pptx):
+    """Extrai texto de PPTX com informação de slides"""
+    try:
+        from pptx import Presentation
+        import io
+        
+        prs = Presentation(io.BytesIO(arquivo_pptx.read()))
+        slides_info = []
+        
+        for slide_num, slide in enumerate(prs.slides):
+            texto_slide = f"--- SLIDE {slide_num + 1} ---\n"
+            
+            for shape in slide.shapes:
+                if hasattr(shape, "text") and shape.text:
+                    texto_slide += shape.text + "\n"
+            
+            slides_info.append({
+                'numero': slide_num + 1,
+                'conteudo': texto_slide,
+                'tipo': 'slide'
+            })
+        
+        texto_completo = "\n\n".join([s['conteudo'] for s in slides_info])
+        return texto_completo, slides_info
+        
+    except Exception as e:
+        return f"Erro na extração PPTX: {str(e)}", []
+
+def extrair_texto_arquivo(arquivo):
+    """Extrai texto de arquivos TXT e DOCX"""
+    try:
+        if arquivo.type == "text/plain":
+            return str(arquivo.read(), "utf-8")
+        elif arquivo.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+            import docx
+            import io
+            doc = docx.Document(io.BytesIO(arquivo.read()))
+            texto = ""
+            for para in doc.paragraphs:
+                texto += para.text + "\n"
+            return texto
+        else:
+            return f"Tipo não suportado: {arquivo.type}"
+    except Exception as e:
+        return f"Erro na extração: {str(e)}"
+
+def criar_prompt_validacao_preciso(texto, nome_arquivo, contexto_agente):
+    """Cria um prompt de validação muito mais preciso para evitar falsos positivos"""
+    
+    prompt = f"""
+{contexto_agente}
+
+## INSTRUÇÕES CRÍTICAS PARA ANÁLISE:
+
+**PRECISÃO ABSOLUTA - EVITE FALSOS POSITIVOS:**
+- NÃO INVENTE erros que não existem
+- NÃO SUGIRA adicionar vírgulas que JÁ EXISTEM no texto
+- NÃO INVENTE palavras separadas incorretamente se elas estão CORRETAS no original
+- Só aponte erros que REALMENTE EXISTEM no texto fornecido
+
+**TEXTO PARA ANÁLISE:**
+**Arquivo:** {nome_arquivo}
+**Conteúdo:**
+{texto[:12000]}  # Limite para não exceder tokens
+
+## FORMATO DE RESPOSTA OBRIGATÓRIO:
+
+### 🎯 RESUMO EXECUTIVO
+[Breve avaliação geral - 1 parágrafo]
+
+### ✅ CONFORMIDADE COM DIRETRIZES
+- [Itens que estão alinhados com as diretrizes de branding]
+
+### ⚠️ PROBLEMAS REAIS IDENTIFICADOS
+**CRITÉRIO: Só liste problemas que EFETIVAMENTE EXISTEM no texto acima**
+
+**ERROS ORTOGRÁFICOS REAIS:**
+- [Só liste palavras REALMENTE escritas errado no texto]
+- [Exemplo CORRETO: "te lefone" → "telefone" (se estiver errado no texto)]
+- [Exemplo INCORRETO: Não aponte "telefone" como erro se estiver escrito certo]
+
+**ERROS DE PONTUAÇÃO REAIS:**
+- [Só liste vírgulas/pontos que REALMENTE faltam ou estão em excesso]
+- [NÃO SUGIRA adicionar vírgulas que JÁ EXISTEM]
+- [Exemplo CORRETO: Frase sem vírgula onde claramente precisa]
+- [Exemplo INCORRETO: Não aponte falta de vírgula se a frase está clara]
+
+**PROBLEMAS DE FORMATAÇÃO:**
+- [Só liste problemas REAIS de formatação]
+- [Exemplo: Texto em caixa alta desnecessária, espaçamento inconsistente]
+
+**INCONSISTÊNCIAS COM BRANDING:**
+- [Só liste desvios REAIS das diretrizes de branding]
+
+### 💡 SUGESTÕES DE MELHORIA (OPCIONAL)
+- [Sugestões para aprimorar, mas NÃO como correções de erros inexistentes]
+
+### 📊 STATUS FINAL
+**Documento:** [Aprovado/Necessita ajustes/Reprovado]
+**Principais ações necessárias:** [Lista resumida]
+
+**REGRA DOURADA: SE NÃO TEM CERTEZA ABSOLUTA DE QUE É UM ERRO, NÃO APONTE COMO ERRO.**
+"""
+    return prompt
+
+def analisar_documento_por_slides(doc, contexto_agente):
+    """Analisa documento slide por slide com alta precisão"""
+    
+    resultados = []
+    
+    for i, slide in enumerate(doc['slides']):
+        with st.spinner(f"Analisando slide {i+1}..."):
+            try:
+                prompt_slide = f"""
+{contexto_agente}
+
+## ANÁLISE POR SLIDE - PRECISÃO ABSOLUTA
+
+**SLIDE {i+1}:**
+{slide['conteudo'][:2000]}
+
+**INSTRUÇÕES CRÍTICAS:**
+- NÃO INVENTE erros que não existem
+- Só aponte problemas REAIS e OBJETIVOS
+- NÃO crie falsos positivos de pontuação ou ortografia
+
+**ANÁLISE DO SLIDE {i+1}:**
+
+### ✅ Pontos Fortes:
+[O que está bom neste slide]
+
+### ⚠️ Problemas REAIS (só os que EFETIVAMENTE existem):
+- [Lista CURTA de problemas REAIS]
+
+### 💡 Sugestões Específicas:
+[Melhorias para ESTE slide específico]
+
+**STATUS:** [✔️ Aprovado / ⚠️ Ajustes Menores / ❌ Problemas Sérios]
+"""
+                
+                resposta = modelo_texto.generate_content(prompt_slide)
+                resultados.append({
+                    'slide_num': i+1,
+                    'analise': resposta.text,
+                    'tem_alteracoes': '❌' in resposta.text or '⚠️' in resposta.text
+                })
+                
+            except Exception as e:
+                resultados.append({
+                    'slide_num': i+1,
+                    'analise': f"❌ Erro na análise do slide: {str(e)}",
+                    'tem_alteracoes': False
+                })
+    
+    # Construir relatório consolidado
+    relatorio = f"# 📊 RELATÓRIO DE VALIDAÇÃO - {doc['nome']}\n\n"
+    relatorio += f"**Total de Slides:** {len(doc['slides'])}\n"
+    relatorio += f"**Slides com Alterações:** {sum(1 for r in resultados if r['tem_alteracoes'])}\n\n"
+    
+    # Slides que precisam de atenção
+    slides_com_problemas = [r for r in resultados if r['tem_alteracoes']]
+    if slides_com_problemas:
+        relatorio += "## 🚨 SLIDES QUE PRECISAM DE ATENÇÃO:\n\n"
+        for resultado in slides_com_problemas:
+            relatorio += f"### 📋 Slide {resultado['slide_num']}\n"
+            relatorio += f"{resultado['analise']}\n\n"
+    
+    # Resumo executivo
+    relatorio += "## 📈 RESUMO EXECUTIVO\n\n"
+    if slides_com_problemas:
+        relatorio += f"**⚠️ {len(slides_com_problemas)} slide(s) necessitam de ajustes**\n"
+        relatorio += f"**✅ {len(doc['slides']) - len(slides_com_problemas)} slide(s) estão adequados**\n"
+    else:
+        relatorio += "**🎉 Todos os slides estão em conformidade com as diretrizes!**\n"
+    
+    return relatorio
+
+# --- FUNÇÕES DE BUSCA WEB ---
+
+def buscar_perplexity(pergunta: str, contexto_agente: str = None) -> str:
+    """Realiza busca na web usando API do Perplexity"""
+    try:
+        headers = {
+            "Authorization": f"Bearer {perp_api_key}",
+            "Content-Type": "application/json"
+        }
+        
+        # Construir o conteúdo da mensagem
+        messages = []
+        
+        if contexto_agente:
+            messages.append({
+                "role": "system",
+                "content": f"Contexto do agente: {contexto_agente}"
+            })
+        
+        messages.append({
+            "role": "user",
+            "content": pergunta
+        })
+        
+        data = {
+            "model": "sonar-medium-online",
+            "messages": messages,
+            "max_tokens": 2000,
+            "temperature": 0.1
+        }
+        
+        response = requests.post(
+            "https://api.perplexity.ai/chat/completions",
+            headers=headers,
+            json=data,
+            timeout=30
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            return result['choices'][0]['message']['content']
+        else:
+            return f"❌ Erro na busca: {response.status_code} - {response.text}"
+            
+    except Exception as e:
+        return f"❌ Erro ao conectar com Perplexity: {str(e)}"
+
+def analisar_urls_perplexity(urls: List[str], pergunta: str, contexto_agente: str = None) -> str:
+    """Analisa URLs específicas usando Perplexity"""
+    try:
+        headers = {
+            "Authorization": f"Bearer {perp_api_key}",
+            "Content-Type": "application/json"
+        }
+        
+        # Construir contexto com URLs
+        urls_contexto = "\n".join([f"- {url}" for url in urls])
+        
+        messages = []
+        
+        if contexto_agente:
+            messages.append({
+                "role": "system",
+                "content": f"Contexto do agente: {contexto_agente}"
+            })
+        
+        messages.append({
+            "role": "user",
+            "content": f"""Analise as seguintes URLs e responda à pergunta:
+
+URLs para análise:
+{urls_contexto}
+
+Pergunta: {pergunta}
+
+Forneça uma análise detalhada baseada no conteúdo dessas URLs."""
+        })
+        
+        data = {
+            "model": "sonar-medium-online",
+            "messages": messages,
+            "max_tokens": 3000,
+            "temperature": 0.1
+        }
+        
+        response = requests.post(
+            "https://api.perplexity.ai/chat/completions",
+            headers=headers,
+            json=data,
+            timeout=45
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            return result['choices'][0]['message']['content']
+        else:
+            return f"❌ Erro na análise: {response.status_code} - {response.text}"
+            
+    except Exception as e:
+        return f"❌ Erro ao analisar URLs: {str(e)}"
+
+def transcrever_audio_video(arquivo, tipo):
+    """Função placeholder para transcrição de áudio/vídeo"""
+    return f"Transcrição do {tipo} {arquivo.name} - Esta funcionalidade requer configuração adicional de APIs de transcrição."
+
+# --- FUNÇÕES DE REVISÃO ORTOGRÁFICA ---
+
+def revisar_texto_ortografia(texto, agente, segmentos_selecionados, revisao_estilo=True, manter_estrutura=True, explicar_alteracoes=True):
+    """
+    Realiza revisão ortográfica e gramatical do texto considerando as diretrizes do agente
+    usando a API do Gemini
+    """
+    
+    # Construir o contexto do agente
+    contexto_agente = "CONTEXTO DO AGENTE PARA REVISÃO:\n\n"
+    
+    if "system_prompt" in segmentos_selecionados and "system_prompt" in agente:
+        contexto_agente += f"DIRETRIZES PRINCIPAIS:\n{agente['system_prompt']}\n\n"
+    
+    if "base_conhecimento" in segmentos_selecionados and "base_conhecimento" in agente:
+        contexto_agente += f"BASE DE CONHECIMENTO:\n{agente['base_conhecimento']}\n\n"
+    
+    if "comments" in segmentos_selecionados and "comments" in agente:
+        contexto_agente += f"COMENTÁRIOS E OBSERVAÇÕES:\n{agente['comments']}\n\n"
+    
+    if "planejamento" in segmentos_selecionados and "planejamento" in agente:
+        contexto_agente += f"PLANEJAMENTO E ESTRATÉGIA:\n{agente['planejamento']}\n\n"
+    
+    # Construir instruções baseadas nas configurações
+    instrucoes_revisao = ""
+    
+    if revisao_estilo:
+        instrucoes_revisao += """
+        - Analise e melhore a clareza, coesão e coerência textual
+        - Verifique adequação ao tom da marca
+        - Elimine vícios de linguagem e redundâncias
+        - Simplifique frases muito longas ou complexas
+        """
+    
+    if manter_estrutura:
+        instrucoes_revisao += """
+        - Mantenha a estrutura geral do texto original
+        - Preserve parágrafos e seções quando possível
+        - Conserve o fluxo lógico do conteúdo
+        """
+    
+    if explicar_alteracoes:
+        instrucoes_revisao += """
+        - Inclua justificativa para as principais alterações
+        - Explique correções gramaticais importantes
+        - Destaque melhorias de estilo significativas
+        """
+    
+    # Construir o prompt para revisão
+    prompt_revisao = f"""
+    {contexto_agente}
+    
+    TEXTO PARA REVISÃO:
+    {texto}
+    
+    INSTRUÇÕES PARA REVISÃO:
+    
+    1. **REVISÃO ORTOGRÁFICA E GRAMATICAL:**
+       - Corrija erros de ortografia, acentuação e grafia
+       - Verifique concordância nominal e verbal
+       - Ajuste pontuação (vírgulas, pontos, travessões)
+       - Corrija regência verbal e nominal
+       - Ajuste colocação pronominal
+    
+    2. **REVISÃO DE ESTILO E CLAREZA:**
+       {instrucoes_revisao}
+    
+    3. **CONFORMIDADE COM AS DIRETRIZES:**
+       - Alinhe o texto ao tom e estilo definidos
+       - Mantenha consistência terminológica
+       - Preserve a estrutura original quando possível
+       - Adapte ao público-alvo definido
+    
+    FORMATO DA RESPOSTA:
+    
+    ## 📋 TEXTO REVISADO
+    [Aqui vai o texto completo revisado, mantendo a estrutura geral quando possível]
+    
+    ## 🔍 PRINCIPAIS ALTERAÇÕES REALIZADAS
+    [Lista das principais correções realizadas com justificativa]
+    
+    
+    **IMPORTANTE:**
+    - Seja detalhado e preciso nas explicações
+    - Mantenha o formato markdown para fácil leitura
+    - Inclua exemplos específicos quando relevante
+    - Foque nas correções ortográficas e gramaticais
+    """
+    
+    try:
+        # Chamar a API do Gemini
+        response = modelo_texto.generate_content(prompt_revisao)
+        
+        if response and response.text:
+            return response.text
+        else:
+            return "❌ Erro: Não foi possível gerar a revisão. Tente novamente."
+        
+    except Exception as e:
+        return f"❌ Erro durante a revisão: {str(e)}"
+
 # --- ABA: VALIDAÇÃO UNIFICADA ---
 with tab_mapping["✅ Validação Unificada"]:
     st.header("✅ Validação Unificada de Conteúdo")
