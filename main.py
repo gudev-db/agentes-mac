@@ -1,4 +1,28 @@
-import streamlit as st
+Agente IA: Redação Técnica
+Mais Agro - SYN
+A Central de Conteúdos Mais Agro trabalha com uma abordagem técnica, voltada
+para produtores rurais, a fim de posicionar a Syngenta como especialista na
+proteção de cultivos e vender as soluções do portfólio. Os artigos publicados têm
+diversas funções importantes na jornada de venda:
+ servem de CTA para conteúdos de redes sociais e mídia paga;
+ comunicam lançamentos de produtos;
+ posicionam produtos já consolidados no mercado, a fim de destacá-los
+estrategicamente, de acordo com o micromomento das lavouras;
+ tratam de temas mercadológicos em alta no setor agrícola;
+ atualizam informações sobre pragas, doenças, nematoides e plantas
+daninhas;
+ incentivam as boas práticas nas lavouras;
+ divulgam campanhas, pesquisas e eventos realizados pela Syngenta ou das
+quais a empresa participa.
+Tudo sempre de olho no objetivo principal: vender os produtos e os serviços da
+Syngenta voltados para as lavouras de soja, milho, cana-de-açúcar, algodão,
+hortifrúti, citrus, trigo e café.
+O Mais Agro conta com algumas editorias, e cada artigo deve ser incluso em
+alguma delas:
+• Dia a dia do campo: conteúdos sobre as problemáticas que os produtores
+rurais enfrentam no dia a dia do campo, com recomendações técnicas de
+manejo;
+• Mercado e safra: conteúdos mercadológicos sobrevaimport streamlit as st
 import io
 import google.generativeai as genai
 from PIL import Image
@@ -2555,13 +2579,8 @@ def criar_prompt_validacao_preciso(texto, nome_arquivo, contexto_agente):
     prompt = f"""
 {contexto_agente}
 
-## INSTRUÇÕES CRÍTICAS PARA ANÁLISE:
 
-**PRECISÃO ABSOLUTA - EVITE FALSOS POSITIVOS:**
-- NÃO INVENTE erros que não existem
-- NÃO SUGIRA adicionar vírgulas que JÁ EXISTEM no texto
-- NÃO INVENTE palavras separadas incorretamente se elas estão CORRETAS no original
-- Só aponte erros que REALMENTE EXISTEM no texto fornecido
+
 
 **TEXTO PARA ANÁLISE:**
 **Arquivo:** {nome_arquivo}
@@ -2576,28 +2595,13 @@ def criar_prompt_validacao_preciso(texto, nome_arquivo, contexto_agente):
 ### ✅ CONFORMIDADE COM DIRETRIZES
 - [Itens que estão alinhados com as diretrizes de branding]
 
-### ⚠️ PROBLEMAS REAIS IDENTIFICADOS
-**CRITÉRIO: Só liste problemas que EFETIVAMENTE EXISTEM no texto acima**
 
-**ERROS ORTOGRÁFICOS REAIS:**
-- [Só liste palavras REALMENTE escritas errado no texto]
-- [Exemplo CORRETO: "te lefone" → "telefone" (se estiver errado no texto)]
-- [Exemplo INCORRETO: Não aponte "telefone" como erro se estiver escrito certo]
 
-**ERROS DE PONTUAÇÃO REAIS:**
-- [Só liste vírgulas/pontos que REALMENTE faltam ou estão em excesso]
-- [NÃO SUGIRA adicionar vírgulas que JÁ EXISTEM]
-- [Exemplo CORRETO: Frase sem vírgula onde claramente precisa]
-- [Exemplo INCORRETO: Não aponte falta de vírgula se a frase está clara]
-
-**PROBLEMAS DE FORMATAÇÃO:**
-- [Só liste problemas REAIS de formatação]
-- [Exemplo: Texto em caixa alta desnecessária, espaçamento inconsistente]
 
 **INCONSISTÊNCIAS COM BRANDING:**
 - [Só liste desvios REAIS das diretrizes de branding]
 
-### 💡 SUGESTÕES DE MELHORIA (OPCIONAL)
+### 💡 SUGESTÕES DE MELHORIA 
 - [Sugestões para aprimorar, mas NÃO como correções de erros inexistentes]
 
 ### 📊 STATUS FINAL
