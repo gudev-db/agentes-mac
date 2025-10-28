@@ -1823,7 +1823,6 @@ def revisar_texto_ortografia(texto, agente, segmentos_selecionados, revisao_esti
         - Analise e melhore a clareza, coesão e coerência textual
         - Verifique adequação ao tom da marca
         - Elimine vícios de linguagem e redundâncias
-        - Simplifique frases muito longas ou complexas
         """
     
     if manter_estrutura:
@@ -1850,11 +1849,6 @@ def revisar_texto_ortografia(texto, agente, segmentos_selecionados, revisao_esti
     INSTRUÇÕES PARA REVISÃO:
     
     1. **REVISÃO ORTOGRÁFICA E GRAMATICAL:**
-       - Corrija erros de ortografia, acentuação e grafia
-       - Verifique concordância nominal e verbal
-       - Ajuste pontuação (vírgulas, pontos, travessões)
-       - Corrija regência verbal e nominal
-       - Ajuste colocação pronominal
     
     2. **REVISÃO DE ESTILO E CLAREZA:**
        {instrucoes_revisao}
@@ -1863,7 +1857,6 @@ def revisar_texto_ortografia(texto, agente, segmentos_selecionados, revisao_esti
        - Alinhe o texto ao tom e estilo definidos
        - Mantenha consistência terminológica
        - Preserve a estrutura original quando possível
-       - Adapte ao público-alvo definido
     
     FORMATO DA RESPOSTA:
     
@@ -1873,12 +1866,6 @@ def revisar_texto_ortografia(texto, agente, segmentos_selecionados, revisao_esti
     ## 🔍 PRINCIPAIS ALTERAÇÕES REALIZADAS
     [Lista das principais correções realizadas com justificativa]
     
-    
-    **IMPORTANTE:**
-    - Seja detalhado e preciso nas explicações
-    - Mantenha o formato markdown para fácil leitura
-    - Inclua exemplos específicos quando relevante
-    - Foque nas correções ortográficas e gramaticais
     """
     
     try:
