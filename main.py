@@ -43,7 +43,7 @@ def extract_text_from_pdf(pdf_path):
             for page in pdf.pages:
                 page_text = page.extract_text()
                 if page_text:
-                    text += page_text + "\n"
+                    text += page_text
     except Exception as e:
         print(f"pdfplumber failed for {pdf_path}: {e}")
 
@@ -102,7 +102,7 @@ def extract_text_from_pptx(pptx_path):
             # Extract text from shapes
             for shape in slide.shapes:
                 if hasattr(shape, "text") and shape.text:
-                    text += shape.text + "\n"
+                    text += shape.text 
                 
                 # Handle tables
                 if shape.shape_type == 19:  # Table shape type
