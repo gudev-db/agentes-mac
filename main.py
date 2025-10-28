@@ -55,7 +55,7 @@ def extract_text_from_pdf(pdf_path):
                 for page in pdf_reader.pages:
                     page_text = page.extract_text()
                     if page_text:
-                        text += page_text + "\n"
+                        text += page_text 
         except Exception as e:
             print(f"PyPDF2 also failed for {pdf_path}: {e}")
 
