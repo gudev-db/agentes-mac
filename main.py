@@ -1897,6 +1897,14 @@ with tab_mapping["✅ Validação Unificada"]:
         with subtab_texto:
             st.subheader("📄 Validação de Documentos e Texto")
             
+            # Botão para limpar análises de texto
+            if st.button("🗑️ Limpar Análises de Texto", key="limpar_analises_texto"):
+                if 'validacao_triggered' in st.session_state:
+                    del st.session_state.validacao_triggered
+                if 'todos_textos' in st.session_state:
+                    del st.session_state.todos_textos
+                st.rerun()
+            
             # Container principal com duas colunas
             col_entrada, col_saida = st.columns([1, 1])
             
@@ -2079,6 +2087,9 @@ with tab_mapping["✅ Validação Unificada"]:
                                 file_name=f"relatorio_validacao_{datetime.datetime.now().strftime('%Y%m%d_%H%M')}.txt",
                                 mime="text/plain"
                             )
+                        
+                        # Armazenar na sessão
+                        st.session_state.todos_textos = todos_textos
                 
                 else:
                     # Estado inicial - instruções
@@ -2103,6 +2114,12 @@ with tab_mapping["✅ Validação Unificada"]:
         
         with subtab_imagem:
             st.subheader("🖼️ Validação de Imagem")
+            
+            # Botão para limpar análises de imagem
+            if st.button("🗑️ Limpar Análises de Imagem", key="limpar_analises_imagem"):
+                if 'resultados_analise' in st.session_state:
+                    del st.session_state.resultados_analise
+                st.rerun()
             
             uploaded_images = st.file_uploader(
                 "Carregue uma ou mais imagens para análise", 
@@ -2210,6 +2227,9 @@ with tab_mapping["✅ Validação Unificada"]:
                             except Exception as e:
                                 st.error(f"❌ Erro ao carregar imagem {uploaded_image.name}: {str(e)}")
                     
+                    # Armazenar na sessão
+                    st.session_state.resultados_analise = resultados_analise
+                    
                     # Resumo executivo
                     st.markdown("---")
                     st.subheader("📋 Resumo Executivo")
@@ -2245,11 +2265,25 @@ with tab_mapping["✅ Validação Unificada"]:
                             mime="text/plain"
                         )
             
+            # Mostrar análises existentes da sessão
+            elif 'resultados_analise' in st.session_state and st.session_state.resultados_analise:
+                st.info("📋 Análises anteriores encontradas. Use o botão 'Limpar Análises' para recomeçar.")
+                
+                for resultado in st.session_state.resultados_analise:
+                    with st.expander(f"🖼️ {resultado['nome']} - Análise Salva", expanded=False):
+                        st.markdown(resultado['analise'])
+            
             else:
                 st.info("📁 Carregue uma ou mais imagens para iniciar a validação de branding")
 
         with subtab_video:
             st.subheader("🎬 Validação de Vídeo")
+            
+            # Botão para limpar análises de vídeo
+            if st.button("🗑️ Limpar Análises de Vídeo", key="limpar_analises_video"):
+                if 'resultados_video' in st.session_state:
+                    del st.session_state.resultados_video
+                st.rerun()
             
             # Container principal
             col_upload, col_config = st.columns([2, 1])
@@ -2271,12 +2305,6 @@ with tab_mapping["✅ Validação Unificada"]:
                     placeholder="Forneça contexto adicional sobre o vídeo...",
                     help="Este texto será incluído no prompt para melhorar a análise"
                 )
-            
-            # Botão para limpar análises
-            if st.button("🗑️ Limpar Análises", key="limpar_analises_video"):
-                if 'resultados_video' in st.session_state:
-                    del st.session_state.resultados_video
-                st.rerun()
             
             if uploaded_videos:
                 st.success(f"✅ {len(uploaded_videos)} vídeo(s) carregado(s)")
@@ -2374,7 +2402,7 @@ with tab_mapping["✅ Validação Unificada"]:
                                             
                                             ### 👁️ ANÁLISE VISUAL
                                             [Análise de elementos visuais, cores, composição, branding visual]
-        
+
                                             ### 📝 TEXTO EM FRAMES
                                             [Identificação e análise de texto presente nos frames, correções ortográficas, alinhamento com branding. Atenção à consistência no uso de pontos e vírgulas, uso de bullets. Avalie se o texto está 100% aceitável como entregável profissional.]
                                             
@@ -2426,11 +2454,11 @@ with tab_mapping["✅ Validação Unificada"]:
                                                 'tipo': uploaded_video.type,
                                                 'tamanho': uploaded_video.size
                                             })
+                                
+                                # Separador entre vídeos
+                                if idx < len(uploaded_videos) - 1:
+                                    st.markdown("---")
                                     
-                                    # Separador entre vídeos
-                                    if idx < len(uploaded_videos) - 1:
-                                        st.markdown("---")
-                                        
                             except Exception as e:
                                 st.error(f"❌ Erro ao processar vídeo {uploaded_video.name}: {str(e)}")
                     
@@ -2478,6 +2506,11 @@ with tab_mapping["✅ Validação Unificada"]:
                 for resultado in st.session_state.resultados_video:
                     with st.expander(f"🎬 {resultado['nome']} - Análise Salva", expanded=False):
                         st.markdown(resultado['analise'])
+            
+            else:
+                st.info("🎬 Carregue um ou mais vídeos para iniciar a validação")
+
+
 # --- FUNÇÕES AUXILIARES MELHORADAS ---
 
 def criar_prompt_validacao_preciso(texto, nome_arquivo, contexto_agente):
