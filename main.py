@@ -2266,26 +2266,12 @@ with tab_mapping["✅ Validação Unificada"]:
             with col_config:
                 st.markdown("### ⚙️ Configurações de Análise")
                 
-                # Opções de processamento de vídeo
-                fps_custom = st.slider(
-                    "Frames por segundo (FPS)",
-                    min_value=0.1,
-                    max_value=10.0,
-                    value=1.0,
-                    step=0.1,
-                    help="Taxa de amostragem dos frames. Menor FPS para vídeos longos, maior FPS para ação rápida"
-                )
-                
-                analise_audio = st.checkbox(
-                    "🎵 Análise de Áudio",
-                    value=True,
-                    help="Incluir transcrição e análise do conteúdo de áudio"
-                )
-                
-                analise_visual = st.checkbox(
-                    "👁️ Análise Visual",
-                    value=True,
-                    help="Incluir análise de elementos visuais e texto em frames"
+                video_context_input = st.text_area(
+                    "**✍️ Digite o contexto da análise de vídeo:**", 
+                    height=150, 
+                    key="video_context_input",
+                    placeholder="Digite aqui o contexto do vídeo a ser analisado...",
+                    help="O vídeo será analisado de acordo com o seguinte contexto"
                 )
             
             if uploaded_videos:
@@ -2352,10 +2338,9 @@ with tab_mapping["✅ Validação Unificada"]:
                                             
                                             # Construir prompt baseado nas configurações
                                             componentes_analise = []
-                                            if analise_audio:
-                                                componentes_analise.append("transcrição e análise do conteúdo de áudio")
-                                            if analise_visual:
-                                                componentes_analise.append("análise de elementos visuais e texto presente nos frames")
+                                            if video_context_input:
+                                                componentes_analise.append("Analise o vídeo de acordo com o seguinte contexto oferecido pelo usuário: {video_context_input}")
+                                            
                                             
                                             prompt_analise = f"""
                                             {contexto}
