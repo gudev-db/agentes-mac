@@ -2339,7 +2339,7 @@ with tab_mapping["✅ Validação Unificada"]:
                                             contexto_usuario = ""
                                             if video_context_input and video_context_input.strip():
                                                 contexto_usuario = f"""
-                                                CONTEXTO ADICIONAL FORNECIDO PELO USUÁRIO:
+                                                CONTEXTO ADICIONAL FORNECIDO PELO USUÁRIO A SER CONSIDERADO NA ANÁLISE:
                                                 {video_context_input}
                                                 """
                                             
@@ -2352,7 +2352,7 @@ with tab_mapping["✅ Validação Unificada"]:
                                             - Qualidade e consistência visual  
                                             - Mensagem e tom da comunicação
                                             - Elementos de áudio e transcrição
-                                            - Texto presente nos frames
+                                            - Texto presente nos frames (aponte quaisquer erros de alinhamento com branding ou até ortográficos)
                                             
                                             Forneça a análise em formato estruturado:
                                             
