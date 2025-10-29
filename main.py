@@ -2264,15 +2264,19 @@ with tab_mapping["✅ Validação Unificada"]:
                 )
             
             with col_config:
-                st.markdown("### ⚙️ Configurações de Análise")
-                
                 video_context_input = st.text_area(
-                    "**✍️ Digite o contexto da análise de vídeo:**", 
+                    "**✍️ Contexto para análise:**", 
                     height=150, 
                     key="video_context_input",
-                    placeholder="Digite aqui o contexto do vídeo a ser analisado...",
-                    help="O vídeo será analisado de acordo com o seguinte contexto"
+                    placeholder="Forneça contexto adicional sobre o vídeo...",
+                    help="Este texto será incluído no prompt para melhorar a análise"
                 )
+            
+            # Botão para limpar análises
+            if st.button("🗑️ Limpar Análises", key="limpar_analises_video"):
+                if 'resultados_video' in st.session_state:
+                    del st.session_state.resultados_video
+                st.rerun()
             
             if uploaded_videos:
                 st.success(f"✅ {len(uploaded_videos)} vídeo(s) carregado(s)")
@@ -2288,13 +2292,11 @@ with tab_mapping["✅ Validação Unificada"]:
                         st.caption(f"Tipo: {video.type} | Tamanho: {video.size / (1024*1024):.1f} MB")
                     
                     with col_info:
-                        # Placeholder para informações do vídeo (seriam extraídas com bibliotecas como OpenCV)
                         st.write("📏 Duração: A ser detectada")
                         st.write("🎞️ Resolução: A ser detectada")
                     
                     with col_actions:
                         if st.button("🔍 Preview", key=f"preview_{idx}"):
-                            # Preview do vídeo
                             st.video(video, format=f"video/{video.type.split('/')[-1]}")
                 
                 # Botão para validar todos os vídeos
@@ -2336,25 +2338,26 @@ with tab_mapping["✅ Validação Unificada"]:
                                                 e verifique o alinhamento com as diretrizes de branding acima.
                                                 """
                                             
-                                            # Construir prompt baseado nas configurações
-                                            componentes_analise = []
-                                            if video_context_input:
-                                                componentes_analise.append("Analise o vídeo de acordo com o seguinte contexto oferecido pelo usuário: {video_context_input}")
-                                            
+                                            # Adicionar contexto do usuário se fornecido
+                                            contexto_usuario = ""
+                                            if video_context_input and video_context_input.strip():
+                                                contexto_usuario = f"""
+                                                CONTEXTO ADICIONAL FORNECIDO PELO USUÁRIO:
+                                                {video_context_input}
+                                                """
                                             
                                             prompt_analise = f"""
                                             {contexto}
+                                            {contexto_usuario}
                                             
-                                            ANALISE ESTE VÍDEO CONSIDERANDO:
-                                            - {', '.join(componentes_analise)}
+                                            Analise este vídeo considerando:
                                             - Alinhamento com diretrizes de branding
-                                            - Qualidade e consistência visual
+                                            - Qualidade e consistência visual  
                                             - Mensagem e tom da comunicação
-                                            
-                                            CONFIGURAÇÕES:
-                                            - Taxa de amostragem: {fps_custom} FPS
-                                            - Análise de áudio: {'Sim' if analise_audio else 'Não'}
-                                            - Análise visual: {'Sim' if analise_visual else 'Não'}
+                                            - Elementos de áudio e transcrição
+                                            - Texto presente nos frames (ortografia e alinhamento com branding)
+                                            - Consistência no uso de pontos, vírgulas e bullets
+                                            - Qualidade profissional do conteúdo textual
                                             
                                             Forneça a análise em formato estruturado:
                                             
@@ -2367,14 +2370,13 @@ with tab_mapping["✅ Validação Unificada"]:
                                             [Avaliação geral do alinhamento do vídeo com as diretrizes]
                                             
                                             ### 🔊 ANÁLISE DE ÁUDIO
-                                            {"[Transcrição e análise do conteúdo de áudio, tom, mensagem verbal]" if analise_audio else "*Análise de áudio desativada*"}
+                                            [Transcrição e análise do conteúdo de áudio, tom, mensagem verbal]
                                             
                                             ### 👁️ ANÁLISE VISUAL
-                                            {"[Análise de elementos visuais, cores, composição, texto em frames]" if analise_visual else "*Análise visual desativada*"}
-
-                        
+                                            [Análise de elementos visuais, cores, composição, branding visual]
+        
                                             ### 📝 TEXTO EM FRAMES
-                                            {"[Identificação e análise de texto presente nos frames, correções ortográficas, alinhamento com branding. Se atente a consistência no uso de pontos e vírgulas, uso de bullets. Revise se o texto está 100% aceitável como um entregável profissional.]" if analise_visual else "*Análise de texto desativada*"}
+                                            [Identificação e análise de texto presente nos frames, correções ortográficas, alinhamento com branding. Atenção à consistência no uso de pontos e vírgulas, uso de bullets. Avalie se o texto está 100% aceitável como entregável profissional.]
                                             
                                             ### ✅ PONTOS FORTES
                                             - [Elementos bem alinhados com as diretrizes]
@@ -2392,16 +2394,13 @@ with tab_mapping["✅ Validação Unificada"]:
                                             # Processar vídeo usando a API do Gemini
                                             video_bytes = uploaded_video.getvalue()
                                             
-                                            # Usar File API para vídeos maiores ou inline para menores
                                             if len(video_bytes) < 200 * 1024 * 1024:  # Menor que 20MB
                                                 response = modelo_vision.generate_content([
                                                     prompt_analise,
                                                     {"mime_type": uploaded_video.type, "data": video_bytes}
                                                 ])
                                             else:
-                                                # Para vídeos maiores, usar File API
                                                 st.info("📤 Uploading vídeo para processamento...")
-                                                # Implementar upload via File API aqui
                                                 response = modelo_vision.generate_content([
                                                     prompt_analise,
                                                     {"mime_type": uploaded_video.type, "data": video_bytes}
@@ -2415,12 +2414,7 @@ with tab_mapping["✅ Validação Unificada"]:
                                                 'indice': idx,
                                                 'analise': response.text,
                                                 'tipo': uploaded_video.type,
-                                                'tamanho': uploaded_video.size,
-                                                'config': {
-                                                    'fps': fps_custom,
-                                                    'audio': analise_audio,
-                                                    'visual': analise_visual
-                                                }
+                                                'tamanho': uploaded_video.size
                                             })
                                             
                                         except Exception as e:
@@ -2430,34 +2424,28 @@ with tab_mapping["✅ Validação Unificada"]:
                                                 'indice': idx,
                                                 'analise': f"Erro na análise: {str(e)}",
                                                 'tipo': uploaded_video.type,
-                                                'tamanho': uploaded_video.size,
-                                                'config': {
-                                                    'fps': fps_custom,
-                                                    'audio': analise_audio,
-                                                    'visual': analise_visual
-                                                }
+                                                'tamanho': uploaded_video.size
                                             })
-                                
-                                # Separador entre vídeos
-                                if idx < len(uploaded_videos) - 1:
-                                    st.markdown("---")
                                     
+                                    # Separador entre vídeos
+                                    if idx < len(uploaded_videos) - 1:
+                                        st.markdown("---")
+                                        
                             except Exception as e:
                                 st.error(f"❌ Erro ao processar vídeo {uploaded_video.name}: {str(e)}")
+                    
+                    # Armazenar resultados na sessão
+                    st.session_state.resultados_video = resultados_video
                     
                     # Resumo executivo dos vídeos
                     st.markdown("---")
                     st.subheader("📋 Resumo Executivo - Vídeos")
                     
-                    col_vid1, col_vid2, col_vid3, col_vid4 = st.columns(4)
+                    col_vid1, col_vid2 = st.columns(2)
                     with col_vid1:
                         st.metric("🎬 Total de Vídeos", len(uploaded_videos))
                     with col_vid2:
                         st.metric("✅ Análises Concluídas", len(resultados_video))
-                    with col_vid3:
-                        st.metric("🔊 Análise de Áudio", "Ativa" if analise_audio else "Inativa")
-                    with col_vid4:
-                        st.metric("👁️ Análise Visual", "Ativa" if analise_visual else "Inativa")
                     
                     # Botão para download do relatório
                     if st.button("📥 Exportar Relatório de Vídeos", key="exportar_relatorio_videos"):
@@ -2467,13 +2455,13 @@ with tab_mapping["✅ Validação Unificada"]:
                         **Agente:** {agente.get('nome', 'N/A')}
                         **Data:** {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}
                         **Total de Vídeos:** {len(uploaded_videos)}
-                        **Configurações:** FPS={fps_custom}, Áudio={analise_audio}, Visual={analise_visual}
+                        **Contexto Adicional:** {video_context_input if video_context_input else 'Nenhum'}
                         
                         ## VÍDEOS ANALISADOS:
                         {chr(10).join([f"{idx+1}. {vid.name} ({vid.type}) - {vid.size/(1024*1024):.1f} MB" for idx, vid in enumerate(uploaded_videos)])}
                         
                         ## ANÁLISES INDIVIDUAIS:
-                        {chr(10).join([f'### {res["nome"]} {chr(10)}Configurações: FPS={res["config"]["fps"]}, Áudio={res["config"]["audio"]}, Visual={res["config"]["visual"]} {chr(10)}{res["analise"]}' for res in resultados_video])}
+                        {chr(10).join([f'### {res["nome"]} {chr(10)}{res["analise"]}' for res in resultados_video])}
                         """
                         
                         st.download_button(
@@ -2483,56 +2471,13 @@ with tab_mapping["✅ Validação Unificada"]:
                             mime="text/plain"
                         )
             
-            else:
-                st.info("""
-                **🎬 Como usar a validação de vídeo:**
+            # Mostrar análises existentes da sessão
+            elif 'resultados_video' in st.session_state and st.session_state.resultados_video:
+                st.info("📋 Análises anteriores encontradas. Use o botão 'Limpar Análises' para recomeçar.")
                 
-                1. **Carregue um ou mais vídeos** nos formatos suportados
-                2. **Configure a análise** (FPS, áudio, elementos visuais)
-                3. **Clique em Validar** para análise completa
-                
-                **📹 Formatos Suportados:**
-                - MP4, MPEG, MOV, AVI, FLV
-                - MPG, WebM, WMV, 3GPP
-                
-                **🔧 Configurações:**
-                - **FPS:** Controla a taxa de amostragem dos frames
-                - **Áudio:** Inclui transcrição e análise de áudio
-                - **Visual:** Analisa elementos visuais e texto nos frames
-                """)
-                
-                # Exemplo de uso
-                with st.expander("🎯 Exemplos de Análise de Vídeo"):
-                    st.markdown("""
-                    **O que será analisado:**
-                    - ✅ **Transcrição de áudio** e análise do conteúdo verbal
-                    - ✅ **Elementos visuais** em cada frame amostrado
-                    - ✅ **Texto presente nos frames** (ortografia e branding)
-                    - ✅ **Tom e mensagem** geral do vídeo
-                    - ✅ **Alinhamento** com diretrizes de branding
-                    - ✅ **Timestamps** específicos para referência
-                    
-                    **Saída típica:**
-                    ```markdown
-                    ## 🎬 RELATÓRIO DE ALINHAMENTO
-                    
-                    ### 🎯 RESUMO EXECUTIVO
-                    O vídeo apresenta boa qualidade técnica mas...
-                    
-                    ### 🔊 ANÁLISE DE ÁUDIO
-                    - 00:15: Mensagem principal introduzida
-                    - 01:30: Tom adequado para o público-alvo
-                    
-                    ### 👁️ ANálISE VISUAL
-                    - Cores alinhadas com a paleta da marca
-                    - Logo presente em todos os frames
-                    
-                    ### 📝 TEXTO EM FRAMES
-                    - 00:45: Texto "Oferta Especial" - ortografia correta
-                    - 02:10: Correção sugerida para "benefício" (acento)
-                    ```
-                    """)
-
+                for resultado in st.session_state.resultados_video:
+                    with st.expander(f"🎬 {resultado['nome']} - Análise Salva", expanded=False):
+                        st.markdown(resultado['analise'])
 # --- FUNÇÕES AUXILIARES MELHORADAS ---
 
 def criar_prompt_validacao_preciso(texto, nome_arquivo, contexto_agente):
