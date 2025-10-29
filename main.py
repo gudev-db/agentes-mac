@@ -1916,8 +1916,7 @@ with tab_mapping["✅ Validação Unificada"]:
                     "**✍️ Digite o texto para validação:**", 
                     height=150, 
                     key="texto_validacao",
-                    placeholder="Cole aqui o texto que deseja validar...",
-                    help="O texto será analisado conforme as diretrizes de branding do agente"
+                    placeholder="Cole aqui o texto que deseja validar..."
                 )
                 
                 # Opção 2: Upload de múltiplos arquivos
@@ -1927,22 +1926,19 @@ with tab_mapping["✅ Validação Unificada"]:
                     "**Documentos suportados:** PDF, PPTX, TXT, DOCX",
                     type=['pdf', 'pptx', 'txt', 'docx'],
                     accept_multiple_files=True,
-                    key="arquivos_documentos_validacao",
-                    help="Arquivos serão convertidos para texto e validados automaticamente"
+                    key="arquivos_documentos_validacao"
                 )
                 
                 # Configurações de análise
                 with st.expander("⚙️ Configurações de Análise"):
                     analise_detalhada = st.checkbox(
                         "Análise detalhada por slide/página",
-                        value=True,
-                        help="Analisar cada slide/página individualmente e identificar alterações específicas"
+                        value=True
                     )
                     
                     incluir_sugestoes = st.checkbox(
                         "Incluir sugestões de melhoria",
-                        value=True,
-                        help="Fornecer sugestões específicas para cada problema identificado"
+                        value=True
                     )
                 
                 # Botão de validação
@@ -1965,7 +1961,7 @@ with tab_mapping["✅ Validação Unificada"]:
                             'conteudo': texto_input,
                             'tipo': 'texto_direto',
                             'tamanho': len(texto_input),
-                            'slides': []  # Para texto simples, não há slides
+                            'slides': []
                         })
                     
                     # Processar arquivos uploadados
@@ -1979,7 +1975,7 @@ with tab_mapping["✅ Validação Unificada"]:
                                         texto_extraido, slides_info = extract_text_from_pptx_com_slides(arquivo)
                                     elif arquivo.type in ["text/plain", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"]:
                                         texto_extraido = extrair_texto_arquivo(arquivo)
-                                        slides_info = []  # Para TXT/DOCX, não há slides
+                                        slides_info = []
                                     else:
                                         st.warning(f"Tipo de arquivo não suportado: {arquivo.name}")
                                         continue
@@ -2092,25 +2088,7 @@ with tab_mapping["✅ Validação Unificada"]:
                         st.session_state.todos_textos = todos_textos
                 
                 else:
-                    # Estado inicial - instruções
-                    st.info("""
-                    **📋 Como usar:**
-                    1. **Digite texto** diretamente OU **carregue arquivos** (PDF, PPTX, TXT, DOCX)
-                    2. **Configure a análise** (detalhada por slide)
-                    3. Clique em **"Validar Conteúdo"**
-                    
-                    **✅ Suporta:**
-                    - 📄 PDF (apresentações, documentos) - com análise por página
-                    - 🎯 PPTX (apresentações PowerPoint) - com análise por slide  
-                    - 📝 TXT (arquivos de texto)
-                    - 📋 DOCX (documentos Word)
-                    - ✍️ Texto direto
-                    
-                    **🔍 Análise por Slide/Página:**
-                    - Identifica slides/páginas específicos com problemas
-                    - Sugere alterações pontuais
-                    - Destaca elementos que precisam de atenção
-                    """)
+                    st.info("Digite texto ou carregue arquivos para validar")
         
         with subtab_imagem:
             st.subheader("🖼️ Validação de Imagem")
@@ -2125,8 +2103,7 @@ with tab_mapping["✅ Validação Unificada"]:
                 "Carregue uma ou mais imagens para análise", 
                 type=["jpg", "jpeg", "png", "webp"], 
                 key="image_upload_validacao",
-                accept_multiple_files=True,
-                help="As imagens serão analisadas individualmente conforme as diretrizes de branding do agente"
+                accept_multiple_files=True
             )
             
             if uploaded_images:
@@ -2167,15 +2144,12 @@ with tab_mapping["✅ Validação Unificada"]:
                                                 contexto = f"""
                                                 DIRETRIZES DE BRANDING DO AGENTE:
                                                 {agente['base_conhecimento']}
-                                                
-                                                Analise esta imagem e verifique se está alinhada com as diretrizes de branding acima. Ademais, analise o
-                                                alinhamento tanto ortogtáficamente como alinhamento com a marca de todo ou qualquer texto na imagem analisada.
                                                 """
                                             
                                             prompt_analise = f"""
                                             {contexto}
                                             
-                                            Analise esta imagem e verifique o alinhamento (tanto imagem como texto na imagem analisado ortograficamente e em termos de alinhamento com branding. Revise e corrija o texto também) com as diretrizes de branding.
+                                            Analise esta imagem e verifique o alinhamento com as diretrizes de branding.
                                             
                                             Forneça a análise em formato claro:
                                             
@@ -2293,8 +2267,7 @@ with tab_mapping["✅ Validação Unificada"]:
                     "Carregue um ou mais vídeos para análise",
                     type=["mp4", "mpeg", "mov", "avi", "flv", "mpg", "webm", "wmv", "3gpp"],
                     key="video_upload_validacao",
-                    accept_multiple_files=True,
-                    help="Os vídeos serão analisados conforme as diretrizes de branding do agente"
+                    accept_multiple_files=True
                 )
             
             with col_config:
@@ -2302,8 +2275,7 @@ with tab_mapping["✅ Validação Unificada"]:
                     "**✍️ Contexto para análise:**", 
                     height=150, 
                     key="video_context_input",
-                    placeholder="Forneça contexto adicional sobre o vídeo...",
-                    help="Este texto será incluído no prompt para melhorar a análise"
+                    placeholder="Forneça contexto adicional sobre o vídeo..."
                 )
             
             if uploaded_videos:
@@ -2361,9 +2333,6 @@ with tab_mapping["✅ Validação Unificada"]:
                                                 contexto = f"""
                                                 DIRETRIZES DE BRANDING DO AGENTE:
                                                 {agente['base_conhecimento']}
-                                                
-                                                Analise este vídeo completo (áudio, elementos visuais e texto nos frames) 
-                                                e verifique o alinhamento com as diretrizes de branding acima.
                                                 """
                                             
                                             # Adicionar contexto do usuário se fornecido
@@ -2383,9 +2352,7 @@ with tab_mapping["✅ Validação Unificada"]:
                                             - Qualidade e consistência visual  
                                             - Mensagem e tom da comunicação
                                             - Elementos de áudio e transcrição
-                                            - Texto presente nos frames (ortografia e alinhamento com branding)
-                                            - Consistência no uso de pontos, vírgulas e bullets
-                                            - Qualidade profissional do conteúdo textual
+                                            - Texto presente nos frames
                                             
                                             Forneça a análise em formato estruturado:
                                             
@@ -2404,7 +2371,7 @@ with tab_mapping["✅ Validação Unificada"]:
                                             [Análise de elementos visuais, cores, composição, branding visual]
 
                                             ### 📝 TEXTO EM FRAMES
-                                            [Identificação e análise de texto presente nos frames, correções ortográficas, alinhamento com branding. Atenção à consistência no uso de pontos e vírgulas, uso de bullets. Avalie se o texto está 100% aceitável como entregável profissional.]
+                                            [Identificação e análise de texto presente nos frames]
                                             
                                             ### ✅ PONTOS FORTES
                                             - [Elementos bem alinhados com as diretrizes]
@@ -2422,7 +2389,7 @@ with tab_mapping["✅ Validação Unificada"]:
                                             # Processar vídeo usando a API do Gemini
                                             video_bytes = uploaded_video.getvalue()
                                             
-                                            if len(video_bytes) < 200 * 1024 * 1024:  # Menor que 20MB
+                                            if len(video_bytes) < 200 * 1024 * 1024:
                                                 response = modelo_vision.generate_content([
                                                     prompt_analise,
                                                     {"mime_type": uploaded_video.type, "data": video_bytes}
