@@ -2045,17 +2045,18 @@ else:
                                     contexto_agente = ""
                                     if "base_conhecimento" in agente:
                                         contexto_agente = f"""
-                                        DIRETRIZES DE BRANDING DO AGENTE:
+                                        ###BEGIN DIRETRIZES DE BRANDING DO AGENTE:###
                                         {agente['base_conhecimento']}
+                                        ###END DIRETRIZES DE BRANDING DO AGENTE###
                                         """
                                     
                                     # Adicionar contexto global se fornecido
                                     contexto_completo = contexto_agente
                                     if contexto_global and contexto_global.strip():
                                         contexto_completo += f"""
-                                        
-                                        CONTEXTO ADICIONAL FORNECIDO PELO USUÁRIO:
+                                        ###BEGIN CONTEXTO ADICIONAL DO USUARIO###
                                         {contexto_global}
+                                        ###END CONTEXTO ADICIONAL DO USUARIO###
                                         """
                                     
                                     # Preparar conteúdo para análise
@@ -2554,15 +2555,15 @@ def criar_prompt_validacao_preciso(texto, nome_arquivo, contexto_agente):
 {contexto_agente}
 
 
-**TEXTO PARA ANÁLISE:**
+###BEGIN TEXTO PARA VALIDAÇÃO###
 **Arquivo:** {nome_arquivo}
 **Conteúdo:**
-{texto[:12000]}  # Limite para não exceder tokens
+{texto[:12000]}
+###END TEXTO PARA VALIDAÇÃO###
 
 ## FORMATO DE RESPOSTA OBRIGATÓRIO:
 
-### 🎯 RESUMO EXECUTIVO
-[Breve avaliação geral - 1 parágrafo]
+
 
 ### ✅ CONFORMIDADE COM DIRETRIZES
 - [Itens que estão alinhados com as diretrizes de branding]
@@ -2579,7 +2580,6 @@ def criar_prompt_validacao_preciso(texto, nome_arquivo, contexto_agente):
 **Documento:** [Aprovado/Necessita ajustes/Reprovado]
 **Principais ações necessárias:** [Lista resumida]
 
-**REGRA DOURADA: SE NÃO TEM CERTEZA ABSOLUTA DE QUE É UM ERRO, NÃO APONTE COMO ERRO.**
 """
     return prompt
 
@@ -2596,13 +2596,11 @@ def analisar_documento_por_slides(doc, contexto_agente):
 
 ## ANÁLISE POR SLIDE - PRECISÃO ABSOLUTA
 
+###BEGIN TEXTO PARA VALIDAÇÃO###
 **SLIDE {i+1}:**
 {slide['conteudo'][:2000]}
+###END TEXTO PARA VALIDAÇÃO###
 
-**INSTRUÇÕES CRÍTICAS:**
-- NÃO INVENTE erros que não existem
-- Só aponte problemas REAIS e OBJETIVOS
-- NÃO crie falsos positivos de pontuação ou ortografia
 
 **ANÁLISE DO SLIDE {i+1}:**
 
