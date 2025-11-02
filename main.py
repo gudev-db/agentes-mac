@@ -2,7 +2,6 @@ import streamlit as st
 import io
 import google.generativeai as genai
 from PIL import Image
-import requests
 import datetime
 import os
 from pymongo import MongoClient
@@ -62,7 +61,7 @@ def extract_text_from_pdf(pdf_path):
     return text
     
 
-# --- Sistema de Autenticação ---
+# --- Sistema de Autenticação MELHORADO ---
 def make_hashes(password):
     return hashlib.sha256(str.encode(password)).hexdigest()
 
@@ -70,90 +69,147 @@ def check_hashes(password, hashed_text):
     return make_hashes(password) == hashed_text
 
 # Dados de usuário (em produção, isso deve vir de um banco de dados seguro)
-users = {
-    "admin": make_hashes("senha1234"),  # admin/senha1234
-    "SYN": make_hashes("senha1"),  # user1/password1
-    "SME": make_hashes("senha2"),   # user2/password2
-    "Enterprise": make_hashes("senha3")   # user2/password2
+users_db = {
+    "admin": {
+        "password": make_hashes("senha1234"),
+        "squad": "admin",
+        "nome": "Administrador"
+    }
 }
+
+# Conexão MongoDB
+client = MongoClient("mongodb+srv://gustavoromao3345:RqWFPNOJQfInAW1N@cluster0.5iilj.mongodb.net/auto_doc?retryWrites=true&w=majority&ssl=true&ssl_cert_reqs=CERT_NONE&tlsAllowInvalidCertificates=true")
+db = client['agentes_personalizados']
+collection_agentes = db['agentes']
+collection_conversas = db['conversas']
+collection_usuarios = db['usuarios']  # Nova coleção para usuários
+
+# --- FUNÇÕES DE CADASTRO E LOGIN ---
+def criar_usuario(email, senha, nome, squad):
+    """Cria um novo usuário no banco de dados"""
+    try:
+        # Verificar se usuário já existe
+        if collection_usuarios.find_one({"email": email}):
+            return False, "Usuário já existe"
+        
+        # Criar hash da senha
+        senha_hash = make_hashes(senha)
+        
+        novo_usuario = {
+            "email": email,
+            "senha": senha_hash,
+            "nome": nome,
+            "squad": squad,
+            "data_criacao": datetime.datetime.now(),
+            "ultimo_login": None,
+            "ativo": True
+        }
+        
+        result = collection_usuarios.insert_one(novo_usuario)
+        return True, "Usuário criado com sucesso"
+        
+    except Exception as e:
+        return False, f"Erro ao criar usuário: {str(e)}"
+
+def verificar_login(email, senha):
+    """Verifica as credenciais do usuário"""
+    try:
+        # Primeiro verificar no banco de dados
+        usuario = collection_usuarios.find_one({"email": email, "ativo": True})
+        
+        if usuario:
+            if check_hashes(senha, usuario["senha"]):
+                # Atualizar último login
+                collection_usuarios.update_one(
+                    {"_id": usuario["_id"]},
+                    {"$set": {"ultimo_login": datetime.datetime.now()}}
+                )
+                return True, usuario, "Login bem-sucedido"
+            else:
+                return False, None, "Senha incorreta"
+        
+        # Fallback para usuários hardcoded (apenas para admin)
+        if email in users_db:
+            user_data = users_db[email]
+            if check_hashes(senha, user_data["password"]):
+                usuario_fallback = {
+                    "email": email,
+                    "nome": user_data["nome"],
+                    "squad": user_data["squad"],
+                    "_id": "admin"
+                }
+                return True, usuario_fallback, "Login bem-sucedido"
+            else:
+                return False, None, "Senha incorreta"
+        
+        return False, None, "Usuário não encontrado"
+        
+    except Exception as e:
+        return False, None, f"Erro no login: {str(e)}"
 
 def get_current_user():
     """Retorna o usuário atual da sessão"""
-    return st.session_state.get('user', 'unknown')
+    return st.session_state.get('user', {})
 
-import os
-from pathlib import Path
-from pptx import Presentation
-
-def extract_text_from_pptx(pptx_path):
-    """
-    Extract text from a PowerPoint file (.pptx)
-    """
-    text = ""
-    
-    try:
-        # Open the presentation
-        prs = Presentation(pptx_path)
-        
-        # Process each slide
-        for slide_number, slide in enumerate(prs.slides, 1):
-            text += f"\n--- Slide {slide_number} ---\n"
-            
-            # Extract text from shapes
-            for shape in slide.shapes:
-                if hasattr(shape, "text") and shape.text:
-                    text += shape.text 
-                
-                # Handle tables
-                if shape.shape_type == 19:  # Table shape type
-                    table = shape.table
-                    for row in table.rows:
-                        row_text = " | ".join(cell.text for cell in row.cells if cell.text)
-                        if row_text:
-                            text += row_text + "\n"
-            
-            text += "\n"  # Add spacing between slides
-    
-    except Exception as e:
-        print(f"Error processing {pptx_path}: {e}")
-        text = f"ERROR: Could not extract text from {pptx_path}\nError: {e}"
-    
-    return text
-
-def extract_metadata_from_pptx(pptx_path):
-    """
-    Extract metadata from PowerPoint file
-    """
-    try:
-        prs = Presentation(pptx_path)
-        metadata = {
-            'slides_count': len(prs.slides),
-            'slide_layouts': len(prs.slide_layouts),
-            'slide_masters': len(prs.slide_masters)
-        }
-        return metadata
-    except Exception as e:
-        return {'error': str(e)}
-
-
+def get_current_squad():
+    """Retorna o squad do usuário atual"""
+    user = get_current_user()
+    return user.get('squad', 'unknown')
 
 def login():
-    """Formulário de login"""
+    """Formulário de login e cadastro"""
     st.title("🔒 Agente Social - Login")
     
-    with st.form("login_form"):
-        username = st.text_input("Usuário")
-        password = st.text_input("Senha", type="password")
-        submit_button = st.form_submit_button("Login")
-        
-        if submit_button:
-            if username in users and check_hashes(password, users[username]):
-                st.session_state.logged_in = True
-                st.session_state.user = username
-                st.success("Login realizado com sucesso!")
-                st.rerun()
-            else:
-                st.error("Usuário ou senha incorretos")
+    tab_login, tab_cadastro = st.tabs(["Login", "Cadastro"])
+    
+    with tab_login:
+        with st.form("login_form"):
+            email = st.text_input("Email")
+            password = st.text_input("Senha", type="password")
+            submit_button = st.form_submit_button("Login")
+            
+            if submit_button:
+                if email and password:
+                    sucesso, usuario, mensagem = verificar_login(email, password)
+                    if sucesso:
+                        st.session_state.logged_in = True
+                        st.session_state.user = usuario
+                        st.success("Login realizado com sucesso!")
+                        st.rerun()
+                    else:
+                        st.error(mensagem)
+                else:
+                    st.error("Por favor, preencha todos os campos")
+    
+    with tab_cadastro:
+        with st.form("cadastro_form"):
+            st.subheader("Criar Nova Conta")
+            
+            nome = st.text_input("Nome Completo")
+            email = st.text_input("Email")
+            squad = st.selectbox(
+                "Selecione seu Squad:",
+                ["Syngenta", "SME", "Enterprise"],
+                help="Escolha o squad ao qual você pertence"
+            )
+            senha = st.text_input("Senha", type="password")
+            confirmar_senha = st.text_input("Confirmar Senha", type="password")
+            
+            submit_cadastro = st.form_submit_button("Criar Conta")
+            
+            if submit_cadastro:
+                if not all([nome, email, squad, senha, confirmar_senha]):
+                    st.error("Por favor, preencha todos os campos")
+                elif senha != confirmar_senha:
+                    st.error("As senhas não coincidem")
+                elif len(senha) < 6:
+                    st.error("A senha deve ter pelo menos 6 caracteres")
+                else:
+                    sucesso, mensagem = criar_usuario(email, senha, nome, squad)
+                    if sucesso:
+                        st.success("Conta criada com sucesso! Faça login para continuar.")
+                    else:
+                        st.error(mensagem)
 
 # Verificar se o usuário está logado
 if "logged_in" not in st.session_state:
@@ -163,13 +219,7 @@ if not st.session_state.logged_in:
     login()
     st.stop()
 
-# --- CONEXÃO MONGODB (após login) ---
-client = MongoClient("mongodb+srv://gustavoromao3345:RqWFPNOJQfInAW1N@cluster0.5iilj.mongodb.net/auto_doc?retryWrites=true&w=majority&ssl=true&ssl_cert_reqs=CERT_NONE&tlsAllowInvalidCertificates=true")
-db = client['agentes_personalizados']
-collection_agentes = db['agentes']
-collection_conversas = db['conversas']
-
-# Configuração da API do Gemini
+# --- CONFIGURAÇÕES APÓS LOGIN ---
 gemini_api_key = os.getenv("GEM_API_KEY")
 if not gemini_api_key:
     st.error("GEMINI_API_KEY não encontrada nas variáveis de ambiente")
@@ -187,11 +237,11 @@ if not perp_api_key:
 # --- Configuração de Autenticação de Administrador ---
 def check_admin_password():
     """Retorna True para usuários admin sem verificação de senha."""
-    return st.session_state.user == "admin"
+    return st.session_state.user.get('squad') == "admin"
 
-# --- Funções CRUD para Agentes ---
-def criar_agente(nome, system_prompt, base_conhecimento, comments, planejamento, categoria, agente_mae_id=None, herdar_elementos=None):
-    """Cria um novo agente no MongoDB"""
+# --- FUNÇÕES CRUD PARA AGENTES (MODIFICADAS PARA SQUADS) ---
+def criar_agente(nome, system_prompt, base_conhecimento, comments, planejamento, categoria, squad_permitido, agente_mae_id=None, herdar_elementos=None):
+    """Cria um novo agente no MongoDB com squad permitido"""
     agente = {
         "nome": nome,
         "system_prompt": system_prompt,
@@ -199,34 +249,48 @@ def criar_agente(nome, system_prompt, base_conhecimento, comments, planejamento,
         "comments": comments,
         "planejamento": planejamento,
         "categoria": categoria,
+        "squad_permitido": squad_permitido,  # Novo campo
         "agente_mae_id": agente_mae_id,
         "herdar_elementos": herdar_elementos or [],
         "data_criacao": datetime.datetime.now(),
         "ativo": True,
-        "criado_por": get_current_user()  # NOVO CAMPO
+        "criado_por": get_current_user().get('email', 'unknown'),
+        "criado_por_squad": get_current_squad()  # Novo campo
     }
     result = collection_agentes.insert_one(agente)
     return result.inserted_id
 
 def listar_agentes():
-    """Retorna todos os agentes ativos do usuário atual ou todos se admin"""
-    current_user = get_current_user()
-    if current_user == "admin":
+    """Retorna todos os agentes ativos que o usuário atual pode ver"""
+    current_squad = get_current_squad()
+    
+    # Admin vê todos os agentes
+    if current_squad == "admin":
         return list(collection_agentes.find({"ativo": True}).sort("data_criacao", -1))
-    else:
-        return list(collection_agentes.find({
-            "ativo": True, 
-            "criado_por": current_user
-        }).sort("data_criacao", -1))
+    
+    # Usuários normais veem apenas agentes do seu squad ou squad "Todos"
+    return list(collection_agentes.find({
+        "ativo": True,
+        "$or": [
+            {"squad_permitido": current_squad},
+            {"squad_permitido": "Todos"},
+            {"criado_por_squad": current_squad}  # Usuário pode ver seus próprios agentes
+        ]
+    }).sort("data_criacao", -1))
 
 def listar_agentes_para_heranca(agente_atual_id=None):
-    """Retorna todos os agentes ativos que podem ser usados como mãe"""
-    current_user = get_current_user()
+    """Retorna todos os agentes ativos que podem ser usados como mãe (com filtro de squad)"""
+    current_squad = get_current_squad()
+    
     query = {"ativo": True}
     
-    # Filtro por usuário (admin vê todos, outros só os seus)
-    if current_user != "admin":
-        query["criado_por"] = current_user
+    # Filtro por squad
+    if current_squad != "admin":
+        query["$or"] = [
+            {"squad_permitido": current_squad},
+            {"squad_permitido": "Todos"},
+            {"criado_por_squad": current_squad}
+        ]
     
     if agente_atual_id:
         # Excluir o próprio agente da lista de opções para evitar auto-herança
@@ -237,21 +301,30 @@ def listar_agentes_para_heranca(agente_atual_id=None):
     return list(collection_agentes.find(query).sort("data_criacao", -1))
 
 def obter_agente(agente_id):
-    """Obtém um agente específico pelo ID com verificação de permissão"""
+    """Obtém um agente específico pelo ID com verificação de permissão por squad"""
     if isinstance(agente_id, str):
         agente_id = ObjectId(agente_id)
     
     agente = collection_agentes.find_one({"_id": agente_id})
     
-    # Verificar permissão
+    # Verificar permissão baseada no squad
     if agente and agente.get('ativo', True):
-        current_user = get_current_user()
-        if current_user == "admin" or agente.get('criado_por') == current_user:
+        current_squad = get_current_squad()
+        
+        # Admin pode ver tudo
+        if current_squad == "admin":
+            return agente
+        
+        # Usuários normais só podem ver agentes do seu squad ou "Todos"
+        squad_permitido = agente.get('squad_permitido')
+        criado_por_squad = agente.get('criado_por_squad')
+        
+        if squad_permitido == current_squad or squad_permitido == "Todos" or criado_por_squad == current_squad:
             return agente
     
     return None
 
-def atualizar_agente(agente_id, nome, system_prompt, base_conhecimento, comments, planejamento, categoria, agente_mae_id=None, herdar_elementos=None):
+def atualizar_agente(agente_id, nome, system_prompt, base_conhecimento, comments, planejamento, categoria, squad_permitido, agente_mae_id=None, herdar_elementos=None):
     """Atualiza um agente existente com verificação de permissão"""
     if isinstance(agente_id, str):
         agente_id = ObjectId(agente_id)
@@ -271,6 +344,7 @@ def atualizar_agente(agente_id, nome, system_prompt, base_conhecimento, comments
                 "comments": comments,
                 "planejamento": planejamento,
                 "categoria": categoria,
+                "squad_permitido": squad_permitido,  # Novo campo
                 "agente_mae_id": agente_mae_id,
                 "herdar_elementos": herdar_elementos or [],
                 "data_atualizacao": datetime.datetime.now()
@@ -386,9 +460,9 @@ def selecionar_agente_interface():
             descricao = f"{agente['nome']} - {agente.get('categoria', 'Social')}"
             if agente.get('agente_mae_id'):
                 descricao += " 🔗"
-            # Adicionar indicador de proprietário se não for admin
-            if get_current_user() != "admin" and agente.get('criado_por'):
-                descricao += f" 👤"
+            # Adicionar indicador de squad
+            squad_permitido = agente.get('squad_permitido', 'Todos')
+            descricao += f" 👥{squad_permitido}"
             opcoes_agentes.append((descricao, agente_completo))
     
     if opcoes_agentes:
@@ -615,7 +689,8 @@ FORMATO PRINCIPAL: {formato_principal}
     return briefing
 
 # --- Interface Principal ---
-st.sidebar.title(f"🤖 Bem-vindo, {st.session_state.user}!")
+st.sidebar.title(f"🤖 Bem-vindo, {get_current_user().get('nome', 'Usuário')}!")
+st.sidebar.info(f"**Squad:** {get_current_squad()}")
 st.sidebar.info(f"**Agente selecionado:** {agente_selecionado['nome']}")
 
 # Botão de logout na sidebar
@@ -646,9 +721,9 @@ if agentes:
             descricao = f"{agente['nome']} - {agente.get('categoria', 'Social')}"
             if agente.get('agente_mae_id'):
                 descricao += " 🔗"
-            # Adicionar indicador de proprietário se não for admin
-            if get_current_user() != "admin" and agente.get('criado_por'):
-                descricao += f" 👤"
+            # Adicionar indicador de squad
+            squad_permitido = agente.get('squad_permitido', 'Todos')
+            descricao += f" 👥{squad_permitido}"
             opcoes_agentes.append((descricao, agente_completo))
     
     if opcoes_agentes:
@@ -869,24 +944,25 @@ with tab_mapping["💬 Chat"]:
                 except Exception as e:
                     st.error(f"Erro ao gerar resposta: {str(e)}")
 
-# --- ABA: GERENCIAMENTO DE AGENTES ---
+# --- ABA: GERENCIAMENTO DE AGENTES (MODIFICADA PARA SQUADS) ---
 with tab_mapping["⚙️ Gerenciar Agentes"]:
     st.header("Gerenciamento de Agentes")
     
     # Verificar autenticação apenas para gerenciamento
     current_user = get_current_user()
+    current_squad = get_current_squad()
     
-    if current_user not in ["admin", "SYN", "SME", "Enterprise"]:
+    if current_squad not in ["admin", "Syngenta", "SME", "Enterprise"]:
         st.warning("Acesso restrito a usuários autorizados")
     else:
         # Para admin, verificar senha adicional
-        if current_user == "admin":
+        if current_squad == "admin":
             if not check_admin_password():
                 st.warning("Digite a senha de administrador")
             else:
                 st.write(f'Bem-vindo administrador!')
         else:
-            st.write(f'Bem-vindo {current_user}!')
+            st.write(f'Bem-vindo {current_user.get("nome", "Usuário")} do squad {current_squad}!')
             
         # Subabas para gerenciamento
         sub_tab1, sub_tab2, sub_tab3 = st.tabs(["Criar Agente", "Editar Agente", "Gerenciar Agentes"])
@@ -902,6 +978,13 @@ with tab_mapping["⚙️ Gerenciar Agentes"]:
                     "Categoria:",
                     ["Social", "SEO", "Conteúdo", "Monitoramento"],
                     help="Organize o agente por área de atuação"
+                )
+                
+                # NOVO: Seleção de squad permitido
+                squad_permitido = st.selectbox(
+                    "Squad Permitido:",
+                    ["Todos", "Syngenta", "SME", "Enterprise"],
+                    help="Selecione qual squad pode ver e usar este agente"
                 )
                 
                 # Configurações específicas para agentes de monitoramento
@@ -998,10 +1081,11 @@ DIRETRIZES:
                             comments, 
                             planejamento,
                             categoria,
+                            squad_permitido,  # Novo campo
                             agente_mae_id if criar_como_filho else None,
                             herdar_elementos if criar_como_filho else []
                         )
-                        st.success(f"Agente '{nome_agente}' criado com sucesso na categoria {categoria}!")
+                        st.success(f"Agente '{nome_agente}' criado com sucesso na categoria {categoria} para o squad {squad_permitido}!")
                     else:
                         st.error("Nome é obrigatório!")
         
@@ -1032,6 +1116,21 @@ DIRETRIZES:
                             categorias_disponiveis,
                             index=index_categoria,
                             help="Organize o agente por área de atuação"
+                        )
+                        
+                        # NOVO: Squad permitido
+                        squads_disponiveis = ["Todos", "Syngenta", "SME", "Enterprise"]
+                        squad_atual = agente.get('squad_permitido', 'Todos')
+                        if squad_atual in squads_disponiveis:
+                            index_squad = squads_disponiveis.index(squad_atual)
+                        else:
+                            index_squad = 0
+                            
+                        novo_squad_permitido = st.selectbox(
+                            "Squad Permitido:",
+                            squads_disponiveis,
+                            index=index_squad,
+                            help="Selecione qual squad pode ver e usar este agente"
                         )
                         
                         # Interface diferente para agentes de monitoramento
@@ -1121,6 +1220,7 @@ DIRETRIZES:
                                     nova_comment, 
                                     novo_planejamento,
                                     nova_categoria,
+                                    novo_squad_permitido,  # Novo campo
                                     agente_mae_id,
                                     herdar_elementos
                                 )
@@ -1135,10 +1235,11 @@ DIRETRIZES:
             st.subheader("Gerenciar Agentes")
             
             # Mostrar informações do usuário atual
-            if current_user == "admin":
+            current_squad = get_current_squad()
+            if current_squad == "admin":
                 st.info("👑 Modo Administrador: Visualizando todos os agentes do sistema")
             else:
-                st.info(f"👤 Visualizando apenas seus agentes ({current_user})")
+                st.info(f"👤 Visualizando agentes do squad {current_squad} e squad 'Todos'")
             
             # Filtros por categoria - AGORA COM MONITORAMENTO
             categorias = ["Todos", "Social", "SEO", "Conteúdo", "Monitoramento"]
@@ -1152,13 +1253,14 @@ DIRETRIZES:
             
             if agentes:
                 for i, agente in enumerate(agentes):
-                    with st.expander(f"{agente['nome']} - {agente.get('categoria', 'Social')} - Criado em {agente['data_criacao'].strftime('%d/%m/%Y')}"):
+                    with st.expander(f"{agente['nome']} - {agente.get('categoria', 'Social')} - Squad: {agente.get('squad_permitido', 'Todos')} - Criado em {agente['data_criacao'].strftime('%d/%m/%Y')}"):
                         
                         # Mostrar proprietário se for admin
                         owner_info = ""
-                        if current_user == "admin" and agente.get('criado_por'):
+                        if current_squad == "admin" and agente.get('criado_por'):
                             owner_info = f" | 👤 {agente['criado_por']}"
                             st.write(f"**Proprietário:** {agente['criado_por']}")
+                            st.write(f"**Squad do Criador:** {agente.get('criado_por_squad', 'N/A')}")
                         
                         # Mostrar informações específicas por categoria
                         if agente.get('categoria') == 'Monitoramento':
