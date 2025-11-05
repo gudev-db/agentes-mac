@@ -1761,6 +1761,488 @@ if "📋 Briefing" in tab_mapping:
         st.markdown("---")
         st.caption("Ferramenta de geração automática de briefings - Padrão SYN. Digite o conteúdo da célula do calendário para gerar briefings completos.")
 
+def criar_analisadores_especialistas(contexto_agente, contexto_global):
+    """Cria prompts especializados para cada área de análise"""
+    
+    analisadores = {
+        'ortografia': {
+            'nome': '🔤 Especialista em Ortografia e Gramática',
+            'prompt': f"""
+{contexto_agente}
+{contexto_global}
+
+## FUNÇÃO: ESPECIALISTA EM ORTOGRAFIA E GRAMÁTICA PORTUGUÊS BR
+
+**Sua tarefa:** Analisar EXCLUSIVAMENTE aspectos ortográficos e gramaticais.
+
+### CRITÉRIOS DE ANÁLISE:
+1. **Ortografia** - Erros de escrita
+2. **Gramática** - Concordância, regência, colocação
+3. **Pontuação** - Uso de vírgulas, pontos, etc.
+4. **Acentuação** - Erros de acentuação
+5. **Padrão Culto** - Conformidade com norma culta
+
+### FORMATO DE RESPOSTA OBRIGATÓRIO:
+
+## 🔤 RELATÓRIO ORTOGRÁFICO
+
+### ✅ ACERTOS
+- [Itens corretos]
+
+### ❌ ERROS IDENTIFICADOS
+- [Lista específica de erros com correções]
+
+### 📊 SCORE ORTOGRÁFICO: [X/10]
+
+### 💡 SUGESTÕES DE MELHORIA
+- [Recomendações específicas]
+"""
+        },
+        'lexico': {
+            'nome': '📚 Especialista em Léxico e Vocabulário',
+            'prompt': f"""
+{contexto_agente}
+{contexto_global}
+
+## FUNÇÃO: ESPECIALISTA EM LÉXICO E VOCABULÁRIO
+
+**Sua tarefa:** Analisar EXCLUSIVAMENTE aspectos lexicais e de vocabulário.
+
+### CRITÉRIOS DE ANÁLISE:
+1. **Variedade Lexical** - Riqueza de vocabulário
+2. **Precisão Semântica** - Uso adequado das palavras
+3. **Repetição** - Palavras ou expressões repetidas em excesso
+4. **Jargões** - Uso inadequado de termos técnicos
+5. **Clareza** - Facilidade de compreensão
+
+### FORMATO DE RESPOSTA OBRIGATÓRIO:
+
+## 📚 RELATÓRIO LEXICAL
+
+### ✅ VOCABULÁRIO ADEQUADO
+- [Pontos fortes do vocabulário]
+
+### ⚠️ ASPECTOS A MELHORAR
+- [Problemas lexicais identificados]
+
+### 🔄 SUGESTÕES DE SINÔNIMOS
+- [Palavras para substituir]
+
+### 📊 SCORE LEXICAL: [X/10]
+"""
+        },
+        'branding': {
+            'nome': '🎨 Especialista em Branding e Identidade',
+            'prompt': f"""
+{contexto_agente}
+{contexto_global}
+
+## FUNÇÃO: ESPECIALISTA EM BRANDING E IDENTIDADE
+
+**Sua tarefa:** Analisar EXCLUSIVAMENTE conformidade com diretrizes de branding.
+
+### CRITÉRIOS DE ANÁLISE:
+1. **Tom de Voz** - Alinhamento com personalidade da marca
+2. **Mensagem Central** - Consistência da mensagem
+3. **Valores da Marca** - Reflexo dos valores organizacionais
+4. **Público-Alvo** - Adequação ao público pretendido
+5. **Diferenciação** - Elementos únicos da marca
+
+### FORMATO DE RESPOSTA OBRIGATÓRIO:
+
+## 🎨 RELATÓRIO DE BRANDING
+
+### ✅ ALINHAMENTOS
+- [Elementos que seguem as diretrizes]
+
+### ❌ DESVIOS IDENTIFICADOS
+- [Elementos fora do padrão da marca]
+
+### 📊 SCORE BRANDING: [X/10]
+
+### 💡 RECOMENDAÇÕES ESTRATÉGICAS
+- [Sugestões para melhor alinhamento]
+"""
+        },
+        'estrutura': {
+            'nome': '📋 Especialista em Estrutura e Formatação',
+            'prompt': f"""
+{contexto_agente}
+{contexto_global}
+
+## FUNÇÃO: ESPECIALISTA EM ESTRUTURA E FORMATAÇÃO
+
+**Sua tarefa:** Analisar EXCLUSIVAMENTE estrutura e organização do conteúdo.
+
+### CRITÉRIOS DE ANÁLISE:
+1. **Organização** - Estrutura lógica e sequência
+2. **Hierarquia** - Uso adequado de títulos e subtítulos
+3. **Coesão** - Ligação entre ideias e parágrafos
+4. **Formatação** - Consistência visual
+5. **Objetividade** - Clareza na apresentação das ideias
+
+### FORMATO DE RESPOSTA OBRIGATÓRIO:
+
+## 📋 RELATÓRIO ESTRUTURAL
+
+### ✅ ESTRUTURA ADEQUADA
+- [Elementos bem organizados]
+
+### ⚠️ PROBLEMAS ESTRUTURAIS
+- [Issues de organização identificados]
+
+### 📊 SCORE ESTRUTURAL: [X/10]
+
+### 🏗️ SUGESTÕES DE REORGANIZAÇÃO
+- [Melhorias na estrutura]
+"""
+        },
+        'engajamento': {
+            'nome': '🎯 Especialista em Engajamento e Persuasão',
+            'prompt': f"""
+{contexto_agente}
+{contexto_global}
+
+## FUNÇÃO: ESPECIALISTA EM ENGAJAMENTO E PERSUASÃO
+
+**Sua tarefa:** Analisar EXCLUSIVAMENTE poder de engajamento e persuasão.
+
+### CRITÉRIOS DE ANÁLISE:
+1. **Apelo Emocional** - Conexão emocional com o público
+2. **Chamadas para Ação** - Clareza e efetividade
+3. **Storytelling** - Uso de narrativas envolventes
+4. **Persuasão** - Argumentação convincente
+5. **Retenção** - Capacidade de manter atenção
+
+### FORMATO DE RESPOSTA OBRIGATÓRIO:
+
+## 🎯 RELATÓRIO DE ENGAJAMENTO
+
+### ✅ ELEMENTOS ENGAJADORES
+- [Pontos fortes de persuasão]
+
+### 📉 OPORTUNIDADES DE MELHORIA
+- [Áreas para aumentar engajamento]
+
+### 📊 SCORE ENGAJAMENTO: [X/10]
+
+### 🚀 ESTRATÉGIAS DE OTIMIZAÇÃO
+- [Técnicas para melhorar persuasão]
+"""
+        }
+    }
+    
+    return analisadores
+
+def executar_analise_especializada(texto, nome_arquivo, analisadores):
+    """Executa análise com múltiplos especialistas"""
+    
+    resultados = {}
+    
+    for area, config in analisadores.items():
+        with st.spinner(f"Executando {config['nome']}..."):
+            try:
+                prompt_completo = f"""
+{config['prompt']}
+
+###BEGIN TEXTO PARA ANÁLISE###
+**Arquivo:** {nome_arquivo}
+**Conteúdo:**
+{texto[:8000]}
+###END TEXTO PARA ANÁLISE###
+
+Por favor, forneça sua análise no formato solicitado.
+"""
+                
+                resposta = modelo_texto.generate_content(prompt_completo)
+                resultados[area] = {
+                    'nome': config['nome'],
+                    'analise': resposta.text,
+                    'score': extrair_score(resposta.text)
+                }
+                
+            except Exception as e:
+                resultados[area] = {
+                    'nome': config['nome'],
+                    'analise': f"❌ Erro na análise: {str(e)}",
+                    'score': 0
+                }
+    
+    return resultados
+
+def extrair_score(texto_analise):
+    """Extrai score numérico do texto de análise"""
+    import re
+    padrao = r'SCORE.*?\[(\d+)(?:/10)?\]'
+    correspondencias = re.findall(padrao, texto_analise, re.IGNORECASE)
+    if correspondencias:
+        return int(correspondencias[0])
+    return 5  # Score padrão se não encontrar
+
+def gerar_relatorio_consolidado(resultados_especialistas, nome_arquivo):
+    """Gera relatório consolidado a partir das análises especializadas"""
+    
+    # Calcular score médio
+    scores = [resultado['score'] for resultado in resultados_especialistas.values() if resultado['score'] > 0]
+    score_medio = sum(scores) / len(scores) if scores else 0
+    
+    # Determinar status geral
+    if score_medio >= 8:
+        status = "✅ APROVADO"
+        cor_status = "green"
+    elif score_medio >= 6:
+        status = "⚠️ AJUSTES MENORES"
+        cor_status = "orange"
+    else:
+        status = "❌ REPROVADO"
+        cor_status = "red"
+    
+    relatorio = f"""
+# 📊 RELATÓRIO CONSOLIDADO DE VALIDAÇÃO
+
+**Documento:** {nome_arquivo}
+**Status Geral:** <span style='color:{cor_status}'>{status}</span>
+**Score Médio:** {score_medio:.1f}/10
+**Data da Análise:** {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}
+
+## 🎖️ SCORES POR ÁREA
+"""
+    
+    # Adicionar scores individuais
+    for area, resultado in resultados_especialistas.items():
+        emoji = "✅" if resultado['score'] >= 8 else "⚠️" if resultado['score'] >= 6 else "❌"
+        relatorio += f"- {emoji} **{resultado['nome']}:** {resultado['score']}/10\n"
+    
+    relatorio += "\n## 📋 ANÁLISES DETALHADAS POR ESPECIALISTA\n"
+    
+    # Adicionar análises detalhadas
+    for area, resultado in resultados_especialistas.items():
+        relatorio += f"\n### {resultado['nome']}\n"
+        relatorio += f"{resultado['analise']}\n"
+        relatorio += "---\n"
+    
+    # Resumo executivo
+    relatorio += f"""
+## 🚀 RESUMO EXECUTIVO
+
+**Status Final:** {status}
+**Score Geral:** {score_medio:.1f}/10
+
+### 🎯 PRÓXIMOS PASSOS RECOMENDADOS:
+"""
+    
+    # Recomendações baseadas nos scores
+    areas_baixas = [area for area, resultado in resultados_especialistas.items() if resultado['score'] < 6]
+    if areas_baixas:
+        relatorio += f"- **Prioridade:** Focar em {', '.join(areas_baixas)}\n"
+    
+    areas_medianas = [area for area, resultado in resultados_especialistas.items() if 6 <= resultado['score'] < 8]
+    if areas_medianas:
+        relatorio += f"- **Otimização:** Melhorar {', '.join(areas_medianas)}\n"
+    
+    relatorio += "- **Manutenção:** Manter as áreas com scores altos\n"
+    
+    return relatorio, score_medio, status
+
+# --- FUNÇÕES ORIGINAIS MANTIDAS ---
+
+def criar_prompt_validacao_preciso(texto, nome_arquivo, contexto_agente):
+    """Cria um prompt de validação muito mais preciso para evitar falsos positivos"""
+    
+    prompt = f"""
+{contexto_agente}
+
+###BEGIN TEXTO PARA VALIDAÇÃO###
+**Arquivo:** {nome_arquivo}
+**Conteúdo:**
+{texto[:12000]}
+###END TEXTO PARA VALIDAÇÃO###
+
+## FORMATO DE RESPOSTA OBRIGATÓRIO:
+
+### ✅ CONFORMIDADE COM DIRETRIZES
+- [Itens que estão alinhados com as diretrizes de branding]
+
+**INCONSISTÊNCIAS COM BRANDING:**
+- [Só liste desvios REAIS das diretrizes de branding]
+
+### 💡 TEXTO REVISADO
+- [Sugestões para aprimorar]
+
+### 📊 STATUS FINAL
+**Documento:** [Aprovado/Necessita ajustes/Reprovado]
+**Principais ações necessárias:** [Lista resumida]
+"""
+    return prompt
+
+def analisar_documento_por_slides(doc, contexto_agente):
+    """Analisa documento slide por slide com alta precisão"""
+    
+    resultados = []
+    
+    for i, slide in enumerate(doc['slides']):
+        with st.spinner(f"Analisando slide {i+1}..."):
+            try:
+                prompt_slide = f"""
+{contexto_agente}
+
+## ANÁLISE POR SLIDE - PRECISÃO ABSOLUTA
+
+###BEGIN TEXTO PARA VALIDAÇÃO###
+**SLIDE {i+1}:**
+{slide['conteudo'][:2000]}
+###END TEXTO PARA VALIDAÇÃO###
+
+**ANÁLISE DO SLIDE {i+1}:**
+
+### ✅ Pontos Fortes:
+[O que está bom neste slide]
+
+### ⚠️ Problemas REAIS:
+- [Lista CURTA de problemas]
+
+### 💡 Sugestões Específicas:
+[Melhorias para ESTE slide específico]
+
+Considere que slides que são introdutórios ou apenas de títulos não precisam de tanto rigor de branding
+
+**STATUS:** [✔️ Aprovado / ⚠️ Ajustes Menores / ❌ Problemas Sérios]
+"""
+                
+                resposta = modelo_texto.generate_content(prompt_slide)
+                resultados.append({
+                    'slide_num': i+1,
+                    'analise': resposta.text,
+                    'tem_alteracoes': '❌' in resposta.text or '⚠️' in resposta.text
+                })
+                
+            except Exception as e:
+                resultados.append({
+                    'slide_num': i+1,
+                    'analise': f"❌ Erro na análise do slide: {str(e)}",
+                    'tem_alteracoes': False
+                })
+    
+    # Construir relatório consolidado
+    relatorio = f"# 📊 RELATÓRIO DE VALIDAÇÃO - {doc['nome']}\n\n"
+    relatorio += f"**Total de Slides:** {len(doc['slides'])}\n"
+    relatorio += f"**Slides com Alterações:** {sum(1 for r in resultados if r['tem_alteracoes'])}\n\n"
+    
+    # Slides que precisam de atenção
+    slides_com_problemas = [r for r in resultados if r['tem_alteracoes']]
+    if slides_com_problemas:
+        relatorio += "## 🚨 SLIDES QUE PRECISAM DE ATENÇÃO:\n\n"
+        for resultado in slides_com_problemas:
+            relatorio += f"### 📋 Slide {resultado['slide_num']}\n"
+            relatorio += f"{resultado['analise']}\n\n"
+    
+    # Resumo executivo
+    relatorio += "## 📈 RESUMO EXECUTIVO\n\n"
+    if slides_com_problemas:
+        relatorio += f"**⚠️ {len(slides_com_problemas)} slide(s) necessitam de ajustes**\n"
+        relatorio += f"**✅ {len(doc['slides']) - len(slides_com_problemas)} slide(s) estão adequados**\n"
+    else:
+        relatorio += "**🎉 Todos os slides estão em conformidade com as diretrizes!**\n"
+    
+    return relatorio
+
+def extract_text_from_pdf_com_slides(arquivo_pdf):
+    """Extrai texto de PDF com informação de páginas"""
+    try:
+        import PyPDF2
+        pdf_reader = PyPDF2.PdfReader(arquivo_pdf)
+        slides_info = []
+        
+        for pagina_num, pagina in enumerate(pdf_reader.pages):
+            texto = pagina.extract_text()
+            slides_info.append({
+                'numero': pagina_num + 1,
+                'conteudo': texto,
+                'tipo': 'página'
+            })
+        
+        texto_completo = "\n\n".join([f"--- PÁGINA {s['numero']} ---\n{s['conteudo']}" for s in slides_info])
+        return texto_completo, slides_info
+        
+    except Exception as e:
+        return f"Erro na extração PDF: {str(e)}", []
+
+def extract_text_from_pptx_com_slides(arquivo_pptx):
+    """Extrai texto de PPTX com informação de slides"""
+    try:
+        from pptx import Presentation
+        import io
+        
+        prs = Presentation(io.BytesIO(arquivo_pptx.read()))
+        slides_info = []
+        
+        for slide_num, slide in enumerate(prs.slides):
+            texto_slide = f"--- SLIDE {slide_num + 1} ---\n"
+            
+            for shape in slide.shapes:
+                if hasattr(shape, "text") and shape.text:
+                    texto_slide += shape.text + "\n"
+            
+            slides_info.append({
+                'numero': slide_num + 1,
+                'conteudo': texto_slide,
+                'tipo': 'slide'
+            })
+        
+        texto_completo = "\n\n".join([s['conteudo'] for s in slides_info])
+        return texto_completo, slides_info
+        
+    except Exception as e:
+        return f"Erro na extração PPTX: {str(e)}", []
+
+def extrair_texto_arquivo(arquivo):
+    """Extrai texto de arquivos TXT e DOCX"""
+    try:
+        if arquivo.type == "text/plain":
+            return str(arquivo.read(), "utf-8")
+        elif arquivo.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+            import docx
+            import io
+            doc = docx.Document(io.BytesIO(arquivo.read()))
+            texto = ""
+            for para in doc.paragraphs:
+                texto += para.text + "\n"
+            return texto
+        else:
+            return f"Tipo não suportado: {arquivo.type}"
+    except Exception as e:
+        return f"Erro na extração: {str(e)}"
+
+def extract_text_from_pdf(pdf_path):
+    """
+    Extract text from a PDF file using multiple methods for better coverage
+    """
+    text = ""
+
+    # Method 1: Try with pdfplumber (better for some PDFs)
+    try:
+        with pdfplumber.open(pdf_path) as pdf:
+            for page in pdf.pages:
+                page_text = page.extract_text()
+                if page_text:
+                    text += page_text
+    except Exception as e:
+        print(f"pdfplumber failed for {pdf_path}: {e}")
+
+    # Method 2: Fallback to PyPDF2 if pdfplumber didn't extract much text
+    if len(text.strip()) < 100:  # If very little text was extracted
+        try:
+            with open(pdf_path, 'rb') as file:
+                pdf_reader = PyPDF2.PdfReader(file)
+                for page in pdf_reader.pages:
+                    page_text = page.extract_text()
+                    if page_text:
+                        text += page_text 
+        except Exception as e:
+            print(f"PyPDF2 also failed for {pdf_path}: {e}")
+
+    return text
+
 # --- ABA: VALIDAÇÃO UNIFICADA ---
 with tab_mapping["✅ Validação Unificada"]:
     st.header("✅ Validação Unificada de Conteúdo")
@@ -1822,20 +2304,36 @@ with tab_mapping["✅ Validação Unificada"]:
                 
                 # Configurações de análise
                 with st.expander("⚙️ Configurações de Análise"):
-                    analise_detalhada = st.checkbox(
-                        "Análise detalhada por slide/página",
-                        value=True
+                    analise_especializada = st.checkbox(
+                        "Análise especializada por áreas (recomendado)",
+                        value=True,
+                        help="Usa múltiplos especialistas para análise mais precisa"
                     )
                     
-                    incluir_sugestoes = st.checkbox(
-                        "Incluir sugestões de melhoria",
+                    analisadores_selecionados = st.multiselect(
+                        "Especialistas a incluir:",
+                        options=['ortografia', 'lexico', 'branding', 'estrutura', 'engajamento'],
+                        default=['ortografia', 'lexico', 'branding', 'estrutura', 'engajamento'],
+                        format_func=lambda x: {
+                            'ortografia': '🔤 Ortografia e Gramática',
+                            'lexico': '📚 Léxico e Vocabulário', 
+                            'branding': '🎨 Branding e Identidade',
+                            'estrutura': '📋 Estrutura e Formatação',
+                            'engajamento': '🎯 Engajamento e Persuasão'
+                        }[x]
+                    )
+                    
+                    analise_detalhada = st.checkbox(
+                        "Análise detalhada por slide/página",
                         value=True
                     )
                 
                 # Botão de validação
                 if st.button("✅ Validar Conteúdo", type="primary", key="validate_documents", use_container_width=True):
                     st.session_state.validacao_triggered = True
+                    st.session_state.analise_especializada = analise_especializada
                     st.session_state.analise_detalhada = analise_detalhada
+                    st.session_state.analisadores_selecionados = analisadores_selecionados
             
             with col_saida:
                 st.markdown("### 📊 Resultados")
@@ -1943,22 +2441,40 @@ with tab_mapping["✅ Validação Unificada"]:
                                             ###END CONTEXTO ADICIONAL DO USUARIO###
                                             """
                                         
-                                        # Preparar conteúdo para análise
-                                        if st.session_state.analise_detalhada and doc['slides']:
-                                            # Análise detalhada por slide
-                                            resultado_analise = analisar_documento_por_slides(
-                                                doc, 
-                                                contexto_completo
-                                            )
-                                            st.markdown(resultado_analise)
-                                        else:
-                                            # Análise geral do documento
-                                            prompt_analise = criar_prompt_validacao_preciso(
+                                        # Escolher método de análise
+                                        if st.session_state.analise_especializada:
+                                            # ANÁLISE ESPECIALIZADA POR MÚLTIPLOS ESPECIALISTAS
+                                            st.info("🎯 **Executando análise especializada por múltiplos especialistas...**")
+                                            
+                                            # Criar analisadores especialistas
+                                            analisadores_config = criar_analisadores_especialistas(contexto_completo, "")
+                                            
+                                            # Filtrar apenas os selecionados
+                                            analisadores_filtrados = {k: v for k, v in analisadores_config.items() 
+                                                                     if k in st.session_state.analisadores_selecionados}
+                                            
+                                            # Executar análises especializadas
+                                            resultados_especialistas = executar_analise_especializada(
                                                 doc['conteudo'], 
                                                 doc['nome'], 
-                                                contexto_completo
+                                                analisadores_filtrados
                                             )
                                             
+                                            # Gerar relatório consolidado
+                                            relatorio_consolidado, score_medio, status = gerar_relatorio_consolidado(
+                                                resultados_especialistas, 
+                                                doc['nome']
+                                            )
+                                            
+                                            st.markdown(relatorio_consolidado, unsafe_allow_html=True)
+                                            
+                                        elif st.session_state.analise_detalhada and doc['slides']:
+                                            # Análise detalhada por slide (método antigo)
+                                            resultado_analise = analisar_documento_por_slides(doc, contexto_completo)
+                                            st.markdown(resultado_analise)
+                                        else:
+                                            # Análise geral do documento (método antigo)
+                                            prompt_analise = criar_prompt_validacao_preciso(doc['conteudo'], doc['nome'], contexto_completo)
                                             resposta = modelo_texto.generate_content(prompt_analise)
                                             st.markdown(resposta.text)
                                         
@@ -1978,6 +2494,7 @@ with tab_mapping["✅ Validação Unificada"]:
                             **Data:** {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}
                             **Total de Documentos:** {len(todos_textos)}
                             **Contexto Aplicado:** {contexto_global if contexto_global else 'Nenhum contexto adicional'}
+                            **Método de Análise:** {'Especializada por Múltiplos Especialistas' if st.session_state.analise_especializada else 'Tradicional'}
                             
                             ## DOCUMENTOS ANALISADOS:
                             {chr(10).join([f"{idx+1}. {doc['nome']} ({doc['tipo']}) - {doc['tamanho']} caracteres" for idx, doc in enumerate(todos_textos)])}
@@ -1995,7 +2512,7 @@ with tab_mapping["✅ Validação Unificada"]:
                 
                 else:
                     st.info("Digite texto ou carregue arquivos para validar")
-        
+
         with subtab_imagem:
             st.subheader("🖼️ Validação de Imagem")
             
@@ -2428,7 +2945,6 @@ with tab_mapping["✅ Validação Unificada"]:
             
             else:
                 st.info("🎬 Carregue um ou mais vídeos para iniciar a validação")
-
 # --- FUNÇÕES AUXILIARES MELHORADAS ---
 
 def criar_prompt_validacao_preciso(texto, nome_arquivo, contexto_agente):
