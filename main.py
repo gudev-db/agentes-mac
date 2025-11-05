@@ -2243,716 +2243,879 @@ def extract_text_from_pdf(pdf_path):
 
     return text
 
-# --- ABA: VALIDAÇÃO UNIFICADA ---
-with tab_mapping["✅ Validação Unificada"]:
-    st.header("✅ Validação Unificada de Conteúdo")
+def criar_analisadores_imagem(contexto_agente, contexto_global):
+    """Cria analisadores especializados para imagens"""
     
-    if not st.session_state.get('agente_selecionado'):
-        st.info("Selecione um agente primeiro na aba de Chat")
-    else:
-        agente = st.session_state.agente_selecionado
-        st.subheader(f"Validação com: {agente.get('nome', 'Agente')}")
-        
-        # Container de contexto global
-        st.markdown("---")
-        st.subheader("🎯 Contexto para Análise")
-        
-        contexto_global = st.text_area(
-            "**✍️ Contexto adicional para todas as análises:**", 
-            height=120, 
-            key="contexto_global_validacao",
-            placeholder="Forneça contexto adicional que será aplicado a TODAS as análises (texto, documentos, imagens e vídeos)..."
-        )
-        
-        # Subabas para diferentes tipos de validação
-        subtab_imagem, subtab_texto, subtab_video = st.tabs(["🖼️ Validação de Imagem", "📄 Validação de Documentos", "🎬 Validação de Vídeo"])
-        
-        with subtab_texto:
-            st.subheader("📄 Validação de Documentos e Texto")
-            
-            # Botão para limpar análises de texto
-            if st.button("🗑️ Limpar Análises de Texto", key="limpar_analises_texto"):
-                if 'validacao_triggered' in st.session_state:
-                    del st.session_state.validacao_triggered
-                if 'todos_textos' in st.session_state:
-                    del st.session_state.todos_textos
-                st.rerun()
-            
-            # Container principal com duas colunas
-            col_entrada, col_saida = st.columns([1, 1])
-            
-            with col_entrada:
-                st.markdown("### 📥 Entrada de Conteúdo")
+    analisadores = {
+        'composicao_visual': {
+            'nome': '🎨 Especialista em Composição Visual',
+            'prompt': f"""
+{contexto_agente}
+{contexto_global}
+
+## FUNÇÃO: ESPECIALISTA EM COMPOSIÇÃO VISUAL
+
+**Sua tarefa:** Analisar EXCLUSIVAMENTE a composição visual da imagem.
+
+### CRITÉRIOS DE ANÁLISE:
+1. **Balanceamento** - Distribuição equilibrada dos elementos
+2. **Hierarquia Visual** - Foco e pontos de atenção
+3. **Espaçamento** - Uso adequado do espaço
+4. **Proporções** - Relação entre elementos visuais
+5. **Harmonia** - Conjunto visual coeso
+
+### FORMATO DE RESPOSTA OBRIGATÓRIO:
+
+## 🎨 RELATÓRIO DE COMPOSIÇÃO VISUAL
+
+### ✅ PONTOS FORTES DA COMPOSIÇÃO
+- [Elementos bem compostos]
+
+### ⚠️ PROBLEMAS DE COMPOSIÇÃO
+- [Issues de organização visual]
+
+### 📊 SCORE COMPOSIÇÃO: [X/10]
+
+### 💡 SUGESTÕES DE MELHORIA VISUAL
+- [Recomendações para melhor composição]
+"""
+        },
+        'cores_branding': {
+            'nome': '🌈 Especialista em Cores e Branding',
+            'prompt': f"""
+{contexto_agente}
+{contexto_global}
+
+## FUNÇÃO: ESPECIALISTA EM CORES E BRANDING
+
+**Sua tarefa:** Analisar EXCLUSIVAMENTE cores e alinhamento com branding.
+
+### CRITÉRIOS DE ANÁLISE:
+1. **Paleta de Cores** - Cores utilizadas na imagem
+2. **Contraste** - Legibilidade e visibilidade
+3. **Consistência** - Coerência com identidade visual
+4. **Psicologia das Cores** - Efeito emocional das cores
+5. **Acessibilidade** - Visibilidade para diferentes usuários
+
+### FORMATO DE RESPOSTA OBRIGATÓRIO:
+
+## 🌈 RELATÓRIO DE CORES E BRANDING
+
+### ✅ CORES ALINHADAS
+- [Cores que seguem as diretrizes]
+
+### ❌ PROBLEMAS DE COR
+- [Cores fora do padrão]
+
+### 📊 SCORE CORES: [X/10]
+
+### 🎯 RECOMENDAÇÕES DE COR
+- [Sugestões para paleta de cores]
+"""
+        },
+        'tipografia_texto': {
+            'nome': '🔤 Especialista em Tipografia e Texto',
+            'prompt': f"""
+{contexto_agente}
+{contexto_global}
+
+## FUNÇÃO: ESPECIALISTA EM TIPOGRAFIA E TEXTO
+
+**Sua tarefa:** Analisar EXCLUSIVAMENTE tipografia e elementos textuais.
+
+### CRITÉRIOS DE ANÁLISE:
+1. **Legibilidade** - Facilidade de leitura do texto
+2. **Hierarquia Tipográfica** - Tamanhos e pesos de fonte
+3. **Alinhamento** - Organização do texto na imagem
+4. **Consistência** - Uso uniforme de fontes
+5. **Mensagem Textual** - Conteúdo das palavras
+
+### FORMATO DE RESPOSTA OBRIGATÓRIO:
+
+## 🔤 RELATÓRIO DE TIPOGRAFIA
+
+### ✅ ACERTOS TIPOGRÁFICOS
+- [Elementos textuais bem executados]
+
+### ⚠️ PROBLEMAS DE TEXTO
+- [Issues com tipografia e texto]
+
+### 📊 SCORE TIPOGRAFIA: [X/10]
+
+### ✏️ SUGESTÕES TIPOGRÁFICAS
+- [Melhorias para texto e fontes]
+"""
+        },
+        'elementos_marca': {
+            'nome': '🏷️ Especialista em Elementos de Marca',
+            'prompt': f"""
+{contexto_agente}
+{contexto_global}
+
+## FUNÇÃO: ESPECIALISTA EM ELEMENTOS DE MARCA
+
+**Sua tarefa:** Analisar EXCLUSIVAMENTE elementos de identidade visual da marca.
+
+### CRITÉRIOS DE ANÁLISE:
+1. **Logo e Identidade** - Uso correto da marca
+2. **Elementos Gráficos** - Ícones, padrões, ilustrações
+3. **Fotografia** - Estilo e tratamento de imagens
+4. **Consistência Visual** - Coerência com guidelines
+5. **Diferenciação** - Elementos únicos da marca
+
+### FORMATO DE RESPOSTA OBRIGATÓRIO:
+
+## 🏷️ RELATÓRIO DE ELEMENTOS DE MARCA
+
+### ✅ ELEMENTOS CORRETOS
+- [Elementos alinhados com a marca]
+
+### ❌ ELEMENTOS INCORRETOS
+- [Elementos fora do padrão]
+
+### 📊 SCORE MARCA: [X/10]
+
+### 🎨 RECOMENDAÇÕES DE MARCA
+- [Sugestões para identidade visual]
+"""
+        },
+        'impacto_comunicacao': {
+            'nome': '🎯 Especialista em Impacto e Comunicação',
+            'prompt': f"""
+{contexto_agente}
+{contexto_global}
+
+## FUNÇÃO: ESPECIALISTA EM IMPACTO E COMUNICAÇÃO
+
+**Sua tarefa:** Analisar EXCLUSIVAMENTE impacto visual e comunicação.
+
+### CRITÉRIOS DE ANÁLISE:
+1. **Mensagem Central** - Clareza da comunicação
+2. **Apelo Emocional** - Conexão com o público
+3. **Chamada para Ação** - Efetividade persuasiva
+4. **Originalidade** - Diferenciação criativa
+5. **Memorabilidade** - Capacidade de ser lembrado
+
+### FORMATO DE RESPOSTA OBRIGATÓRIO:
+
+## 🎯 RELATÓRIO DE IMPACTO
+
+### ✅ PONTOS DE IMPACTO
+- [Elementos comunicativos eficazes]
+
+### 📉 OPORTUNIDADES DE MELHORIA
+- [Áreas para aumentar impacto]
+
+### 📊 SCORE IMPACTO: [X/10]
+
+### 🚀 ESTRATÉGIAS DE COMUNICAÇÃO
+- [Técnicas para melhor comunicação]
+"""
+        }
+    }
+    
+    return analisadores
+
+def criar_analisadores_video(contexto_agente, contexto_global, contexto_video_especifico):
+    """Cria analisadores especializados para vídeos"""
+    
+    analisadores = {
+        'narrativa_estrutura': {
+            'nome': '📖 Especialista em Narrativa e Estrutura',
+            'prompt': f"""
+{contexto_agente}
+{contexto_global}
+{contexto_video_especifico}
+
+## FUNÇÃO: ESPECIALISTA EM NARRATIVA E ESTRUTURA
+
+**Sua tarefa:** Analisar EXCLUSIVAMENTE a estrutura narrativa do vídeo.
+
+### CRITÉRIOS DE ANÁLISE:
+1. **Arco Narrativo** - Desenvolvimento da história
+2. **Ritmo** - Velocidade e fluidez da narrativa
+3. **Estrutura** - Organização do conteúdo
+4. **Transições** - Conexão entre cenas/ideias
+5. **Clímax e Resolução** - Ponto alto e conclusão
+
+### FORMATO DE RESPOSTA OBRIGATÓRIO:
+
+## 📖 RELATÓRIO DE NARRATIVA
+
+### ✅ PONTOS FORTES DA NARRATIVA
+- [Elementos narrativos bem executados]
+
+### ⚠️ PROBLEMAS DE ESTRUTURA
+- [Issues na organização do conteúdo]
+
+### 📊 SCORE NARRATIVA: [X/10]
+
+### 💡 SUGESTÕES NARRATIVAS
+- [Melhorias para estrutura e ritmo]
+"""
+        },
+        'qualidade_audio': {
+            'nome': '🔊 Especialista em Qualidade de Áudio',
+            'prompt': f"""
+{contexto_agente}
+{contexto_global}
+{contexto_video_especifico}
+
+## FUNÇÃO: ESPECIALISTA EM QUALIDADE DE ÁUDIO
+
+**Sua tarefa:** Analisar EXCLUSIVAMENTE aspectos de áudio do vídeo.
+
+### CRITÉRIOS DE ANÁLISE:
+1. **Clareza Vocal** - Inteligibilidade da fala
+2. **Qualidade Técnica** - Ruído, distorção, equilíbrio
+3. **Trilha Sonora** - Música e efeitos sonoros
+4. **Sincronização** - Relação áudio-vídeo
+5. **Mixagem** - Balanceamento de elementos sonoros
+
+### FORMATO DE RESPOSTA OBRIGATÓRIO:
+
+## 🔊 RELATÓRIO DE ÁUDIO
+
+### ✅ ACERTOS DE ÁUDIO
+- [Elementos sonoros bem executados]
+
+### ❌ PROBLEMAS DE ÁUDIO
+- [Issues técnicos e de qualidade]
+
+### 📊 SCORE ÁUDIO: [X/10]
+
+### 🎧 RECOMENDAÇÕES DE ÁUDIO
+- [Sugestões para melhor qualidade sonora]
+"""
+        },
+        'visual_cinematografia': {
+            'nome': '🎥 Especialista em Visual e Cinematografia',
+            'prompt': f"""
+{contexto_agente}
+{contexto_global}
+{contexto_video_especifico}
+
+## FUNÇÃO: ESPECIALISTA EM VISUAL E CINEMATOGRAFIA
+
+**Sua tarefa:** Analisar EXCLUSIVAMENTE aspectos visuais do vídeo.
+
+### CRITÉRIOS DE ANÁLISE:
+1. **Enquadramento** - Composição de cenas
+2. **Iluminação** - Uso da luz e sombras
+3. **Cores e Grading** - Tratamento de cor
+4. **Movimento de Câmera** - Dinâmica visual
+5. **Qualidade de Imagem** - Resolução e nitidez
+
+### FORMATO DE RESPOSTA OBRIGATÓRIO:
+
+## 🎥 RELATÓRIO VISUAL
+
+### ✅ PONTOS FORTES VISUAIS
+- [Elementos visuais bem executados]
+
+### ⚠️ PROBLEMAS VISUAIS
+- [Issues de qualidade visual]
+
+### 📊 SCORE VISUAL: [X/10]
+
+### 🌟 SUGESTÕES VISUAIS
+- [Melhorias para cinematografia]
+"""
+        },
+        'branding_consistencia': {
+            'nome': '🏢 Especialista em Branding e Consistência',
+            'prompt': f"""
+{contexto_agente}
+{contexto_global}
+{contexto_video_especifico}
+
+## FUNÇÃO: ESPECIALISTA EM BRANDING E CONSISTÊNCIA
+
+**Sua tarefa:** Analisar EXCLUSIVAMENTE alinhamento com branding.
+
+### CRITÉRIOS DE ANÁLISE:
+1. **Identidade Visual** - Cores, logos, elementos da marca
+2. **Tom de Voz** - Personalidade da comunicação
+3. **Mensagem Central** - Alinhamento com valores
+4. **Consistência** - Uniformidade ao longo do vídeo
+5. **Público-Alvo** - Adequação ao destinatário
+
+### FORMATO DE RESPOSTA OBRIGATÓRIO:
+
+## 🏢 RELATÓRIO DE BRANDING
+
+### ✅ ALINHAMENTOS DE MARCA
+- [Elementos que seguem as diretrizes]
+
+### ❌ DESVIOS DE MARCA
+- [Elementos fora do padrão]
+
+### 📊 SCORE BRANDING: [X/10]
+
+### 🎯 RECOMENDAÇÕES DE MARCA
+- [Sugestões para melhor alinhamento]
+"""
+        },
+        'engajamento_eficacia': {
+            'nome': '📈 Especialista em Engajamento e Eficácia',
+            'prompt': f"""
+{contexto_agente}
+{contexto_global}
+{contexto_video_especifico}
+
+## FUNÇÃO: ESPECIALISTA EM ENGAJAMENTO E EFICÁCIA
+
+**Sua tarefa:** Analisar EXCLUSIVAMENTE poder de engajamento.
+
+### CRITÉRIOS DE ANÁLISE:
+1. **Retenção de Atenção** - Capacidade de prender o público
+2. **Chamadas para Ação** - Clareza e efetividade
+3. **Apelo Emocional** - Conexão com espectador
+4. **Valor Educativo** - Conteúdo informativo
+5. **Shareability** - Potencial de compartilhamento
+
+### FORMATO DE RESPOSTA OBRIGATÓRIO:
+
+## 📈 RELATÓRIO DE ENGAJAMENTO
+
+### ✅ ELEMENTOS ENGAJADORES
+- [Pontos fortes de persuasão]
+
+### 📉 OPORTUNIDADES DE ENGajamento
+- [Áreas para aumentar envolvimento]
+
+### 📊 SCORE ENGAJAMENTO: [X/10]
+
+### 🚀 ESTRATÉGIAS DE ENGAJAMENTO
+- [Técnicas para melhor envolvimento]
+"""
+        }
+    }
+    
+    return analisadores
+
+def executar_analise_imagem_especializada(uploaded_image, nome_imagem, analisadores):
+    """Executa análise especializada para imagens com múltiplos especialistas"""
+    
+    resultados = {}
+    
+    for area, config in analisadores.items():
+        with st.spinner(f"Executando {config['nome']}..."):
+            try:
+                prompt_completo = f"""
+{config['prompt']}
+
+###BEGIN IMAGEM PARA ANÁLISE###
+**Arquivo:** {nome_imagem}
+**Análise solicitada para:** {config['nome']}
+###END IMAGEM PARA ANÁLISE###
+
+Por favor, forneça sua análise especializada no formato solicitado.
+"""
                 
-                # Opção 1: Texto direto
-                texto_input = st.text_area(
-                    "**✍️ Digite o texto para validação:**", 
-                    height=150, 
-                    key="texto_validacao",
-                    placeholder="Cole aqui o texto que deseja validar..."
-                )
+                # Processar imagem com o especialista específico
+                response = modelo_vision.generate_content([
+                    prompt_completo,
+                    {"mime_type": "image/jpeg", "data": uploaded_image.getvalue()}
+                ])
                 
-                # Opção 2: Upload de múltiplos arquivos
-                st.markdown("### 📎 Ou carregue arquivos")
+                resultados[area] = {
+                    'nome': config['nome'],
+                    'analise': response.text,
+                    'score': extrair_score(response.text)
+                }
                 
-                arquivos_documentos = st.file_uploader(
-                    "**Documentos suportados:** PDF, PPTX, TXT, DOCX",
-                    type=['pdf', 'pptx', 'txt', 'docx'],
-                    accept_multiple_files=True,
-                    key="arquivos_documentos_validacao"
-                )
+            except Exception as e:
+                resultados[area] = {
+                    'nome': config['nome'],
+                    'analise': f"❌ Erro na análise: {str(e)}",
+                    'score': 0
+                }
+    
+    return resultados
+
+def executar_analise_video_especializada(uploaded_video, nome_video, analisadores):
+    """Executa análise especializada para vídeos com múltiplos especialistas"""
+    
+    resultados = {}
+    
+    for area, config in analisadores.items():
+        with st.spinner(f"Executando {config['nome']}..."):
+            try:
+                prompt_completo = f"""
+{config['prompt']}
+
+###BEGIN VÍDEO PARA ANÁLISE###
+**Arquivo:** {nome_video}
+**Análise solicitada para:** {config['nome']}
+###END VÍDEO PARA ANÁLISE###
+
+Por favor, forneça sua análise especializada no formato solicitado.
+"""
                 
-                # Configurações de análise
-                with st.expander("⚙️ Configurações de Análise"):
-                    analise_especializada = st.checkbox(
-                        "Análise especializada por áreas (recomendado)",
-                        value=True,
-                        help="Usa múltiplos especialistas para análise mais precisa"
-                    )
-                    
-                    analisadores_selecionados = st.multiselect(
-                        "Especialistas a incluir:",
-                        options=['ortografia', 'lexico', 'branding', 'estrutura', 'engajamento'],
-                        default=['ortografia', 'lexico', 'branding', 'estrutura', 'engajamento'],
-                        format_func=lambda x: {
-                            'ortografia': '🔤 Ortografia e Gramática',
-                            'lexico': '📚 Léxico e Vocabulário', 
-                            'branding': '🎨 Branding e Identidade',
-                            'estrutura': '📋 Estrutura e Formatação',
-                            'engajamento': '🎯 Engajamento e Persuasão'
-                        }[x]
-                    )
-                    
-                    analise_detalhada = st.checkbox(
-                        "Análise detalhada por slide/página",
-                        value=True
-                    )
+                # Processar vídeo com o especialista específico
+                video_bytes = uploaded_video.getvalue()
                 
-                # Botão de validação
-                if st.button("✅ Validar Conteúdo", type="primary", key="validate_documents", use_container_width=True):
-                    st.session_state.validacao_triggered = True
-                    st.session_state.analise_especializada = analise_especializada
-                    st.session_state.analise_detalhada = analise_detalhada
-                    st.session_state.analisadores_selecionados = analisadores_selecionados
-            
-            with col_saida:
-                st.markdown("### 📊 Resultados")
-                
-                if st.session_state.get('validacao_triggered'):
-                    # Processar todos os conteúdos
-                    todos_textos = []
-                    arquivos_processados = []
-                    
-                    # Adicionar texto manual se existir
-                    if texto_input and texto_input.strip():
-                        todos_textos.append({
-                            'nome': 'Texto_Manual',
-                            'conteudo': texto_input,
-                            'tipo': 'texto_direto',
-                            'tamanho': len(texto_input),
-                            'slides': []
-                        })
-                    
-                    # Processar arquivos uploadados
-                    if arquivos_documentos:
-                        for arquivo in arquivos_documentos:
-                            with st.spinner(f"Processando {arquivo.name}..."):
-                                try:
-                                    if arquivo.type == "application/pdf":
-                                        texto_extraido, slides_info = extract_text_from_pdf_com_slides(arquivo)
-                                    elif arquivo.type == "application/vnd.openxmlformats-officedocument.presentationml.presentation":
-                                        texto_extraido, slides_info = extract_text_from_pptx_com_slides(arquivo)
-                                    elif arquivo.type in ["text/plain", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"]:
-                                        texto_extraido = extrair_texto_arquivo(arquivo)
-                                        slides_info = []
-                                    else:
-                                        st.warning(f"Tipo de arquivo não suportado: {arquivo.name}")
-                                        continue
-                                    
-                                    if texto_extraido and texto_extraido.strip():
-                                        todos_textos.append({
-                                            'nome': arquivo.name,
-                                            'conteudo': texto_extraido,
-                                            'slides': slides_info,
-                                            'tipo': arquivo.type,
-                                            'tamanho': len(texto_extraido)
-                                        })
-                                        arquivos_processados.append(arquivo.name)
-                                    
-                                except Exception as e:
-                                    st.error(f"❌ Erro ao processar {arquivo.name}: {str(e)}")
-                    
-                    # Verificar se há conteúdo para validar
-                    if not todos_textos:
-                        st.warning("⚠️ Nenhum conteúdo válido encontrado para validação.")
-                    else:
-                        st.success(f"✅ {len(todos_textos)} documento(s) processado(s) com sucesso!")
-                        
-                        # Exibir estatísticas rápidas
-                        col_docs, col_palavras, col_chars = st.columns(3)
-                        with col_docs:
-                            st.metric("📄 Documentos", len(todos_textos))
-                        with col_palavras:
-                            total_palavras = sum(len(doc['conteudo'].split()) for doc in todos_textos)
-                            st.metric("📝 Palavras", total_palavras)
-                        with col_chars:
-                            total_chars = sum(doc['tamanho'] for doc in todos_textos)
-                            st.metric("🔤 Caracteres", f"{total_chars:,}")
-                        
-                        # Análise individual por documento
-                        st.markdown("---")
-                        st.subheader("📋 Análise Individual por Documento")
-                        
-                        for doc in todos_textos:
-                            with st.expander(f"📄 {doc['nome']} - {doc['tamanho']} chars", expanded=True):
-                                # Informações básicas do documento
-                                col_info1, col_info2 = st.columns(2)
-                                with col_info1:
-                                    st.write(f"**Tipo:** {doc['tipo']}")
-                                    st.write(f"**Tamanho:** {doc['tamanho']} caracteres")
-                                with col_info2:
-                                    if doc['slides']:
-                                        st.write(f"**Slides/Páginas:** {len(doc['slides'])}")
-                                    else:
-                                        st.write("**Estrutura:** Texto simples")
-                                
-                                # Contexto aplicado
-                                if contexto_global and contexto_global.strip():
-                                    st.info(f"**🎯 Contexto Aplicado:** {contexto_global}")
-                                
-                                # Análise de branding
-                                with st.spinner(f"Analisando {doc['nome']}..."):
-                                    try:
-                                        # Construir contexto do agente
-                                        contexto_agente = ""
-                                        if "base_conhecimento" in agente:
-                                            contexto_agente = f"""
-                                            ###BEGIN DIRETRIZES DE BRANDING DO AGENTE:###
-                                            {agente['base_conhecimento']}
-                                            ###END DIRETRIZES DE BRANDING DO AGENTE###
-                                            """
-                                        
-                                        # Adicionar contexto global se fornecido
-                                        contexto_completo = contexto_agente
-                                        if contexto_global and contexto_global.strip():
-                                            contexto_completo += f"""
-                                            ###BEGIN CONTEXTO ADICIONAL DO USUARIO###
-                                            {contexto_global}
-                                            ###END CONTEXTO ADICIONAL DO USUARIO###
-                                            """
-                                        
-                                        # Escolher método de análise
-                                        if st.session_state.analise_especializada:
-                                            # ANÁLISE ESPECIALIZADA POR MÚLTIPLOS ESPECIALISTAS
-                                            st.info("🎯 **Executando análise especializada por múltiplos especialistas...**")
-                                            
-                                            # Criar analisadores especialistas
-                                            analisadores_config = criar_analisadores_especialistas(contexto_completo, "")
-                                            
-                                            # Filtrar apenas os selecionados
-                                            analisadores_filtrados = {k: v for k, v in analisadores_config.items() 
-                                                                     if k in st.session_state.analisadores_selecionados}
-                                            
-                                            # Executar análises especializadas
-                                            resultados_especialistas = executar_analise_especializada(
-                                                doc['conteudo'], 
-                                                doc['nome'], 
-                                                analisadores_filtrados
-                                            )
-                                            
-                                            # Gerar relatório consolidado
-                                            relatorio_consolidado, score_medio, status = gerar_relatorio_consolidado(
-                                                resultados_especialistas, 
-                                                doc['nome']
-                                            )
-                                            
-                                            st.markdown(relatorio_consolidado, unsafe_allow_html=True)
-                                            
-                                        elif st.session_state.analise_detalhada and doc['slides']:
-                                            # Análise detalhada por slide (método antigo)
-                                            resultado_analise = analisar_documento_por_slides(doc, contexto_completo)
-                                            st.markdown(resultado_analise)
-                                        else:
-                                            # Análise geral do documento (método antigo)
-                                            prompt_analise = criar_prompt_validacao_preciso(doc['conteudo'], doc['nome'], contexto_completo)
-                                            resposta = modelo_texto.generate_content(prompt_analise)
-                                            st.markdown(resposta.text)
-                                        
-                                    except Exception as e:
-                                        st.error(f"❌ Erro na análise de {doc['nome']}: {str(e)}")
-                        
-                        # Relatório consolidado
-                        st.markdown("---")
-                        st.subheader("📑 Relatório Consolidado")
-                        
-                        # Botão para exportar
-                        if st.button("📥 Exportar Relatório Completo", key="exportar_relatorio_completo"):
-                            relatorio = f"""
-                            # RELATÓRIO DE VALIDAÇÃO DE CONTEÚDO
-                            
-                            **Agente:** {agente.get('nome', 'N/A')}
-                            **Data:** {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}
-                            **Total de Documentos:** {len(todos_textos)}
-                            **Contexto Aplicado:** {contexto_global if contexto_global else 'Nenhum contexto adicional'}
-                            **Método de Análise:** {'Especializada por Múltiplos Especialistas' if st.session_state.analise_especializada else 'Tradicional'}
-                            
-                            ## DOCUMENTOS ANALISADOS:
-                            {chr(10).join([f"{idx+1}. {doc['nome']} ({doc['tipo']}) - {doc['tamanho']} caracteres" for idx, doc in enumerate(todos_textos)])}
-                            """
-                            
-                            st.download_button(
-                                "💾 Baixar Relatório em TXT",
-                                data=relatorio,
-                                file_name=f"relatorio_validacao_{datetime.datetime.now().strftime('%Y%m%d_%H%M')}.txt",
-                                mime="text/plain"
-                            )
-                        
-                        # Armazenar na sessão
-                        st.session_state.todos_textos = todos_textos
-                
+                if len(video_bytes) < 200 * 1024 * 1024:
+                    response = modelo_vision.generate_content([
+                        prompt_completo,
+                        {"mime_type": uploaded_video.type, "data": video_bytes}
+                    ])
                 else:
-                    st.info("Digite texto ou carregue arquivos para validar")
+                    response = modelo_vision.generate_content([
+                        prompt_completo,
+                        {"mime_type": uploaded_video.type, "data": video_bytes}
+                    ])
+                
+                resultados[area] = {
+                    'nome': config['nome'],
+                    'analise': response.text,
+                    'score': extrair_score(response.text)
+                }
+                
+            except Exception as e:
+                resultados[area] = {
+                    'nome': config['nome'],
+                    'analise': f"❌ Erro na análise: {str(e)}",
+                    'score': 0
+                }
+    
+    return resultados
 
-        with subtab_imagem:
-            st.subheader("🖼️ Validação de Imagem")
-            
-            # Botão para limpar análises de imagem
-            if st.button("🗑️ Limpar Análises de Imagem", key="limpar_analises_imagem"):
-                if 'resultados_analise' in st.session_state:
-                    del st.session_state.resultados_analise
-                st.rerun()
-            
-            uploaded_images = st.file_uploader(
-                "Carregue uma ou mais imagens para análise", 
-                type=["jpg", "jpeg", "png", "webp"], 
-                key="image_upload_validacao",
-                accept_multiple_files=True
-            )
-            
-            if uploaded_images:
-                st.success(f"✅ {len(uploaded_images)} imagem(ns) carregada(s)")
-                
-                # Botão para validar todas as imagens
-                if st.button("🔍 Validar Todas as Imagens", type="primary", key="validar_imagens_multiplas"):
-                    
-                    # Lista para armazenar resultados
-                    resultados_analise = []
-                    
-                    # Loop através de cada imagem
-                    for idx, uploaded_image in enumerate(uploaded_images):
-                        with st.spinner(f'Analisando imagem {idx+1} de {len(uploaded_images)}: {uploaded_image.name}...'):
-                            try:
-                                # Criar container para cada imagem
-                                with st.container():
-                                    st.markdown("---")
-                                    col_img, col_info = st.columns([2, 1])
-                                    
-                                    with col_img:
-                                        # Exibir imagem
-                                        image = Image.open(uploaded_image)
-                                        st.image(image, use_container_width=True, caption=f"Imagem {idx+1}: {uploaded_image.name}")
-                                    
-                                    with col_info:
-                                        # Informações da imagem
-                                        st.metric("📐 Dimensões", f"{image.width} x {image.height}")
-                                        st.metric("📊 Formato", uploaded_image.type)
-                                        st.metric("📁 Tamanho", f"{uploaded_image.size / 1024:.1f} KB")
-                                    
-                                    # Contexto aplicado
-                                    if contexto_global and contexto_global.strip():
-                                        st.info(f"**🎯 Contexto Aplicado:** {contexto_global}")
-                                    
-                                    # Análise individual
-                                    with st.expander(f"📋 Análise Detalhada - Imagem {idx+1}", expanded=True):
-                                        try:
-                                            # Construir contexto com base de conhecimento do agente
-                                            contexto = ""
-                                            if "base_conhecimento" in agente:
-                                                contexto = f"""
-                                                DIRETRIZES DE BRANDING DO AGENTE:
-                                                {agente['base_conhecimento']}
-                                                """
-                                            
-                                            # Adicionar contexto global se fornecido
-                                            contexto_completo = contexto
-                                            if contexto_global and contexto_global.strip():
-                                                contexto_completo += f"""
-                                                
-                                                CONTEXTO ADICIONAL FORNECIDO PELO USUÁRIO:
-                                                {contexto_global}
-                                                """
-                                            
-                                            prompt_analise = f"""
-                                            {contexto_completo}
-                                            
-                                            Analise esta imagem e verifique o alinhamento com as diretrizes de branding.
-                                            
-                                            Forneça a análise em formato claro:
-                                            
-                                            ## 🖼️ RELATÓRIO DE ALINHAMENTO - IMAGEM {idx+1}
-                                            
-                                            **Arquivo:** {uploaded_image.name}
-                                            **Dimensões:** {image.width} x {image.height}
-                                            
-                                            ### 🎯 RESUMO DA IMAGEM
-                                            [Avaliação geral de conformidade visual e textual]
-                                            
-                                            ### ✅ ELEMENTOS ALINHADOS 
-                                            - [Itens visuais e textuais que seguem as diretrizes]
-                                            
-                                            ### ⚠️ ELEMENTOS FORA DO PADRÃO
-                                            - [Itens visuais e textuais que não seguem as diretrizes]
-                                            
-                                            ### 💡 RECOMENDAÇÕES
-                                            - [Sugestões para melhorar o alinhamento visual e textual]
-                                            
-                                            ### 🎨 ASPECTOS TÉCNICOS
-                                            - [Composição, cores, tipografia, etc.]
-                                            """
-                                            
-                                            # Processar imagem
-                                            response = modelo_vision.generate_content([
-                                                prompt_analise,
-                                                {"mime_type": "image/jpeg", "data": uploaded_image.getvalue()}
-                                            ])
-                                            
-                                            st.markdown(response.text)
-                                            
-                                            # Armazenar resultado
-                                            resultados_analise.append({
-                                                'nome': uploaded_image.name,
-                                                'indice': idx,
-                                                'analise': response.text,
-                                                'dimensoes': f"{image.width}x{image.height}",
-                                                'tamanho': uploaded_image.size
-                                            })
-                                            
-                                        except Exception as e:
-                                            st.error(f"❌ Erro ao processar imagem {uploaded_image.name}: {str(e)}")
-                                
-                                # Separador visual entre imagens
-                                if idx < len(uploaded_images) - 1:
-                                    st.markdown("---")
-                                    
-                            except Exception as e:
-                                st.error(f"❌ Erro ao carregar imagem {uploaded_image.name}: {str(e)}")
-                    
-                    # Armazenar na sessão
-                    st.session_state.resultados_analise = resultados_analise
-                    
-                    # Resumo executivo
-                    st.markdown("---")
-                    st.subheader("📋 Resumo Executivo")
-                    
-                    col_resumo1, col_resumo2, col_resumo3 = st.columns(3)
-                    with col_resumo1:
-                        st.metric("📊 Total de Imagens", len(uploaded_images))
-                    with col_resumo2:
-                        st.metric("✅ Análises Concluídas", len(resultados_analise))
-                    with col_resumo3:
-                        st.metric("🖼️ Processadas", len(uploaded_images))
-                    
-                    # Contexto aplicado no resumo
-                    if contexto_global and contexto_global.strip():
-                        st.info(f"**🎯 Contexto Aplicado em Todas as Análises:** {contexto_global}")
-                    
-                    # Botão para download do relatório consolidado
-                    if st.button("📥 Exportar Relatório Completo", key="exportar_relatorio"):
-                        relatorio = f"""
-                        # RELATÓRIO DE VALIDAÇÃO DE IMAGENS
-                        
-                        **Agente:** {agente.get('nome', 'N/A')}
-                        **Data:** {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}
-                        **Total de Imagens:** {len(uploaded_images)}
-                        **Contexto Aplicado:** {contexto_global if contexto_global else 'Nenhum contexto adicional'}
-                        
-                        ## RESUMO EXECUTIVO
-                        {chr(10).join([f"{idx+1}. {img.name}" for idx, img in enumerate(uploaded_images)])}
-                        
-                        ## ANÁLISES INDIVIDUAIS
-                        {chr(10).join([f'### {res["nome"]} {chr(10)}{res["analise"]}' for res in resultados_analise])}
-                        """
-                        
-                        st.download_button(
-                            "💾 Baixar Relatório em TXT",
-                            data=relatorio,
-                            file_name=f"relatorio_validacao_imagens_{datetime.datetime.now().strftime('%Y%m%d_%H%M')}.txt",
-                            mime="text/plain"
-                        )
-            
-            # Mostrar análises existentes da sessão
-            elif 'resultados_analise' in st.session_state and st.session_state.resultados_analise:
-                st.info("📋 Análises anteriores encontradas. Use o botão 'Limpar Análises' para recomeçar.")
-                
-                for resultado in st.session_state.resultados_analise:
-                    with st.expander(f"🖼️ {resultado['nome']} - Análise Salva", expanded=False):
-                        st.markdown(resultado['analise'])
-            
-            else:
-                st.info("📁 Carregue uma ou mais imagens para iniciar a validação de branding")
+def gerar_relatorio_imagem_consolidado(resultados_especialistas, nome_imagem, dimensoes):
+    """Gera relatório consolidado para imagens"""
+    
+    # Calcular score médio
+    scores = [resultado['score'] for resultado in resultados_especialistas.values() if resultado['score'] > 0]
+    score_medio = sum(scores) / len(scores) if scores else 0
+    
+    # Determinar status geral
+    if score_medio >= 8:
+        status = "✅ APROVADO"
+        cor_status = "green"
+    elif score_medio >= 6:
+        status = "⚠️ AJUSTES MENORES"
+        cor_status = "orange"
+    else:
+        status = "❌ REPROVADO"
+        cor_status = "red"
+    
+    relatorio = f"""
+# 🖼️ RELATÓRIO CONSOLIDADO DE IMAGEM
 
-        with subtab_video:
-            st.subheader("🎬 Validação de Vídeo")
-            
-            # Botão para limpar análises de vídeo
-            if st.button("🗑️ Limpar Análises de Vídeo", key="limpar_analises_video"):
-                if 'resultados_video' in st.session_state:
-                    del st.session_state.resultados_video
-                st.rerun()
-            
-            # Container principal
-            col_upload, col_config = st.columns([2, 1])
-            
-            with col_upload:
-                uploaded_videos = st.file_uploader(
-                    "Carregue um ou mais vídeos para análise",
-                    type=["mp4", "mpeg", "mov", "avi", "flv", "mpg", "webm", "wmv", "3gpp"],
-                    key="video_upload_validacao",
-                    accept_multiple_files=True
-                )
-            
-            with col_config:
-                st.markdown("### ⚙️ Configurações")
-                contexto_video_especifico = st.text_area(
-                    "**🎯 Contexto específico para vídeos:**", 
-                    height=120, 
-                    key="video_context_especifico",
-                    placeholder="Contexto adicional específico para análise de vídeos (opcional)..."
-                )
-            
-            if uploaded_videos:
-                st.success(f"✅ {len(uploaded_videos)} vídeo(s) carregado(s)")
-                
-                # Contexto aplicado
-                if contexto_global and contexto_global.strip():
-                    st.info(f"**🎯 Contexto Global Aplicado:** {contexto_global}")
-                if contexto_video_especifico and contexto_video_especifico.strip():
-                    st.info(f"**🎯 Contexto Específico para Vídeos:** {contexto_video_especifico}")
-                
-                # Exibir informações dos vídeos
-                st.markdown("### 📊 Informações dos Vídeos")
-                
-                for idx, video in enumerate(uploaded_videos):
-                    col_vid, col_info, col_actions = st.columns([2, 2, 1])
-                    
-                    with col_vid:
-                        st.write(f"**{idx+1}. {video.name}**")
-                        st.caption(f"Tipo: {video.type} | Tamanho: {video.size / (1024*1024):.1f} MB")
-                    
-                    with col_info:
-                        st.write("📏 Duração: A ser detectada")
-                        st.write("🎞️ Resolução: A ser detectada")
-                    
-                    with col_actions:
-                        if st.button("🔍 Preview", key=f"preview_{idx}"):
-                            st.video(video, format=f"video/{video.type.split('/')[-1]}")
-                
-                # Botão para validar todos os vídeos
-                if st.button("🎬 Validar Todos os Vídeos", type="primary", key="validar_videos_multiplas"):
-                    
-                    resultados_video = []
-                    
-                    for idx, uploaded_video in enumerate(uploaded_videos):
-                        with st.spinner(f'Analisando vídeo {idx+1} de {len(uploaded_videos)}: {uploaded_video.name}...'):
-                            try:
-                                # Container para cada vídeo
-                                with st.container():
-                                    st.markdown("---")
-                                    
-                                    # Header do vídeo
-                                    col_header, col_stats = st.columns([3, 1])
-                                    
-                                    with col_header:
-                                        st.subheader(f"🎬 {uploaded_video.name}")
-                                    
-                                    with col_stats:
-                                        st.metric("📊 Status", "Processando")
-                                    
-                                    # Contexto aplicado para este vídeo
-                                    if contexto_global and contexto_global.strip():
-                                        st.info(f"**🎯 Contexto Aplicado:** {contexto_global}")
-                                    if contexto_video_especifico and contexto_video_especifico.strip():
-                                        st.info(f"**🎯 Contexto Específico:** {contexto_video_especifico}")
-                                    
-                                    # Preview do vídeo
-                                    with st.expander("👀 Preview do Vídeo", expanded=False):
-                                        st.video(uploaded_video, format=f"video/{uploaded_video.type.split('/')[-1]}")
-                                    
-                                    # Análise detalhada
-                                    with st.expander(f"📋 Análise Completa - {uploaded_video.name}", expanded=True):
-                                        try:
-                                            # Construir contexto com base de conhecimento do agente
-                                            contexto = ""
-                                            if "base_conhecimento" in agente:
-                                                contexto = f"""
-                                                DIRETRIZES DE BRANDING DO AGENTE:
-                                                {agente['base_conhecimento']}
-                                                """
-                                            
-                                            # Adicionar contexto global se fornecido
-                                            contexto_completo = contexto
-                                            if contexto_global and contexto_global.strip():
-                                                contexto_completo += f"""
-                                                
-                                                CONTEXTO GLOBAL FORNECIDO PELO USUÁRIO:
-                                                {contexto_global}
-                                                """
-                                            
-                                            # Adicionar contexto específico de vídeo se fornecido
-                                            if contexto_video_especifico and contexto_video_especifico.strip():
-                                                contexto_completo += f"""
-                                                
-                                                CONTEXTO ESPECÍFICO PARA VÍDEOS:
-                                                {contexto_video_especifico}
-                                                """
-                                            
-                                            prompt_analise = f"""
-                                            {contexto_completo}
-                                            
-                                            Analise este vídeo considerando:
-                                            - Alinhamento com diretrizes de branding
-                                            - Qualidade e consistência visual  
-                                            - Mensagem e tom da comunicação
-                                            - Elementos de áudio e transcrição
-                                            - Texto presente nos frames
-                                            
-                                            Forneça a análise em formato estruturado:
-                                            
-                                            ## 🎬 RELATÓRIO DE ALINHAMENTO - VÍDEO {idx+1}
-                                            
-                                            **Arquivo:** {uploaded_video.name}
-                                            **Formato:** {uploaded_video.type}
-                                            
-                                            ### 🎯 RESUMO EXECUTIVO
-                                            [Avaliação geral do alinhamento do vídeo com as diretrizes]
-                                            
-                                            ### 🔊 ANÁLISE DE ÁUDIO
-                                            [Transcrição e análise do conteúdo de áudio, tom, mensagem verbal]
-                                            
-                                            ### 👁️ ANÁLISE VISUAL
-                                            [Análise de elementos visuais, cores, composição, branding visual]
+**Arquivo:** {nome_imagem}
+**Dimensões:** {dimensoes}
+**Status Geral:** <span style='color:{cor_status}'>{status}</span>
+**Score Médio:** {score_medio:.1f}/10
+**Data da Análise:** {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}
 
-                                            ### 📝 TEXTO EM FRAMES
-                                            [Identificação e análise de texto presente nos frames]
-                                            
-                                            ### ✅ PONTOS FORTES
-                                            - [Elementos bem alinhados com as diretrizes]
-                                            
-                                            ### ⚠️ PONTOS DE ATENÇÃO
-                                            - [Desvios identificados e timestamps específicos]
-                                            
-                                            ### 💡 RECOMENDAÇÕES
-                                            - [Sugestões para melhorar o alinhamento]
-                                            
-                                            ### 🕒 MOMENTOS CHAVE
-                                            [Timestamps importantes com descrição: MM:SS]
-                                            """
-                                            
-                                            # Processar vídeo usando a API do Gemini
-                                            video_bytes = uploaded_video.getvalue()
-                                            
-                                            if len(video_bytes) < 200 * 1024 * 1024:
-                                                response = modelo_vision.generate_content([
-                                                    prompt_analise,
-                                                    {"mime_type": uploaded_video.type, "data": video_bytes}
-                                                ])
-                                            else:
-                                                st.info("📤 Uploading vídeo para processamento...")
-                                                response = modelo_vision.generate_content([
-                                                    prompt_analise,
-                                                    {"mime_type": uploaded_video.type, "data": video_bytes}
-                                                ])
-                                            
-                                            st.markdown(response.text)
-                                            
-                                            # Armazenar resultado
-                                            resultados_video.append({
-                                                'nome': uploaded_video.name,
-                                                'indice': idx,
-                                                'analise': response.text,
-                                                'tipo': uploaded_video.type,
-                                                'tamanho': uploaded_video.size
-                                            })
-                                            
-                                        except Exception as e:
-                                            st.error(f"❌ Erro ao processar vídeo {uploaded_video.name}: {str(e)}")
-                                            resultados_video.append({
-                                                'nome': uploaded_video.name,
-                                                'indice': idx,
-                                                'analise': f"Erro na análise: {str(e)}",
-                                                'tipo': uploaded_video.type,
-                                                'tamanho': uploaded_video.size
-                                            })
-                                
-                                # Separador entre vídeos
-                                if idx < len(uploaded_videos) - 1:
-                                    st.markdown("---")
-                                    
-                            except Exception as e:
-                                st.error(f"❌ Erro ao processar vídeo {uploaded_video.name}: {str(e)}")
-                    
-                    # Armazenar resultados na sessão
-                    st.session_state.resultados_video = resultados_video
-                    
-                    # Resumo executivo dos vídeos
-                    st.markdown("---")
-                    st.subheader("📋 Resumo Executivo - Vídeos")
-                    
-                    col_vid1, col_vid2 = st.columns(2)
-                    with col_vid1:
-                        st.metric("🎬 Total de Vídeos", len(uploaded_videos))
-                    with col_vid2:
-                        st.metric("✅ Análises Concluídas", len(resultados_video))
-                    
-                    # Contexto aplicado no resumo
-                    if contexto_global and contexto_global.strip():
-                        st.info(f"**🎯 Contexto Global Aplicado:** {contexto_global}")
-                    if contexto_video_especifico and contexto_video_especifico.strip():
-                        st.info(f"**🎯 Contexto Específico Aplicado:** {contexto_video_especifico}")
-                    
-                    # Botão para download do relatório
-                    if st.button("📥 Exportar Relatório de Vídeos", key="exportar_relatorio_videos"):
-                        relatorio_videos = f"""
-                        # RELATÓRIO DE VALIDAÇÃO DE VÍDEOS
-                        
-                        **Agente:** {agente.get('nome', 'N/A')}
-                        **Data:** {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}
-                        **Total de Vídeos:** {len(uploaded_videos)}
-                        **Contexto Global:** {contexto_global if contexto_global else 'Nenhum'}
-                        **Contexto Específico:** {contexto_video_especifico if contexto_video_especifico else 'Nenhum'}
-                        
-                        ## VÍDEOS ANALISADOS:
-                        {chr(10).join([f"{idx+1}. {vid.name} ({vid.type}) - {vid.size/(1024*1024):.1f} MB" for idx, vid in enumerate(uploaded_videos)])}
-                        
-                        ## ANÁLISES INDIVIDUAIS:
-                        {chr(10).join([f'### {res["nome"]} {chr(10)}{res["analise"]}' for res in resultados_video])}
-                        """
-                        
-                        st.download_button(
-                            "💾 Baixar Relatório em TXT",
-                            data=relatorio_videos,
-                            file_name=f"relatorio_validacao_videos_{datetime.datetime.now().strftime('%Y%m%d_%H%M')}.txt",
-                            mime="text/plain"
-                        )
-            
-            # Mostrar análises existentes da sessão
-            elif 'resultados_video' in st.session_state and st.session_state.resultados_video:
-                st.info("📋 Análises anteriores encontradas. Use o botão 'Limpar Análises' para recomeçar.")
+## 🎖️ SCORES POR ÁREA ESPECIALIZADA
+"""
+    
+    # Adicionar scores individuais
+    for area, resultado in resultados_especialistas.items():
+        emoji = "✅" if resultado['score'] >= 8 else "⚠️" if resultado['score'] >= 6 else "❌"
+        relatorio += f"- {emoji} **{resultado['nome']}:** {resultado['score']}/10\n"
+    
+    relatorio += "\n## 📋 ANÁLISES DETALHADAS POR ESPECIALISTA\n"
+    
+    # Adicionar análises detalhadas
+    for area, resultado in resultados_especialistas.items():
+        relatorio += f"\n### {resultado['nome']}\n"
+        relatorio += f"{resultado['analise']}\n"
+        relatorio += "---\n"
+    
+    # Resumo executivo
+    relatorio += f"""
+## 🚀 RESUMO EXECUTIVO - IMAGEM
+
+**Status Final:** {status}
+**Score Geral:** {score_medio:.1f}/10
+
+### 🎯 PRÓXIMOS PASSOS RECOMENDADOS:
+"""
+    
+    # Recomendações baseadas nos scores
+    areas_baixas = [area for area, resultado in resultados_especialistas.items() if resultado['score'] < 6]
+    if areas_baixas:
+        nomes_areas = [resultados_especialistas[area]['nome'] for area in areas_baixas]
+        relatorio += f"- **Prioridade Máxima:** Focar em {', '.join(nomes_areas)}\n"
+    
+    areas_medianas = [area for area, resultado in resultados_especialistas.items() if 6 <= resultado['score'] < 8]
+    if areas_medianas:
+        nomes_areas = [resultados_especialistas[area]['nome'] for area in areas_medianas]
+        relatorio += f"- **Otimização Necessária:** Melhorar {', '.join(nomes_areas)}\n"
+    
+    areas_altas = [area for area, resultado in resultados_especialistas.items() if resultado['score'] >= 8]
+    if areas_altas:
+        nomes_areas = [resultados_especialistas[area]['nome'] for area in areas_altas]
+        relatorio += f"- **Manutenção:** Manter a excelência em {', '.join(nomes_areas)}\n"
+    
+    return relatorio, score_medio, status
+
+def gerar_relatorio_video_consolidado(resultados_especialistas, nome_video, tipo_video):
+    """Gera relatório consolidado para vídeos"""
+    
+    # Calcular score médio
+    scores = [resultado['score'] for resultado in resultados_especialistas.values() if resultado['score'] > 0]
+    score_medio = sum(scores) / len(scores) if scores else 0
+    
+    # Determinar status geral
+    if score_medio >= 8:
+        status = "✅ APROVADO"
+        cor_status = "green"
+    elif score_medio >= 6:
+        status = "⚠️ AJUSTES MENORES"
+        cor_status = "orange"
+    else:
+        status = "❌ REPROVADO"
+        cor_status = "red"
+    
+    relatorio = f"""
+# 🎬 RELATÓRIO CONSOLIDADO DE VÍDEO
+
+**Arquivo:** {nome_video}
+**Formato:** {tipo_video}
+**Status Geral:** <span style='color:{cor_status}'>{status}</span>
+**Score Médio:** {score_medio:.1f}/10
+**Data da Análise:** {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}
+
+## 🎖️ SCORES POR ÁREA ESPECIALIZADA
+"""
+    
+    # Adicionar scores individuais
+    for area, resultado in resultados_especialistas.items():
+        emoji = "✅" if resultado['score'] >= 8 else "⚠️" if resultado['score'] >= 6 else "❌"
+        relatorio += f"- {emoji} **{resultado['nome']}:** {resultado['score']}/10\n"
+    
+    relatorio += "\n## 📋 ANÁLISES DETALHADAS POR ESPECIALISTA\n"
+    
+    # Adicionar análises detalhadas
+    for area, resultado in resultados_especialistas.items():
+        relatorio += f"\n### {resultado['nome']}\n"
+        relatorio += f"{resultado['analise']}\n"
+        relatorio += "---\n"
+    
+    # Resumo executivo
+    relatorio += f"""
+## 🚀 RESUMO EXECUTIVO - VÍDEO
+
+**Status Final:** {status}
+**Score Geral:** {score_medio:.1f}/10
+
+### 🎯 PRÓXIMOS PASSOS RECOMENDADOS:
+"""
+    
+    # Recomendações baseadas nos scores
+    areas_baixas = [area for area, resultado in resultados_especialistas.items() if resultado['score'] < 6]
+    if areas_baixas:
+        nomes_areas = [resultados_especialistas[area]['nome'] for area in areas_baixas]
+        relatorio += f"- **Prioridade Máxima:** Focar em {', '.join(nomes_areas)}\n"
+    
+    areas_medianas = [area for area, resultado in resultados_especialistas.items() if 6 <= resultado['score'] < 8]
+    if areas_medianas:
+        nomes_areas = [resultados_especialistas[area]['nome'] for area in areas_medianas]
+        relatorio += f"- **Otimização Necessária:** Melhorar {', '.join(nomes_areas)}\n"
+    
+    areas_altas = [area for area, resultado in resultados_especialistas.items() if resultado['score'] >= 8]
+    if areas_altas:
+        nomes_areas = [resultados_especialistas[area]['nome'] for area in areas_altas]
+        relatorio += f"- **Manutenção:** Manter a excelência em {', '.join(nomes_areas)}\n"
+    
+    return relatorio, score_medio, status
+
+# --- FUNÇÕES DE ANÁLISE DE TEXTO (MANTIDAS) ---
+
+def criar_analisadores_texto(contexto_agente, contexto_global):
+    """Cria prompts especializados para cada área de análise de texto"""
+    
+    analisadores = {
+        'ortografia': {
+            'nome': '🔤 Especialista em Ortografia e Gramática',
+            'prompt': f"""
+{contexto_agente}
+{contexto_global}
+
+## FUNÇÃO: ESPECIALISTA EM ORTOGRAFIA E GRAMÁTICA PORTUGUÊS BR
+
+**Sua tarefa:** Analisar EXCLUSIVAMENTE aspectos ortográficos e gramaticais.
+
+### CRITÉRIOS DE ANÁLISE:
+1. **Ortografia** - Erros de escrita
+2. **Gramática** - Concordância, regência, colocação
+3. **Pontuação** - Uso de vírgulas, pontos, etc.
+4. **Acentuação** - Erros de acentuação
+5. **Padrão Culto** - Conformidade com norma culta
+
+### FORMATO DE RESPOSTA OBRIGATÓRIO:
+
+## 🔤 RELATÓRIO ORTOGRÁFICO
+
+### ✅ ACERTOS
+- [Itens corretos]
+
+### ❌ ERROS IDENTIFICADOS
+- [Lista específica de erros com correções]
+
+### 📊 SCORE ORTOGRÁFICO: [X/10]
+
+### 💡 SUGESTÕES DE MELHORIA
+- [Recomendações específicas]
+"""
+        },
+        'lexico': {
+            'nome': '📚 Especialista em Léxico e Vocabulário',
+            'prompt': f"""
+{contexto_agente}
+{contexto_global}
+
+## FUNÇÃO: ESPECIALISTA EM LÉXICO E VOCABULÁRIO
+
+**Sua tarefa:** Analisar EXCLUSIVAMENTE aspectos lexicais e de vocabulário.
+
+### CRITÉRIOS DE ANÁLISE:
+1. **Variedade Lexical** - Riqueza de vocabulário
+2. **Precisão Semântica** - Uso adequado das palavras
+3. **Repetição** - Palavras ou expressões repetidas em excesso
+4. **Jargões** - Uso inadequado de termos técnicos
+5. **Clareza** - Facilidade de compreensão
+
+### FORMATO DE RESPOSTA OBRIGATÓRIO:
+
+## 📚 RELATÓRIO LEXICAL
+
+### ✅ VOCABULÁRIO ADEQUADO
+- [Pontos fortes do vocabulário]
+
+### ⚠️ ASPECTOS A MELHORAR
+- [Problemas lexicais identificados]
+
+### 🔄 SUGESTÕES DE SINÔNIMOS
+- [Palavras para substituir]
+
+### 📊 SCORE LEXICAL: [X/10]
+"""
+        },
+        'branding': {
+            'nome': '🎨 Especialista em Branding e Identidade',
+            'prompt': f"""
+{contexto_agente}
+{contexto_global}
+
+## FUNÇÃO: ESPECIALISTA EM BRANDING E IDENTIDADE
+
+**Sua tarefa:** Analisar EXCLUSIVAMENTE conformidade com diretrizes de branding.
+
+### CRITÉRIOS DE ANÁLISE:
+1. **Tom de Voz** - Alinhamento com personalidade da marca
+2. **Mensagem Central** - Consistência da mensagem
+3. **Valores da Marca** - Reflexo dos valores organizacionais
+4. **Público-Alvo** - Adequação ao público pretendido
+5. **Diferenciação** - Elementos únicos da marca
+
+### FORMATO DE RESPOSTA OBRIGATÓRIO:
+
+## 🎨 RELATÓRIO DE BRANDING
+
+### ✅ ALINHAMENTOS
+- [Elementos que seguem as diretrizes]
+
+### ❌ DESVIOS IDENTIFICADOS
+- [Elementos fora do padrão da marca]
+
+### 📊 SCORE BRANDING: [X/10]
+
+### 💡 RECOMENDAÇÕES ESTRATÉGICAS
+- [Sugestões para melhor alinhamento]
+"""
+        },
+        'estrutura': {
+            'nome': '📋 Especialista em Estrutura e Formatação',
+            'prompt': f"""
+{contexto_agente}
+{contexto_global}
+
+## FUNÇÃO: ESPECIALISTA EM ESTRUTURA E FORMATAÇÃO
+
+**Sua tarefa:** Analisar EXCLUSIVAMENTE estrutura e organização do conteúdo.
+
+### CRITÉRIOS DE ANÁLISE:
+1. **Organização** - Estrutura lógica e sequência
+2. **Hierarquia** - Uso adequado de títulos e subtítulos
+3. **Coesão** - Ligação entre ideias e parágrafos
+4. **Formatação** - Consistência visual
+5. **Objetividade** - Clareza na apresentação das ideias
+
+### FORMATO DE RESPOSTA OBRIGATÓRIO:
+
+## 📋 RELATÓRIO ESTRUTURAL
+
+### ✅ ESTRUTURA ADEQUADA
+- [Elementos bem organizados]
+
+### ⚠️ PROBLEMAS ESTRUTURAIS
+- [Issues de organização identificados]
+
+### 📊 SCORE ESTRUTURAL: [X/10]
+
+### 🏗️ SUGESTÕES DE REORGANIZAÇÃO
+- [Melhorias na estrutura]
+"""
+        },
+        'engajamento': {
+            'nome': '🎯 Especialista em Engajamento e Persuasão',
+            'prompt': f"""
+{contexto_agente}
+{contexto_global}
+
+## FUNÇÃO: ESPECIALISTA EM ENGAJAMENTO E PERSUASÃO
+
+**Sua tarefa:** Analisar EXCLUSIVAMENTE poder de engajamento e persuasão.
+
+### CRITÉRIOS DE ANÁLISE:
+1. **Apelo Emocional** - Conexão emocional com o público
+2. **Chamadas para Ação** - Clareza e efetividade
+3. **Storytelling** - Uso de narrativas envolventes
+4. **Persuasão** - Argumentação convincente
+5. **Retenção** - Capacidade de manter atenção
+
+### FORMATO DE RESPOSTA OBRIGATÓRIO:
+
+## 🎯 RELATÓRIO DE ENGAJAMENTO
+
+### ✅ ELEMENTOS ENGAJADORES
+- [Pontos fortes de persuasão]
+
+### 📉 OPORTUNIDADES DE MELHORIA
+- [Áreas para aumentar engajamento]
+
+### 📊 SCORE ENGAJAMENTO: [X/10]
+
+### 🚀 ESTRATÉGIAS DE OTIMIZAÇÃO
+- [Técnicas para melhorar persuasão]
+"""
+        }
+    }
+    
+    return analisadores
+
+def executar_analise_texto_especializada(texto, nome_arquivo, analisadores):
+    """Executa análise com múltiplos especialistas para texto"""
+    
+    resultados = {}
+    
+    for area, config in analisadores.items():
+        with st.spinner(f"Executando {config['nome']}..."):
+            try:
+                prompt_completo = f"""
+{config['prompt']}
+
+###BEGIN TEXTO PARA ANÁLISE###
+**Arquivo:** {nome_arquivo}
+**Conteúdo:**
+{texto[:8000]}
+###END TEXTO PARA ANÁLISE###
+
+Por favor, forneça sua análise no formato solicitado.
+"""
                 
-                for resultado in st.session_state.resultados_video:
-                    with st.expander(f"🎬 {resultado['nome']} - Análise Salva", expanded=False):
-                        st.markdown(resultado['analise'])
-            
-            else:
-                st.info("🎬 Carregue um ou mais vídeos para iniciar a validação")
-# --- FUNÇÕES AUXILIARES MELHORADAS ---
+                resposta = modelo_texto.generate_content(prompt_completo)
+                resultados[area] = {
+                    'nome': config['nome'],
+                    'analise': resposta.text,
+                    'score': extrair_score(resposta.text)
+                }
+                
+            except Exception as e:
+                resultados[area] = {
+                    'nome': config['nome'],
+                    'analise': f"❌ Erro na análise: {str(e)}",
+                    'score': 0
+                }
+    
+    return resultados
+
+def gerar_relatorio_texto_consolidado(resultados_especialistas, nome_arquivo):
+    """Gera relatório consolidado a partir das análises especializadas de texto"""
+    
+    # Calcular score médio
+    scores = [resultado['score'] for resultado in resultados_especialistas.values() if resultado['score'] > 0]
+    score_medio = sum(scores) / len(scores) if scores else 0
+    
+    # Determinar status geral
+    if score_medio >= 8:
+        status = "✅ APROVADO"
+        cor_status = "green"
+    elif score_medio >= 6:
+        status = "⚠️ AJUSTES MENORES"
+        cor_status = "orange"
+    else:
+        status = "❌ REPROVADO"
+        cor_status = "red"
+    
+    relatorio = f"""
+# 📊 RELATÓRIO CONSOLIDADO DE VALIDAÇÃO
+
+**Documento:** {nome_arquivo}
+**Status Geral:** <span style='color:{cor_status}'>{status}</span>
+**Score Médio:** {score_medio:.1f}/10
+**Data da Análise:** {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}
+
+## 🎖️ SCORES POR ÁREA
+"""
+    
+    # Adicionar scores individuais
+    for area, resultado in resultados_especialistas.items():
+        emoji = "✅" if resultado['score'] >= 8 else "⚠️" if resultado['score'] >= 6 else "❌"
+        relatorio += f"- {emoji} **{resultado['nome']}:** {resultado['score']}/10\n"
+    
+    relatorio += "\n## 📋 ANÁLISES DETALHADAS POR ESPECIALISTA\n"
+    
+    # Adicionar análises detalhadas
+    for area, resultado in resultados_especialistas.items():
+        relatorio += f"\n### {resultado['nome']}\n"
+        relatorio += f"{resultado['analise']}\n"
+        relatorio += "---\n"
+    
+    # Resumo executivo
+    relatorio += f"""
+## 🚀 RESUMO EXECUTIVO
+
+**Status Final:** {status}
+**Score Geral:** {score_medio:.1f}/10
+
+### 🎯 PRÓXIMOS PASSOS RECOMENDADOS:
+"""
+    
+    # Recomendações baseadas nos scores
+    areas_baixas = [area for area, resultado in resultados_especialistas.items() if resultado['score'] < 6]
+    if areas_baixas:
+        relatorio += f"- **Prioridade:** Focar em {', '.join(areas_baixas)}\n"
+    
+    areas_medianas = [area for area, resultado in resultados_especialistas.items() if 6 <= resultado['score'] < 8]
+    if areas_medianas:
+        relatorio += f"- **Otimização:** Melhorar {', '.join(areas_medianas)}\n"
+    
+    relatorio += "- **Manutenção:** Manter as áreas com scores altos\n"
+    
+    return relatorio, score_medio, status
+
+def extrair_score(texto_analise):
+    """Extrai score numérico do texto de análise"""
+    import re
+    padrao = r'SCORE.*?\[(\d+)(?:/10)?\]'
+    correspondencias = re.findall(padrao, texto_analise, re.IGNORECASE)
+    if correspondencias:
+        return int(correspondencias[0])
+    return 5  # Score padrão se não encontrar
+
+# --- FUNÇÕES ORIGINAIS MANTIDAS ---
 
 def criar_prompt_validacao_preciso(texto, nome_arquivo, contexto_agente):
     """Cria um prompt de validação muito mais preciso para evitar falsos positivos"""
     
     prompt = f"""
 {contexto_agente}
-
 
 ###BEGIN TEXTO PARA VALIDAÇÃO###
 **Arquivo:** {nome_arquivo}
@@ -2962,12 +3125,8 @@ def criar_prompt_validacao_preciso(texto, nome_arquivo, contexto_agente):
 
 ## FORMATO DE RESPOSTA OBRIGATÓRIO:
 
-
-
 ### ✅ CONFORMIDADE COM DIRETRIZES
 - [Itens que estão alinhados com as diretrizes de branding]
-
-
 
 **INCONSISTÊNCIAS COM BRANDING:**
 - [Só liste desvios REAIS das diretrizes de branding]
@@ -2978,7 +3137,6 @@ def criar_prompt_validacao_preciso(texto, nome_arquivo, contexto_agente):
 ### 📊 STATUS FINAL
 **Documento:** [Aprovado/Necessita ajustes/Reprovado]
 **Principais ações necessárias:** [Lista resumida]
-
 """
     return prompt
 
@@ -2999,7 +3157,6 @@ def analisar_documento_por_slides(doc, contexto_agente):
 **SLIDE {i+1}:**
 {slide['conteudo'][:2000]}
 ###END TEXTO PARA VALIDAÇÃO###
-
 
 **ANÁLISE DO SLIDE {i+1}:**
 
@@ -3121,6 +3278,930 @@ def extrair_texto_arquivo(arquivo):
     except Exception as e:
         return f"Erro na extração: {str(e)}"
 
+def extract_text_from_pdf(pdf_path):
+    """
+    Extract text from a PDF file using multiple methods for better coverage
+    """
+    text = ""
+
+    # Method 1: Try with pdfplumber (better for some PDFs)
+    try:
+        with pdfplumber.open(pdf_path) as pdf:
+            for page in pdf.pages:
+                page_text = page.extract_text()
+                if page_text:
+                    text += page_text
+    except Exception as e:
+        print(f"pdfplumber failed for {pdf_path}: {e}")
+
+    # Method 2: Fallback to PyPDF2 if pdfplumber didn't extract much text
+    if len(text.strip()) < 100:  # If very little text was extracted
+        try:
+            with open(pdf_path, 'rb') as file:
+                pdf_reader = PyPDF2.PdfReader(file)
+                for page in pdf_reader.pages:
+                    page_text = page.extract_text()
+                    if page_text:
+                        text += page_text 
+        except Exception as e:
+            print(f"PyPDF2 also failed for {pdf_path}: {e}")
+
+    return text
+
+# --- INICIALIZAÇÃO DE SESSION_STATE ---
+if 'analise_especializada_texto' not in st.session_state:
+    st.session_state.analise_especializada_texto = True
+
+if 'analise_especializada_imagem' not in st.session_state:
+    st.session_state.analise_especializada_imagem = True
+
+if 'analise_especializada_video' not in st.session_state:
+    st.session_state.analise_especializada_video = True
+
+if 'analisadores_selecionados_texto' not in st.session_state:
+    st.session_state.analisadores_selecionados_texto = ['ortografia', 'lexico', 'branding', 'estrutura', 'engajamento']
+
+if 'analisadores_selecionados_imagem' not in st.session_state:
+    st.session_state.analisadores_selecionados_imagem = ['composicao_visual', 'cores_branding', 'tipografia_texto', 'elementos_marca', 'impacto_comunicacao']
+
+if 'analisadores_selecionados_video' not in st.session_state:
+    st.session_state.analisadores_selecionados_video = ['narrativa_estrutura', 'qualidade_audio', 'visual_cinematografia', 'branding_consistencia', 'engajamento_eficacia']
+
+if 'analise_detalhada' not in st.session_state:
+    st.session_state.analise_detalhada = True
+
+if 'validacao_triggered' not in st.session_state:
+    st.session_state.validacao_triggered = False
+
+if 'todos_textos' not in st.session_state:
+    st.session_state.todos_textos = []
+
+if 'resultados_analise_imagem' not in st.session_state:
+    st.session_state.resultados_analise_imagem = []
+
+if 'resultados_analise_video' not in st.session_state:
+    st.session_state.resultados_analise_video = []
+
+# --- ABA: VALIDAÇÃO UNIFICADA ---
+with tab_mapping["✅ Validação Unificada"]:
+    st.header("✅ Validação Unificada de Conteúdo")
+    
+    if not st.session_state.get('agente_selecionado'):
+        st.info("Selecione um agente primeiro na aba de Chat")
+    else:
+        agente = st.session_state.agente_selecionado
+        st.subheader(f"Validação com: {agente.get('nome', 'Agente')}")
+        
+        # Container de contexto global
+        st.markdown("---")
+        st.subheader("🎯 Contexto para Análise")
+        
+        contexto_global = st.text_area(
+            "**✍️ Contexto adicional para todas as análises:**", 
+            height=120, 
+            key="contexto_global_validacao",
+            placeholder="Forneça contexto adicional que será aplicado a TODAS as análises (texto, documentos, imagens e vídeos)..."
+        )
+        
+        # Subabas para diferentes tipos de validação
+        subtab_imagem, subtab_texto, subtab_video = st.tabs(["🖼️ Validação de Imagem", "📄 Validação de Documentos", "🎬 Validação de Vídeo"])
+        
+        with subtab_texto:
+            st.subheader("📄 Validação de Documentos e Texto")
+            
+            # Botão para limpar análises de texto
+            if st.button("🗑️ Limpar Análises de Texto", key="limpar_analises_texto"):
+                st.session_state.validacao_triggered = False
+                st.session_state.todos_textos = []
+                st.rerun()
+            
+            # Container principal com duas colunas
+            col_entrada, col_saida = st.columns([1, 1])
+            
+            with col_entrada:
+                st.markdown("### 📥 Entrada de Conteúdo")
+                
+                # Opção 1: Texto direto
+                texto_input = st.text_area(
+                    "**✍️ Digite o texto para validação:**", 
+                    height=150, 
+                    key="texto_validacao",
+                    placeholder="Cole aqui o texto que deseja validar..."
+                )
+                
+                # Opção 2: Upload de múltiplos arquivos
+                st.markdown("### 📎 Ou carregue arquivos")
+                
+                arquivos_documentos = st.file_uploader(
+                    "**Documentos suportados:** PDF, PPTX, TXT, DOCX",
+                    type=['pdf', 'pptx', 'txt', 'docx'],
+                    accept_multiple_files=True,
+                    key="arquivos_documentos_validacao"
+                )
+                
+                # Configurações de análise
+                with st.expander("⚙️ Configurações de Análise de Texto"):
+                    analise_especializada = st.checkbox(
+                        "Análise especializada por áreas (recomendado)",
+                        value=st.session_state.analise_especializada_texto,
+                        help="Usa múltiplos especialistas para análise mais precisa"
+                    )
+                    
+                    analisadores_selecionados = st.multiselect(
+                        "Especialistas de texto a incluir:",
+                        options=['ortografia', 'lexico', 'branding', 'estrutura', 'engajamento'],
+                        default=st.session_state.analisadores_selecionados_texto,
+                        format_func=lambda x: {
+                            'ortografia': '🔤 Ortografia e Gramática',
+                            'lexico': '📚 Léxico e Vocabulário', 
+                            'branding': '🎨 Branding e Identidade',
+                            'estrutura': '📋 Estrutura e Formatação',
+                            'engajamento': '🎯 Engajamento e Persuasão'
+                        }[x]
+                    )
+                    
+                    analise_detalhada = st.checkbox(
+                        "Análise detalhada por slide/página",
+                        value=st.session_state.analise_detalhada
+                    )
+                
+                # Botão de validação
+                if st.button("✅ Validar Conteúdo de Texto", type="primary", key="validate_documents", use_container_width=True):
+                    st.session_state.validacao_triggered = True
+                    st.session_state.analise_especializada_texto = analise_especializada
+                    st.session_state.analise_detalhada = analise_detalhada
+                    st.session_state.analisadores_selecionados_texto = analisadores_selecionados
+            
+            with col_saida:
+                st.markdown("### 📊 Resultados de Texto")
+                
+                if st.session_state.validacao_triggered:
+                    # Processar todos os conteúdos
+                    todos_textos = []
+                    arquivos_processados = []
+                    
+                    # Adicionar texto manual se existir
+                    if texto_input and texto_input.strip():
+                        todos_textos.append({
+                            'nome': 'Texto_Manual',
+                            'conteudo': texto_input,
+                            'tipo': 'texto_direto',
+                            'tamanho': len(texto_input),
+                            'slides': []
+                        })
+                    
+                    # Processar arquivos uploadados
+                    if arquivos_documentos:
+                        for arquivo in arquivos_documentos:
+                            with st.spinner(f"Processando {arquivo.name}..."):
+                                try:
+                                    if arquivo.type == "application/pdf":
+                                        texto_extraido, slides_info = extract_text_from_pdf_com_slides(arquivo)
+                                    elif arquivo.type == "application/vnd.openxmlformats-officedocument.presentationml.presentation":
+                                        texto_extraido, slides_info = extract_text_from_pptx_com_slides(arquivo)
+                                    elif arquivo.type in ["text/plain", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"]:
+                                        texto_extraido = extrair_texto_arquivo(arquivo)
+                                        slides_info = []
+                                    else:
+                                        st.warning(f"Tipo de arquivo não suportado: {arquivo.name}")
+                                        continue
+                                    
+                                    if texto_extraido and texto_extraido.strip():
+                                        todos_textos.append({
+                                            'nome': arquivo.name,
+                                            'conteudo': texto_extraido,
+                                            'slides': slides_info,
+                                            'tipo': arquivo.type,
+                                            'tamanho': len(texto_extraido)
+                                        })
+                                        arquivos_processados.append(arquivo.name)
+                                    
+                                except Exception as e:
+                                    st.error(f"❌ Erro ao processar {arquivo.name}: {str(e)}")
+                    
+                    # Verificar se há conteúdo para validar
+                    if not todos_textos:
+                        st.warning("⚠️ Nenhum conteúdo válido encontrado para validação.")
+                    else:
+                        st.success(f"✅ {len(todos_textos)} documento(s) processado(s) com sucesso!")
+                        
+                        # Exibir estatísticas rápidas
+                        col_docs, col_palavras, col_chars = st.columns(3)
+                        with col_docs:
+                            st.metric("📄 Documentos", len(todos_textos))
+                        with col_palavras:
+                            total_palavras = sum(len(doc['conteudo'].split()) for doc in todos_textos)
+                            st.metric("📝 Palavras", total_palavras)
+                        with col_chars:
+                            total_chars = sum(doc['tamanho'] for doc in todos_textos)
+                            st.metric("🔤 Caracteres", f"{total_chars:,}")
+                        
+                        # Análise individual por documento
+                        st.markdown("---")
+                        st.subheader("📋 Análise Individual por Documento")
+                        
+                        for doc in todos_textos:
+                            with st.expander(f"📄 {doc['nome']} - {doc['tamanho']} chars", expanded=True):
+                                # Informações básicas do documento
+                                col_info1, col_info2 = st.columns(2)
+                                with col_info1:
+                                    st.write(f"**Tipo:** {doc['tipo']}")
+                                    st.write(f"**Tamanho:** {doc['tamanho']} caracteres")
+                                with col_info2:
+                                    if doc['slides']:
+                                        st.write(f"**Slides/Páginas:** {len(doc['slides'])}")
+                                    else:
+                                        st.write("**Estrutura:** Texto simples")
+                                
+                                # Contexto aplicado
+                                if contexto_global and contexto_global.strip():
+                                    st.info(f"**🎯 Contexto Aplicado:** {contexto_global}")
+                                
+                                # Análise de branding
+                                with st.spinner(f"Analisando {doc['nome']}..."):
+                                    try:
+                                        # Construir contexto do agente
+                                        contexto_agente = ""
+                                        if "base_conhecimento" in agente:
+                                            contexto_agente = f"""
+                                            ###BEGIN DIRETRIZES DE BRANDING DO AGENTE:###
+                                            {agente['base_conhecimento']}
+                                            ###END DIRETRIZES DE BRANDING DO AGENTE###
+                                            """
+                                        
+                                        # Adicionar contexto global se fornecido
+                                        contexto_completo = contexto_agente
+                                        if contexto_global and contexto_global.strip():
+                                            contexto_completo += f"""
+                                            ###BEGIN CONTEXTO ADICIONAL DO USUARIO###
+                                            {contexto_global}
+                                            ###END CONTEXTO ADICIONAL DO USUARIO###
+                                            """
+                                        
+                                        # Escolher método de análise
+                                        if st.session_state.analise_especializada_texto:
+                                            # ANÁLISE ESPECIALIZADA POR MÚLTIPLOS ESPECIALISTAS
+                                            st.info("🎯 **Executando análise especializada por múltiplos especialistas...**")
+                                            
+                                            # Criar analisadores especialistas
+                                            analisadores_config = criar_analisadores_texto(contexto_completo, "")
+                                            
+                                            # Filtrar apenas os selecionados
+                                            analisadores_filtrados = {k: v for k, v in analisadores_config.items() 
+                                                                     if k in st.session_state.analisadores_selecionados_texto}
+                                            
+                                            # Executar análises especializadas
+                                            resultados_especialistas = executar_analise_texto_especializada(
+                                                doc['conteudo'], 
+                                                doc['nome'], 
+                                                analisadores_filtrados
+                                            )
+                                            
+                                            # Gerar relatório consolidado
+                                            relatorio_consolidado, score_medio, status = gerar_relatorio_texto_consolidado(
+                                                resultados_especialistas, 
+                                                doc['nome']
+                                            )
+                                            
+                                            st.markdown(relatorio_consolidado, unsafe_allow_html=True)
+                                            
+                                        elif st.session_state.analise_detalhada and doc['slides']:
+                                            # Análise detalhada por slide (método antigo)
+                                            resultado_analise = analisar_documento_por_slides(doc, contexto_completo)
+                                            st.markdown(resultado_analise)
+                                        else:
+                                            # Análise geral do documento (método antigo)
+                                            prompt_analise = criar_prompt_validacao_preciso(doc['conteudo'], doc['nome'], contexto_completo)
+                                            resposta = modelo_texto.generate_content(prompt_analise)
+                                            st.markdown(resposta.text)
+                                        
+                                    except Exception as e:
+                                        st.error(f"❌ Erro na análise de {doc['nome']}: {str(e)}")
+                        
+                        # Relatório consolidado
+                        st.markdown("---")
+                        st.subheader("📑 Relatório Consolidado de Texto")
+                        
+                        # Botão para exportar
+                        if st.button("📥 Exportar Relatório Completo de Texto", key="exportar_relatorio_completo"):
+                            relatorio = f"""
+                            # RELATÓRIO DE VALIDAÇÃO DE CONTEÚDO DE TEXTO
+                            
+                            **Agente:** {agente.get('nome', 'N/A')}
+                            **Data:** {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}
+                            **Total de Documentos:** {len(todos_textos)}
+                            **Contexto Aplicado:** {contexto_global if contexto_global else 'Nenhum contexto adicional'}
+                            **Método de Análise:** {'Especializada por Múltiplos Especialistas' if st.session_state.analise_especializada_texto else 'Tradicional'}
+                            
+                            ## DOCUMENTOS ANALISADOS:
+                            {chr(10).join([f"{idx+1}. {doc['nome']} ({doc['tipo']}) - {doc['tamanho']} caracteres" for idx, doc in enumerate(todos_textos)])}
+                            """
+                            
+                            st.download_button(
+                                "💾 Baixar Relatório em TXT",
+                                data=relatorio,
+                                file_name=f"relatorio_validacao_texto_{datetime.datetime.now().strftime('%Y%m%d_%H%M')}.txt",
+                                mime="text/plain"
+                            )
+                        
+                        # Armazenar na sessão
+                        st.session_state.todos_textos = todos_textos
+                
+                else:
+                    st.info("Digite texto ou carregue arquivos para validar")
+
+        with subtab_imagem:
+            st.subheader("🖼️ Validação de Imagem")
+            
+            # Botão para limpar análises de imagem
+            if st.button("🗑️ Limpar Análises de Imagem", key="limpar_analises_imagem"):
+                st.session_state.resultados_analise_imagem = []
+                st.rerun()
+            
+            uploaded_images = st.file_uploader(
+                "Carregue uma ou mais imagens para análise", 
+                type=["jpg", "jpeg", "png", "webp"], 
+                key="image_upload_validacao",
+                accept_multiple_files=True
+            )
+            
+            # Configurações de análise de imagem
+            with st.expander("⚙️ Configurações de Análise de Imagem"):
+                analise_especializada_imagem = st.checkbox(
+                    "Análise especializada por áreas (recomendado)",
+                    value=st.session_state.analise_especializada_imagem,
+                    help="Usa múltiplos especialistas visuais para análise mais precisa",
+                    key="analise_especializada_imagem_check"
+                )
+                
+                analisadores_selecionados_imagem = st.multiselect(
+                    "Especialistas de imagem a incluir:",
+                    options=['composicao_visual', 'cores_branding', 'tipografia_texto', 'elementos_marca', 'impacto_comunicacao'],
+                    default=st.session_state.analisadores_selecionados_imagem,
+                    format_func=lambda x: {
+                        'composicao_visual': '🎨 Composição Visual',
+                        'cores_branding': '🌈 Cores e Branding', 
+                        'tipografia_texto': '🔤 Tipografia e Texto',
+                        'elementos_marca': '🏷️ Elementos de Marca',
+                        'impacto_comunicacao': '🎯 Impacto e Comunicação'
+                    }[x],
+                    key="analisadores_imagem_select"
+                )
+            
+            if uploaded_images:
+                st.success(f"✅ {len(uploaded_images)} imagem(ns) carregada(s)")
+                
+                # Botão para validar todas as imagens
+                if st.button("🔍 Validar Todas as Imagens", type="primary", key="validar_imagens_multiplas"):
+                    
+                    # Lista para armazenar resultados
+                    resultados_analise = []
+                    
+                    # Loop através de cada imagem
+                    for idx, uploaded_image in enumerate(uploaded_images):
+                        with st.spinner(f'Analisando imagem {idx+1} de {len(uploaded_images)}: {uploaded_image.name}...'):
+                            try:
+                                # Criar container para cada imagem
+                                with st.container():
+                                    st.markdown("---")
+                                    col_img, col_info = st.columns([2, 1])
+                                    
+                                    with col_img:
+                                        # Exibir imagem
+                                        image = Image.open(uploaded_image)
+                                        st.image(image, use_container_width=True, caption=f"Imagem {idx+1}: {uploaded_image.name}")
+                                    
+                                    with col_info:
+                                        # Informações da imagem
+                                        st.metric("📐 Dimensões", f"{image.width} x {image.height}")
+                                        st.metric("📊 Formato", uploaded_image.type)
+                                        st.metric("📁 Tamanho", f"{uploaded_image.size / 1024:.1f} KB")
+                                    
+                                    # Contexto aplicado
+                                    if contexto_global and contexto_global.strip():
+                                        st.info(f"**🎯 Contexto Aplicado:** {contexto_global}")
+                                    
+                                    # Análise individual
+                                    with st.expander(f"📋 Análise Detalhada - Imagem {idx+1}", expanded=True):
+                                        try:
+                                            # Construir contexto com base de conhecimento do agente
+                                            contexto_agente = ""
+                                            if "base_conhecimento" in agente:
+                                                contexto_agente = f"""
+                                                ###BEGIN DIRETRIZES DE BRANDING DO AGENTE:###
+                                                {agente['base_conhecimento']}
+                                                ###END DIRETRIZES DE BRANDING DO AGENTE###
+                                                """
+                                            
+                                            # Adicionar contexto global se fornecido
+                                            contexto_completo = contexto_agente
+                                            if contexto_global and contexto_global.strip():
+                                                contexto_completo += f"""
+                                                ###BEGIN CONTEXTO ADICIONAL DO USUARIO###
+                                                {contexto_global}
+                                                ###END CONTEXTO ADICIONAL DO USUARIO###
+                                                """
+                                            
+                                            # Escolher método de análise
+                                            if st.session_state.analise_especializada_imagem:
+                                                # ANÁLISE ESPECIALIZADA POR MÚLTIPLOS ESPECIALISTAS VISUAIS
+                                                st.info("🎯 **Executando análise especializada por múltiplos especialistas visuais...**")
+                                                
+                                                # Criar analisadores especialistas
+                                                analisadores_config = criar_analisadores_imagem(contexto_completo, "")
+                                                
+                                                # Filtrar apenas os selecionados
+                                                analisadores_filtrados = {k: v for k, v in analisadores_config.items() 
+                                                                         if k in st.session_state.analisadores_selecionados_imagem}
+                                                
+                                                # Executar análises especializadas
+                                                resultados_especialistas = executar_analise_imagem_especializada(
+                                                    uploaded_image, 
+                                                    uploaded_image.name, 
+                                                    analisadores_filtrados
+                                                )
+                                                
+                                                # Gerar relatório consolidado
+                                                relatorio_consolidado, score_medio, status = gerar_relatorio_imagem_consolidado(
+                                                    resultados_especialistas, 
+                                                    uploaded_image.name,
+                                                    f"{image.width}x{image.height}"
+                                                )
+                                                
+                                                st.markdown(relatorio_consolidado, unsafe_allow_html=True)
+                                                
+                                                # Armazenar resultado
+                                                resultados_analise.append({
+                                                    'nome': uploaded_image.name,
+                                                    'indice': idx,
+                                                    'analise': relatorio_consolidado,
+                                                    'dimensoes': f"{image.width}x{image.height}",
+                                                    'tamanho': uploaded_image.size,
+                                                    'score_medio': score_medio,
+                                                    'status': status
+                                                })
+                                                
+                                            else:
+                                                # Análise geral da imagem (método antigo)
+                                                prompt_analise = f"""
+                                                {contexto_completo}
+                                                
+                                                Analise esta imagem e verifique o alinhamento com as diretrizes de branding.
+                                                
+                                                Forneça a análise em formato claro:
+                                                
+                                                ## 🖼️ RELATÓRIO DE ALINHAMENTO - IMAGEM {idx+1}
+                                                
+                                                **Arquivo:** {uploaded_image.name}
+                                                **Dimensões:** {image.width} x {image.height}
+                                                
+                                                ### 🎯 RESUMO DA IMAGEM
+                                                [Avaliação geral de conformidade visual e textual]
+                                                
+                                                ### ✅ ELEMENTOS ALINHADOS 
+                                                - [Itens visuais e textuais que seguem as diretrizes]
+                                                
+                                                ### ⚠️ ELEMENTOS FORA DO PADRÃO
+                                                - [Itens visuais e textuais que não seguem as diretrizes]
+                                                
+                                                ### 💡 RECOMENDAÇÕES
+                                                - [Sugestões para melhorar o alinhamento visual e textual]
+                                                
+                                                ### 🎨 ASPECTOS TÉCNICOS
+                                                - [Composição, cores, tipografia, etc.]
+                                                """
+                                                
+                                                # Processar imagem
+                                                response = modelo_vision.generate_content([
+                                                    prompt_analise,
+                                                    {"mime_type": "image/jpeg", "data": uploaded_image.getvalue()}
+                                                ])
+                                                
+                                                st.markdown(response.text)
+                                                
+                                                # Armazenar resultado
+                                                resultados_analise.append({
+                                                    'nome': uploaded_image.name,
+                                                    'indice': idx,
+                                                    'analise': response.text,
+                                                    'dimensoes': f"{image.width}x{image.height}",
+                                                    'tamanho': uploaded_image.size
+                                                })
+                                            
+                                        except Exception as e:
+                                            st.error(f"❌ Erro ao processar imagem {uploaded_image.name}: {str(e)}")
+                                
+                                # Separador visual entre imagens
+                                if idx < len(uploaded_images) - 1:
+                                    st.markdown("---")
+                                    
+                            except Exception as e:
+                                st.error(f"❌ Erro ao carregar imagem {uploaded_image.name}: {str(e)}")
+                    
+                    # Armazenar na sessão
+                    st.session_state.resultados_analise_imagem = resultados_analise
+                    
+                    # Resumo executivo
+                    st.markdown("---")
+                    st.subheader("📋 Resumo Executivo de Imagens")
+                    
+                    if resultados_analise and all('score_medio' in resultado for resultado in resultados_analise):
+                        # Calcular estatísticas com scores
+                        scores = [resultado['score_medio'] for resultado in resultados_analise if 'score_medio' in resultado]
+                        score_medio_geral = sum(scores) / len(scores) if scores else 0
+                        
+                        col_resumo1, col_resumo2, col_resumo3, col_resumo4 = st.columns(4)
+                        with col_resumo1:
+                            st.metric("📊 Total de Imagens", len(uploaded_images))
+                        with col_resumo2:
+                            st.metric("✅ Análises Concluídas", len(resultados_analise))
+                        with col_resumo3:
+                            st.metric("⭐ Score Médio", f"{score_medio_geral:.1f}/10")
+                        with col_resumo4:
+                            aprovadas = sum(1 for r in resultados_analise if r.get('status') == '✅ APROVADO')
+                            st.metric("🎯 Aprovadas", aprovadas)
+                    else:
+                        col_resumo1, col_resumo2, col_resumo3 = st.columns(3)
+                        with col_resumo1:
+                            st.metric("📊 Total de Imagens", len(uploaded_images))
+                        with col_resumo2:
+                            st.metric("✅ Análises Concluídas", len(resultados_analise))
+                        with col_resumo3:
+                            st.metric("🖼️ Processadas", len(uploaded_images))
+                    
+                    # Contexto aplicado no resumo
+                    if contexto_global and contexto_global.strip():
+                        st.info(f"**🎯 Contexto Aplicado em Todas as Análises:** {contexto_global}")
+                    
+                    # Botão para download do relatório consolidado
+                    if st.button("📥 Exportar Relatório Completo de Imagens", key="exportar_relatorio_imagens"):
+                        relatorio = f"""
+                        # RELATÓRIO DE VALIDAÇÃO DE IMAGENS
+                        
+                        **Agente:** {agente.get('nome', 'N/A')}
+                        **Data:** {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}
+                        **Total de Imagens:** {len(uploaded_images)}
+                        **Contexto Aplicado:** {contexto_global if contexto_global else 'Nenhum contexto adicional'}
+                        **Método de Análise:** {'Especializada por Múltiplos Especialistas' if st.session_state.analise_especializada_imagem else 'Tradicional'}
+                        
+                        ## RESUMO EXECUTIVO
+                        {chr(10).join([f"{idx+1}. {img.name}" for idx, img in enumerate(uploaded_images)])}
+                        
+                        ## ANÁLISES INDIVIDUAIS
+                        {chr(10).join([f'### {res["nome"]} {chr(10)}{res["analise"]}' for res in resultados_analise])}
+                        """
+                        
+                        st.download_button(
+                            "💾 Baixar Relatório em TXT",
+                            data=relatorio,
+                            file_name=f"relatorio_validacao_imagens_{datetime.datetime.now().strftime('%Y%m%d_%H%M')}.txt",
+                            mime="text/plain"
+                        )
+            
+            # Mostrar análises existentes da sessão
+            elif st.session_state.resultados_analise_imagem:
+                st.info("📋 Análises anteriores encontradas. Use o botão 'Limpar Análises' para recomeçar.")
+                
+                for resultado in st.session_state.resultados_analise_imagem:
+                    with st.expander(f"🖼️ {resultado['nome']} - Análise Salva", expanded=False):
+                        st.markdown(resultado['analise'])
+            
+            else:
+                st.info("📁 Carregue uma ou mais imagens para iniciar a validação de branding")
+
+        with subtab_video:
+            st.subheader("🎬 Validação de Vídeo")
+            
+            # Botão para limpar análises de vídeo
+            if st.button("🗑️ Limpar Análises de Vídeo", key="limpar_analises_video"):
+                st.session_state.resultados_analise_video = []
+                st.rerun()
+            
+            # Container principal
+            col_upload, col_config = st.columns([2, 1])
+            
+            with col_upload:
+                uploaded_videos = st.file_uploader(
+                    "Carregue um ou mais vídeos para análise",
+                    type=["mp4", "mpeg", "mov", "avi", "flv", "mpg", "webm", "wmv", "3gpp"],
+                    key="video_upload_validacao",
+                    accept_multiple_files=True
+                )
+            
+            with col_config:
+                st.markdown("### ⚙️ Configurações de Vídeo")
+                contexto_video_especifico = st.text_area(
+                    "**🎯 Contexto específico para vídeos:**", 
+                    height=120, 
+                    key="video_context_especifico",
+                    placeholder="Contexto adicional específico para análise de vídeos (opcional)..."
+                )
+                
+                analise_especializada_video = st.checkbox(
+                    "Análise especializada por áreas (recomendado)",
+                    value=st.session_state.analise_especializada_video,
+                    help="Usa múltiplos especialistas em vídeo para análise mais precisa",
+                    key="analise_especializada_video_check"
+                )
+                
+                analisadores_selecionados_video = st.multiselect(
+                    "Especialistas de vídeo a incluir:",
+                    options=['narrativa_estrutura', 'qualidade_audio', 'visual_cinematografia', 'branding_consistencia', 'engajamento_eficacia'],
+                    default=st.session_state.analisadores_selecionados_video,
+                    format_func=lambda x: {
+                        'narrativa_estrutura': '📖 Narrativa e Estrutura',
+                        'qualidade_audio': '🔊 Qualidade de Áudio', 
+                        'visual_cinematografia': '🎥 Visual e Cinematografia',
+                        'branding_consistencia': '🏢 Branding e Consistência',
+                        'engajamento_eficacia': '📈 Engajamento e Eficácia'
+                    }[x],
+                    key="analisadores_video_select"
+                )
+            
+            if uploaded_videos:
+                st.success(f"✅ {len(uploaded_videos)} vídeo(s) carregado(s)")
+                
+                # Contexto aplicado
+                if contexto_global and contexto_global.strip():
+                    st.info(f"**🎯 Contexto Global Aplicado:** {contexto_global}")
+                if contexto_video_especifico and contexto_video_especifico.strip():
+                    st.info(f"**🎯 Contexto Específico para Vídeos:** {contexto_video_especifico}")
+                
+                # Exibir informações dos vídeos
+                st.markdown("### 📊 Informações dos Vídeos")
+                
+                for idx, video in enumerate(uploaded_videos):
+                    col_vid, col_info, col_actions = st.columns([2, 2, 1])
+                    
+                    with col_vid:
+                        st.write(f"**{idx+1}. {video.name}**")
+                        st.caption(f"Tipo: {video.type} | Tamanho: {video.size / (1024*1024):.1f} MB")
+                    
+                    with col_info:
+                        st.write("📏 Duração: A ser detectada")
+                        st.write("🎞️ Resolução: A ser detectada")
+                    
+                    with col_actions:
+                        if st.button("🔍 Preview", key=f"preview_{idx}"):
+                            st.video(video, format=f"video/{video.type.split('/')[-1]}")
+                
+                # Botão para validar todos os vídeos
+                if st.button("🎬 Validar Todos os Vídeos", type="primary", key="validar_videos_multiplas"):
+                    
+                    resultados_video = []
+                    
+                    for idx, uploaded_video in enumerate(uploaded_videos):
+                        with st.spinner(f'Analisando vídeo {idx+1} de {len(uploaded_videos)}: {uploaded_video.name}...'):
+                            try:
+                                # Container para cada vídeo
+                                with st.container():
+                                    st.markdown("---")
+                                    
+                                    # Header do vídeo
+                                    col_header, col_stats = st.columns([3, 1])
+                                    
+                                    with col_header:
+                                        st.subheader(f"🎬 {uploaded_video.name}")
+                                    
+                                    with col_stats:
+                                        st.metric("📊 Status", "Processando")
+                                    
+                                    # Contexto aplicado para este vídeo
+                                    if contexto_global and contexto_global.strip():
+                                        st.info(f"**🎯 Contexto Aplicado:** {contexto_global}")
+                                    if contexto_video_especifico and contexto_video_especifico.strip():
+                                        st.info(f"**🎯 Contexto Específico:** {contexto_video_especifico}")
+                                    
+                                    # Preview do vídeo
+                                    with st.expander("👀 Preview do Vídeo", expanded=False):
+                                        st.video(uploaded_video, format=f"video/{uploaded_video.type.split('/')[-1]}")
+                                    
+                                    # Análise detalhada
+                                    with st.expander(f"📋 Análise Completa - {uploaded_video.name}", expanded=True):
+                                        try:
+                                            # Construir contexto com base de conhecimento do agente
+                                            contexto_agente = ""
+                                            if "base_conhecimento" in agente:
+                                                contexto_agente = f"""
+                                                ###BEGIN DIRETRIZES DE BRANDING DO AGENTE:###
+                                                {agente['base_conhecimento']}
+                                                ###END DIRETRIZES DE BRANDING DO AGENTE###
+                                                """
+                                            
+                                            # Adicionar contexto global se fornecido
+                                            contexto_completo = contexto_agente
+                                            if contexto_global and contexto_global.strip():
+                                                contexto_completo += f"""
+                                                ###BEGIN CONTEXTO GLOBAL DO USUARIO###
+                                                {contexto_global}
+                                                ###END CONTEXTO GLOBAL DO USUARIO###
+                                                """
+                                            
+                                            # Adicionar contexto específico de vídeo se fornecido
+                                            if contexto_video_especifico and contexto_video_especifico.strip():
+                                                contexto_completo += f"""
+                                                ###BEGIN CONTEXTO ESPECÍFICO PARA VÍDEOS###
+                                                {contexto_video_especifico}
+                                                ###END CONTEXTO ESPECÍFICO PARA VÍDEOS###
+                                                """
+                                            
+                                            # Escolher método de análise
+                                            if st.session_state.analise_especializada_video:
+                                                # ANÁLISE ESPECIALIZADA POR MÚLTIPLOS ESPECIALISTAS DE VÍDEO
+                                                st.info("🎯 **Executando análise especializada por múltiplos especialistas de vídeo...**")
+                                                
+                                                # Criar analisadores especialistas
+                                                analisadores_config = criar_analisadores_video(contexto_agente, contexto_global, contexto_video_especifico)
+                                                
+                                                # Filtrar apenas os selecionados
+                                                analisadores_filtrados = {k: v for k, v in analisadores_config.items() 
+                                                                         if k in st.session_state.analisadores_selecionados_video}
+                                                
+                                                # Executar análises especializadas
+                                                resultados_especialistas = executar_analise_video_especializada(
+                                                    uploaded_video, 
+                                                    uploaded_video.name, 
+                                                    analisadores_filtrados
+                                                )
+                                                
+                                                # Gerar relatório consolidado
+                                                relatorio_consolidado, score_medio, status = gerar_relatorio_video_consolidado(
+                                                    resultados_especialistas, 
+                                                    uploaded_video.name,
+                                                    uploaded_video.type
+                                                )
+                                                
+                                                st.markdown(relatorio_consolidado, unsafe_allow_html=True)
+                                                
+                                                # Armazenar resultado
+                                                resultados_video.append({
+                                                    'nome': uploaded_video.name,
+                                                    'indice': idx,
+                                                    'analise': relatorio_consolidado,
+                                                    'tipo': uploaded_video.type,
+                                                    'tamanho': uploaded_video.size,
+                                                    'score_medio': score_medio,
+                                                    'status': status
+                                                })
+                                                
+                                            else:
+                                                # Análise geral do vídeo (método antigo)
+                                                prompt_analise = f"""
+                                                {contexto_completo}
+                                                
+                                                Analise este vídeo considerando:
+                                                - Alinhamento com diretrizes de branding
+                                                - Qualidade e consistência visual  
+                                                - Mensagem e tom da comunicação
+                                                - Elementos de áudio e transcrição
+                                                - Texto presente nos frames
+                                                
+                                                Forneça a análise em formato estruturado:
+                                                
+                                                ## 🎬 RELATÓRIO DE ALINHAMENTO - VÍDEO {idx+1}
+                                                
+                                                **Arquivo:** {uploaded_video.name}
+                                                **Formato:** {uploaded_video.type}
+                                                
+                                                ### 🎯 RESUMO EXECUTIVO
+                                                [Avaliação geral do alinhamento do vídeo com as diretrizes]
+                                                
+                                                ### 🔊 ANÁLISE DE ÁUDIO
+                                                [Transcrição e análise do conteúdo de áudio, tom, mensagem verbal]
+                                                
+                                                ### 👁️ ANÁLISE VISUAL
+                                                [Análise de elementos visuais, cores, composição, branding visual]
+
+                                                ### 📝 TEXTO EM FRAMES
+                                                [Identificação e análise de texto presente nos frames]
+                                                
+                                                ### ✅ PONTOS FORTES
+                                                - [Elementos bem alinhados com as diretrizes]
+                                                
+                                                ### ⚠️ PONTOS DE ATENÇÃO
+                                                - [Desvios identificados e timestamps específicos]
+                                                
+                                                ### 💡 RECOMENDAÇÕES
+                                                - [Sugestões para melhorar o alinhamento]
+                                                
+                                                ### 🕒 MOMENTOS CHAVE
+                                                [Timestamps importantes com descrição: MM:SS]
+                                                """
+                                                
+                                                # Processar vídeo usando a API do Gemini
+                                                video_bytes = uploaded_video.getvalue()
+                                                
+                                                if len(video_bytes) < 200 * 1024 * 1024:
+                                                    response = modelo_vision.generate_content([
+                                                        prompt_analise,
+                                                        {"mime_type": uploaded_video.type, "data": video_bytes}
+                                                    ])
+                                                else:
+                                                    st.info("📤 Uploading vídeo para processamento...")
+                                                    response = modelo_vision.generate_content([
+                                                        prompt_analise,
+                                                        {"mime_type": uploaded_video.type, "data": video_bytes}
+                                                    ])
+                                                
+                                                st.markdown(response.text)
+                                                
+                                                # Armazenar resultado
+                                                resultados_video.append({
+                                                    'nome': uploaded_video.name,
+                                                    'indice': idx,
+                                                    'analise': response.text,
+                                                    'tipo': uploaded_video.type,
+                                                    'tamanho': uploaded_video.size
+                                                })
+                                            
+                                        except Exception as e:
+                                            st.error(f"❌ Erro ao processar vídeo {uploaded_video.name}: {str(e)}")
+                                            resultados_video.append({
+                                                'nome': uploaded_video.name,
+                                                'indice': idx,
+                                                'analise': f"Erro na análise: {str(e)}",
+                                                'tipo': uploaded_video.type,
+                                                'tamanho': uploaded_video.size
+                                            })
+                                
+                                # Separador entre vídeos
+                                if idx < len(uploaded_videos) - 1:
+                                    st.markdown("---")
+                                    
+                            except Exception as e:
+                                st.error(f"❌ Erro ao processar vídeo {uploaded_video.name}: {str(e)}")
+                    
+                    # Armazenar resultados na sessão
+                    st.session_state.resultados_analise_video = resultados_video
+                    
+                    # Resumo executivo dos vídeos
+                    st.markdown("---")
+                    st.subheader("📋 Resumo Executivo - Vídeos")
+                    
+                    if resultados_video and all('score_medio' in resultado for resultado in resultados_video):
+                        # Calcular estatísticas com scores
+                        scores = [resultado['score_medio'] for resultado in resultados_video if 'score_medio' in resultado]
+                        score_medio_geral = sum(scores) / len(scores) if scores else 0
+                        
+                        col_vid1, col_vid2, col_vid3, col_vid4 = st.columns(4)
+                        with col_vid1:
+                            st.metric("🎬 Total de Vídeos", len(uploaded_videos))
+                        with col_vid2:
+                            st.metric("✅ Análises Concluídas", len(resultados_video))
+                        with col_vid3:
+                            st.metric("⭐ Score Médio", f"{score_medio_geral:.1f}/10")
+                        with col_vid4:
+                            aprovados = sum(1 for r in resultados_video if r.get('status') == '✅ APROVADO')
+                            st.metric("🎯 Aprovados", aprovados)
+                    else:
+                        col_vid1, col_vid2 = st.columns(2)
+                        with col_vid1:
+                            st.metric("🎬 Total de Vídeos", len(uploaded_videos))
+                        with col_vid2:
+                            st.metric("✅ Análises Concluídas", len(resultados_video))
+                    
+                    # Contexto aplicado no resumo
+                    if contexto_global and contexto_global.strip():
+                        st.info(f"**🎯 Contexto Global Aplicado:** {contexto_global}")
+                    if contexto_video_especifico and contexto_video_especifico.strip():
+                        st.info(f"**🎯 Contexto Específico Aplicado:** {contexto_video_especifico}")
+                    
+                    # Botão para download do relatório
+                    if st.button("📥 Exportar Relatório de Vídeos", key="exportar_relatorio_videos"):
+                        relatorio_videos = f"""
+                        # RELATÓRIO DE VALIDAÇÃO DE VÍDEOS
+                        
+                        **Agente:** {agente.get('nome', 'N/A')}
+                        **Data:** {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}
+                        **Total de Vídeos:** {len(uploaded_videos)}
+                        **Contexto Global:** {contexto_global if contexto_global else 'Nenhum'}
+                        **Contexto Específico:** {contexto_video_especifico if contexto_video_especifico else 'Nenhum'}
+                        **Método de Análise:** {'Especializada por Múltiplos Especialistas' if st.session_state.analise_especializada_video else 'Tradicional'}
+                        
+                        ## VÍDEOS ANALISADOS:
+                        {chr(10).join([f"{idx+1}. {vid.name} ({vid.type}) - {vid.size/(1024*1024):.1f} MB" for idx, vid in enumerate(uploaded_videos)])}
+                        
+                        ## ANÁLISES INDIVIDUAIS:
+                        {chr(10).join([f'### {res["nome"]} {chr(10)}{res["analise"]}' for res in resultados_video])}
+                        """
+                        
+                        st.download_button(
+                            "💾 Baixar Relatório em TXT",
+                            data=relatorio_videos,
+                            file_name=f"relatorio_validacao_videos_{datetime.datetime.now().strftime('%Y%m%d_%H%M')}.txt",
+                            mime="text/plain"
+                        )
+            
+            # Mostrar análises existentes da sessão
+            elif st.session_state.resultados_analise_video:
+                st.info("📋 Análises anteriores encontradas. Use o botão 'Limpar Análises' para recomeçar.")
+                
+                for resultado in st.session_state.resultados_analise_video:
+                    with st.expander(f"🎬 {resultado['nome']} - Análise Salva", expanded=False):
+                        st.markdown(resultado['analise'])
+            
+            else:
+                st.info("🎬 Carregue um ou mais vídeos para iniciar a validação")
 # --- ABA: GERAÇÃO DE CONTEÚDO ---
 with tab_mapping["✨ Geração de Conteúdo"]:
     st.header("✨ Geração de Conteúdo com Múltiplos Insumos")
