@@ -2493,7 +2493,7 @@ def criar_analisadores_video(contexto_agente, contexto_global, contexto_video_es
 """
         }
         }
-    }
+    
     
     return analisadores
 
@@ -2865,7 +2865,7 @@ def criar_analisadores_texto(contexto_agente, contexto_global):
 - [Melhorias na estrutura]
 """
         }
-        }
+        
     }
     
     return analisadores
