@@ -2552,21 +2552,7 @@ with tab_mapping["✨ Geração de Conteúdo"]:
                                        height=100,
                                        key=f"preview_{i}")
         
-        # Opção 2: Selecionar briefing do banco de dados
-        st.write("🗃️ Briefing do Banco de Dados:")
-        if mongo_connected_conteudo:
-            briefings_disponiveis = list(collection_briefings.find().sort("data_criacao", -1).limit(20))
-            if briefings_disponiveis:
-                briefing_options = {f"{briefing['nome_projeto']} ({briefing['tipo']}) - {briefing['data_criacao'].strftime('%d/%m/%Y')}": briefing for briefing in briefings_disponiveis}
-                briefing_selecionado = st.selectbox("Escolha um briefing:", list(briefing_options.keys()))
-                
-                if briefing_selecionado:
-                    briefing_data = briefing_options[briefing_selecionado]
-                    st.info(f"Briefing selecionado: {briefing_data['nome_projeto']}")
-            else:
-                st.info("Nenhum briefing encontrado no banco de dados.")
-        else:
-            st.warning("Conexão com MongoDB não disponível")
+        
         
         # Opção 3: Inserir briefing manualmente
         st.write("✍️ Briefing Manual:")
