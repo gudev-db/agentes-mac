@@ -2123,7 +2123,7 @@ with tab_mapping["✅ Validação Unificada"]:
                                             - Qualidade e consistência visual  
                                             - Mensagem e tom da comunicação
                                             - Elementos de áudio e transcrição
-                                            - Texto presente nos frames (aponte quaisquer erros de alinhamento com branding ou até ortográficos)
+                                            - Texto presente nos frames
                                             
                                             Forneça a análise em formato estruturado:
                                             
@@ -2283,7 +2283,7 @@ def criar_prompt_validacao_preciso(texto, nome_arquivo, contexto_agente):
 - [Só liste desvios REAIS das diretrizes de branding]
 
 ### 💡 TEXTO REVISADO
-- [Sugestões para aprimorar, mas NÃO como correções de erros inexistentes]
+- [Sugestões para aprimorar]
 
 ### 📊 STATUS FINAL
 **Documento:** [Aprovado/Necessita ajustes/Reprovado]
@@ -2316,11 +2316,13 @@ def analisar_documento_por_slides(doc, contexto_agente):
 ### ✅ Pontos Fortes:
 [O que está bom neste slide]
 
-### ⚠️ Problemas REAIS (só os que EFETIVAMENTE existem):
-- [Lista CURTA de problemas REAIS]
+### ⚠️ Problemas REAIS:
+- [Lista CURTA de problemas]
 
 ### 💡 Sugestões Específicas:
 [Melhorias para ESTE slide específico]
+
+Considere que slides que são introdutórios ou apenas de títulos não precisam de tanto rigor de branding
 
 **STATUS:** [✔️ Aprovado / ⚠️ Ajustes Menores / ❌ Problemas Sérios]
 """
