@@ -1863,7 +1863,7 @@ def criar_analisadores_especialistas(contexto_agente, contexto_global):
 ### 💡 RECOMENDAÇÕES ESTRATÉGICAS
 - [Sugestões para melhor alinhamento]
 """
-        }
+        
         
         }
     }
