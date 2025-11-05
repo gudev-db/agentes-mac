@@ -30,6 +30,182 @@ import PyPDF2
 import pdfplumber
 from pathlib import Path
 
+# --- FUNÇÕES AUXILIARES MELHORADAS ---
+
+def criar_prompt_validacao_preciso(texto, nome_arquivo, contexto_agente):
+    """Cria um prompt de validação muito mais preciso para evitar falsos positivos"""
+    
+    prompt = f"""
+{contexto_agente}
+
+
+###BEGIN TEXTO PARA VALIDAÇÃO###
+**Arquivo:** {nome_arquivo}
+**Conteúdo:**
+{texto[:12000]}
+###END TEXTO PARA VALIDAÇÃO###
+
+## FORMATO DE RESPOSTA OBRIGATÓRIO:
+
+
+
+### ✅ CONFORMIDADE COM DIRETRIZES
+- [Itens que estão alinhados com as diretrizes de branding]
+
+
+
+**INCONSISTÊNCIAS COM BRANDING:**
+- [Só liste desvios REAIS das diretrizes de branding]
+
+### 💡 TEXTO REVISADO
+- [Sugestões para aprimorar]
+
+### 📊 STATUS FINAL
+**Documento:** [Aprovado/Necessita ajustes/Reprovado]
+**Principais ações necessárias:** [Lista resumida]
+
+"""
+    return prompt
+
+def analisar_documento_por_slides(doc, contexto_agente):
+    """Analisa documento slide por slide com alta precisão"""
+    
+    resultados = []
+    
+    for i, slide in enumerate(doc['slides']):
+        with st.spinner(f"Analisando slide {i+1}..."):
+            try:
+                prompt_slide = f"""
+{contexto_agente}
+
+## ANÁLISE POR SLIDE - PRECISÃO ABSOLUTA
+
+###BEGIN TEXTO PARA VALIDAÇÃO###
+**SLIDE {i+1}:**
+{slide['conteudo'][:2000]}
+###END TEXTO PARA VALIDAÇÃO###
+
+
+**ANÁLISE DO SLIDE {i+1}:**
+
+### ✅ Pontos Fortes:
+[O que está bom neste slide]
+
+### ⚠️ Problemas REAIS:
+- [Lista CURTA de problemas]
+
+### 💡 Sugestões Específicas:
+[Melhorias para ESTE slide específico]
+
+Considere que slides que são introdutórios ou apenas de títulos não precisam de tanto rigor de branding
+
+**STATUS:** [✔️ Aprovado / ⚠️ Ajustes Menores / ❌ Problemas Sérios]
+"""
+                
+                resposta = modelo_texto.generate_content(prompt_slide)
+                resultados.append({
+                    'slide_num': i+1,
+                    'analise': resposta.text,
+                    'tem_alteracoes': '❌' in resposta.text or '⚠️' in resposta.text
+                })
+                
+            except Exception as e:
+                resultados.append({
+                    'slide_num': i+1,
+                    'analise': f"❌ Erro na análise do slide: {str(e)}",
+                    'tem_alteracoes': False
+                })
+    
+    # Construir relatório consolidado
+    relatorio = f"# 📊 RELATÓRIO DE VALIDAÇÃO - {doc['nome']}\n\n"
+    relatorio += f"**Total de Slides:** {len(doc['slides'])}\n"
+    relatorio += f"**Slides com Alterações:** {sum(1 for r in resultados if r['tem_alteracoes'])}\n\n"
+    
+    # Slides que precisam de atenção
+    slides_com_problemas = [r for r in resultados if r['tem_alteracoes']]
+    if slides_com_problemas:
+        relatorio += "## 🚨 SLIDES QUE PRECISAM DE ATENÇÃO:\n\n"
+        for resultado in slides_com_problemas:
+            relatorio += f"### 📋 Slide {resultado['slide_num']}\n"
+            relatorio += f"{resultado['analise']}\n\n"
+    
+    # Resumo executivo
+    relatorio += "## 📈 RESUMO EXECUTIVO\n\n"
+    if slides_com_problemas:
+        relatorio += f"**⚠️ {len(slides_com_problemas)} slide(s) necessitam de ajustes**\n"
+        relatorio += f"**✅ {len(doc['slides']) - len(slides_com_problemas)} slide(s) estão adequados**\n"
+    else:
+        relatorio += "**🎉 Todos os slides estão em conformidade com as diretrizes!**\n"
+    
+    return relatorio
+
+def extract_text_from_pdf_com_slides(arquivo_pdf):
+    """Extrai texto de PDF com informação de páginas"""
+    try:
+        import PyPDF2
+        pdf_reader = PyPDF2.PdfReader(arquivo_pdf)
+        slides_info = []
+        
+        for pagina_num, pagina in enumerate(pdf_reader.pages):
+            texto = pagina.extract_text()
+            slides_info.append({
+                'numero': pagina_num + 1,
+                'conteudo': texto,
+                'tipo': 'página'
+            })
+        
+        texto_completo = "\n\n".join([f"--- PÁGINA {s['numero']} ---\n{s['conteudo']}" for s in slides_info])
+        return texto_completo, slides_info
+        
+    except Exception as e:
+        return f"Erro na extração PDF: {str(e)}", []
+
+def extract_text_from_pptx_com_slides(arquivo_pptx):
+    """Extrai texto de PPTX com informação de slides"""
+    try:
+        from pptx import Presentation
+        import io
+        
+        prs = Presentation(io.BytesIO(arquivo_pptx.read()))
+        slides_info = []
+        
+        for slide_num, slide in enumerate(prs.slides):
+            texto_slide = f"--- SLIDE {slide_num + 1} ---\n"
+            
+            for shape in slide.shapes:
+                if hasattr(shape, "text") and shape.text:
+                    texto_slide += shape.text + "\n"
+            
+            slides_info.append({
+                'numero': slide_num + 1,
+                'conteudo': texto_slide,
+                'tipo': 'slide'
+            })
+        
+        texto_completo = "\n\n".join([s['conteudo'] for s in slides_info])
+        return texto_completo, slides_info
+        
+    except Exception as e:
+        return f"Erro na extração PPTX: {str(e)}", []
+
+def extrair_texto_arquivo(arquivo):
+    """Extrai texto de arquivos TXT e DOCX"""
+    try:
+        if arquivo.type == "text/plain":
+            return str(arquivo.read(), "utf-8")
+        elif arquivo.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+            import docx
+            import io
+            doc = docx.Document(io.BytesIO(arquivo.read()))
+            texto = ""
+            for para in doc.paragraphs:
+                texto += para.text + "\n"
+            return texto
+        else:
+            return f"Tipo não suportado: {arquivo.type}"
+    except Exception as e:
+        return f"Erro na extração: {str(e)}"
+
 def extract_text_from_pdf(pdf_path):
     """
     Extract text from a PDF file using multiple methods for better coverage
