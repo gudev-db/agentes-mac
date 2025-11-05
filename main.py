@@ -2598,47 +2598,89 @@ Pontos-chave: [lista os principais pontos]""")
                         st.success(f"✅ {arquivo.name} transcrito!")
     
     with col2:
-        st.subheader("⚙️ Configurações")
+        st.subheader("⚙️ Configurações de Geração")
         
-        tipo_conteudo = st.selectbox("Tipo de Conteúdo:", 
-                                   ["Post Social", "Artigo Blog", "Email Marketing", 
-                                    "Landing Page", "Script Vídeo", "Relatório Técnico",
-                                    "Press Release", "Newsletter", "Case Study"])
+        # Opção para o usuário escolher entre configurações padrão ou prompt personalizado
+        modo_geracao = st.radio(
+            "Modo de Geração:",
+            ["Configurações Padrão", "Prompt Personalizado"],
+            help="Escolha entre usar configurações pré-definidas ou escrever seu próprio prompt"
+        )
         
-        tom_voz = st.selectbox("Tom de Voz:", 
-                              ["Formal", "Informal", "Persuasivo", "Educativo", 
-                               "Inspirador", "Técnico", "Jornalístico"])
-        
-        palavras_chave = st.text_input("Palavras-chave (opcional):",
-                                      placeholder="separadas por vírgula")
-        
-        numero_palavras = st.slider("Número de Palavras:", 100, 3000, 800)
-        
-        # Configurações avançadas
-        with st.expander("🔧 Configurações Avançadas"):
-            usar_contexto_agente = st.checkbox("Usar contexto do agente selecionado", 
-                                             value=bool(st.session_state.agente_selecionado))
+        if modo_geracao == "Configurações Padrão":
+            # Configurações básicas (versão simplificada)
+            tipo_conteudo = st.selectbox("Tipo de Conteúdo:", 
+                                       ["Post Social", "Artigo Blog", "Email Marketing", 
+                                        "Landing Page", "Script Vídeo", "Relatório Técnico",
+                                        "Press Release", "Newsletter", "Case Study"])
             
-            nivel_detalhe = st.select_slider("Nível de Detalhe:", 
-                                           ["Resumido", "Balanceado", "Detalhado", "Completo"])
+            tom_voz = st.selectbox("Tom de Voz:", 
+                                  ["Formal", "Informal", "Persuasivo", "Educativo", 
+                                   "Inspirador", "Técnico", "Jornalístico"])
             
-            incluir_cta = st.checkbox("Incluir Call-to-Action", value=True)
+            palavras_chave = st.text_input("Palavras-chave (opcional):",
+                                          placeholder="separadas por vírgula")
             
-            formato_saida = st.selectbox("Formato de Saída:", 
-                                       ["Texto Simples", "Markdown", "HTML Básico"])
+            numero_palavras = st.slider("Número de Palavras:", 100, 3000, 800)
+            
+            # Configurações avançadas simplificadas
+            with st.expander("🔧 Configurações Avançadas"):
+                usar_contexto_agente = st.checkbox("Usar contexto do agente selecionado", 
+                                                 value=bool(st.session_state.agente_selecionado))
+                
+                incluir_cta = st.checkbox("Incluir Call-to-Action", value=True)
+                
+                formato_saida = st.selectbox("Formato de Saída:", 
+                                           ["Texto Simples", "Markdown", "HTML Básico"])
+        
+        else:  # Prompt Personalizado
+            st.info("💡 Escreva seu próprio prompt de geração. Use {contexto} para incluir automaticamente todas as fontes de conteúdo.")
+            prompt_personalizado = st.text_area(
+                "Seu Prompt Personalizado:",
+                height=200,
+                placeholder="""Exemplo:
+Com base no contexto fornecido, crie um artigo detalhado que:
 
-    # Área de instruções específicas
-    st.subheader("🎯 Instruções Específicas")
-    instrucoes_especificas = st.text_area(
-        "Diretrizes adicionais para geração:",
-        placeholder="""Exemplos:
+1. Explique os conceitos principais de forma clara
+2. Destaque os benefícios para o público-alvo
+3. Inclua exemplos práticos de aplicação
+4. Mantenha um tom {tom} e acessível
+
+Contexto: {contexto}
+
+Gere o conteúdo em formato {formato} com aproximadamente {palavras} palavras."""
+            )
+            
+            # Variáveis que o usuário pode usar no prompt personalizado
+            col_var1, col_var2, col_var3 = st.columns(3)
+            with col_var1:
+                tom_personalizado = st.selectbox("Tom:", 
+                                               ["formal", "informal", "persuasivo", "educativo"], 
+                                               key="tom_personalizado")
+            with col_var2:
+                formato_personalizado = st.selectbox("Formato:", 
+                                                   ["texto simples", "markdown", "HTML básico"], 
+                                                   key="formato_personalizado")
+            with col_var3:
+                palavras_personalizado = st.slider("Palavras:", 100, 3000, 800, key="palavras_personalizado")
+            
+            usar_contexto_agente = st.checkbox("Usar contexto do agente selecionado", 
+                                             value=bool(st.session_state.agente_selecionado),
+                                             key="contexto_personalizado")
+
+    # Área de instruções específicas (apenas para modo padrão)
+    if modo_geracao == "Configurações Padrão":
+        st.subheader("🎯 Instruções Específicas")
+        instrucoes_especificas = st.text_area(
+            "Diretrizes adicionais para geração:",
+            placeholder="""Exemplos:
 - Focar nos benefícios para o usuário final
 - Incluir estatísticas quando possível
 - Manter linguagem acessível
 - Evitar jargões técnicos excessivos
 - Seguir estrutura: problema → solução → benefícios""",
-        height=100
-    )
+            height=100
+        )
 
     # Botão para gerar conteúdo
     if st.button("🚀 Gerar Conteúdo com Todos os Insumos", type="primary", use_container_width=True):
@@ -2650,6 +2692,8 @@ Pontos-chave: [lista os principais pontos]""")
         
         if not tem_conteudo:
             st.error("❌ Por favor, forneça pelo menos uma fonte de conteúdo (arquivos, briefing ou mídia)")
+        elif modo_geracao == "Prompt Personalizado" and not prompt_personalizado:
+            st.error("❌ Por favor, escreva um prompt personalizado para geração")
         else:
             with st.spinner("Processando todos os insumos e gerando conteúdo..."):
                 try:
@@ -2676,45 +2720,63 @@ Pontos-chave: [lista os principais pontos]""")
                         agente = st.session_state.agente_selecionado
                         contexto_agente = construir_contexto(agente, st.session_state.segmentos_selecionados)
                     
-                    # Construir prompt final
-                    prompt_final = f"""
-                    {contexto_agente}
-                    
-                    ## INSTRUÇÕES PARA GERAÇÃO DE CONTEÚDO:
-                    
-                    **TIPO DE CONTEÚDO:** {tipo_conteudo}
-                    **TOM DE VOZ:** {tom_voz}
-                    **PALAVRAS-CHAVE:** {palavras_chave if palavras_chave else 'Não especificadas'}
-                    **NÚMERO DE PALAVRAS:** {numero_palavras} (±10%)
-                    **NÍVEL DE DETALHE:** {nivel_detalhe}
-                    **INCLUIR CALL-TO-ACTION:** {incluir_cta}
-                    
-                    **INSTRUÇÕES ESPECÍFICAS:**
-                    {instrucoes_especificas if instrucoes_especificas else 'Nenhuma instrução específica fornecida.'}
-                    
-                    ## FONTES E REFERÊNCIAS:
-                    {contexto_completo}
-                    
-                    ## TAREFA:
-                    Com base em TODAS as fontes fornecidas acima, gere um conteúdo do tipo {tipo_conteudo} que:
-                    
-                    1. **Síntese Eficiente:** Combine e sintetize informações de todas as fontes
-                    2. **Coerência:** Mantenha consistência com as informações originais
-                    3. **Valor Agregado:** Vá além da simples cópia, agregando insights
-                    4. **Engajamento:** Crie conteúdo que engaje o público-alvo
-                    5. **Clareza:** Comunique ideias complexas de forma acessível
-                    
-                    **FORMATO DE SAÍDA:** {formato_saida}
-                    
-                    Gere um conteúdo completo e profissional.
-                    """
+                    # Construir prompt final baseado no modo selecionado
+                    if modo_geracao == "Configurações Padrão":
+                        prompt_final = f"""
+                        {contexto_agente}
+                        
+                        ## INSTRUÇÕES PARA GERAÇÃO DE CONTEÚDO:
+                        
+                        **TIPO DE CONTEÚDO:** {tipo_conteudo}
+                        **TOM DE VOZ:** {tom_voz}
+                        **PALAVRAS-CHAVE:** {palavras_chave if palavras_chave else 'Não especificadas'}
+                        **NÚMERO DE PALAVRAS:** {numero_palavras} (±10%)
+                        **INCLUIR CALL-TO-ACTION:** {incluir_cta}
+                        
+                        **INSTRUÇÕES ESPECÍFICAS:**
+                        {instrucoes_especificas if instrucoes_especificas else 'Nenhuma instrução específica fornecida.'}
+                        
+                        ## FONTES E REFERÊNCIAS:
+                        {contexto_completo}
+                        
+                        ## TAREFA:
+                        Com base em TODAS as fontes fornecidas acima, gere um conteúdo do tipo {tipo_conteudo} que:
+                        
+                        1. **Síntese Eficiente:** Combine e sintetize informações de todas as fontes
+                        2. **Coerência:** Mantenha consistência com as informações originais
+                        3. **Valor Agregado:** Vá além da simples cópia, agregando insights
+                        4. **Engajamento:** Crie conteúdo que engaje o público-alvo
+                        5. **Clareza:** Comunique ideias complexas de forma acessível
+                        
+                        **FORMATO DE SAÍDA:** {formato_saida}
+                        
+                        Gere um conteúdo completo e profissional.
+                        """
+                    else:  # Prompt Personalizado
+                        # Substituir variáveis no prompt personalizado
+                        prompt_processado = prompt_personalizado.replace("{contexto}", contexto_completo)
+                        prompt_processado = prompt_processado.replace("{tom}", tom_personalizado)
+                        prompt_processado = prompt_processado.replace("{formato}", formato_personalizado)
+                        prompt_processado = prompt_processado.replace("{palavras}", str(palavras_personalizado))
+                        
+                        prompt_final = f"""
+                        {contexto_agente}
+                        
+                        {prompt_processado}
+                        """
                     
                     resposta = modelo_texto.generate_content(prompt_final)
+                    
+                    # Determinar formato de saída baseado no modo
+                    if modo_geracao == "Configurações Padrão":
+                        formato_output = formato_saida
+                    else:
+                        formato_output = formato_personalizado
                     
                     # Processar saída baseada no formato selecionado
                     conteudo_gerado = resposta.text
                     
-                    if formato_saida == "HTML Básico":
+                    if formato_output == "HTML Básico" or formato_output == "HTML básico":
                         # Converter markdown para HTML básico
                         import re
                         conteudo_gerado = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', conteudo_gerado)
@@ -2726,7 +2788,7 @@ Pontos-chave: [lista os principais pontos]""")
                     
                     st.subheader("📄 Conteúdo Gerado")
                     
-                    if formato_saida == "HTML Básico":
+                    if formato_output == "HTML Básico" or formato_output == "HTML básico":
                         st.components.v1.html(conteudo_gerado, height=400, scrolling=True)
                     else:
                         st.markdown(conteudo_gerado)
@@ -2745,13 +2807,13 @@ Pontos-chave: [lista os principais pontos]""")
                                  (1 if transcricoes_texto else 0))
                     
                     # Botões de download
-                    extensao = ".html" if formato_saida == "HTML Básico" else ".md" if formato_saida == "Markdown" else ".txt"
+                    extensao = ".html" if "HTML" in formato_output else ".md" if "markdown" in formato_output.lower() else ".txt"
                     
                     st.download_button(
-                        f"💾 Baixar Conteúdo ({formato_saida})",
+                        f"💾 Baixar Conteúdo ({formato_output})",
                         data=conteudo_gerado,
                         file_name=f"conteudo_gerado_{datetime.datetime.now().strftime('%Y%m%d_%H%M')}{extensao}",
-                        mime="text/html" if formato_saida == "HTML Básico" else "text/plain"
+                        mime="text/html" if "HTML" in formato_output else "text/plain"
                     )
                     
                     # Salvar no histórico se MongoDB disponível
@@ -2759,10 +2821,11 @@ Pontos-chave: [lista os principais pontos]""")
                         try:
                             from bson import ObjectId
                             historico_data = {
-                                "tipo_conteudo": tipo_conteudo,
-                                "tom_voz": tom_voz,
-                                "palavras_chave": palavras_chave,
-                                "numero_palavras": numero_palavras,
+                                "modo_geracao": modo_geracao,
+                                "tipo_conteudo": tipo_conteudo if modo_geracao == "Configurações Padrão" else "Personalizado",
+                                "tom_voz": tom_voz if modo_geracao == "Configurações Padrão" else tom_personalizado,
+                                "palavras_chave": palavras_chave if modo_geracao == "Configurações Padrão" else "Personalizado",
+                                "numero_palavras": numero_palavras if modo_geracao == "Configurações Padrão" else palavras_personalizado,
                                 "conteudo_gerado": conteudo_gerado,
                                 "fontes_utilizadas": {
                                     "arquivos_upload": [arquivo.name for arquivo in arquivos_upload] if arquivos_upload else [],
@@ -2795,99 +2858,6 @@ Pontos-chave: [lista os principais pontos]""")
                     st.info("Nenhuma geração no histórico")
             except Exception as e:
                 st.warning(f"Erro ao carregar histórico: {str(e)}")
-
-# --- ABA: RESUMO DE TEXTOS ---
-with tab_mapping["📝 Resumo de Textos"]:
-    st.header("📝 Resumo de Textos")
-    
-    if not st.session_state.agente_selecionado:
-        st.info("Selecione um agente primeiro na aba de Chat")
-    else:
-        agente = st.session_state.agente_selecionado
-        st.subheader(f"Resumo com: {agente['nome']}")
-        
-        col_original, col_resumo = st.columns(2)
-        
-        with col_original:
-            st.subheader("Texto Original")
-            texto_original = st.text_area(
-                "Cole o texto que deseja resumir:",
-                height=400,
-                placeholder="Insira aqui o texto completo...",
-                key="texto_original"
-            )
-            
-            with st.expander("⚙️ Configurações do Resumo"):
-                nivel_resumo = st.select_slider(
-                    "Nível de Resumo:",
-                    options=["Extenso", "Moderado", "Conciso"],
-                    value="Moderado",
-                    key="nivel_resumo"
-                )
-                
-                incluir_pontos = st.checkbox(
-                    "Incluir pontos-chave em tópicos",
-                    value=True,
-                    key="incluir_pontos"
-                )
-                
-                manter_terminologia = st.checkbox(
-                    "Manter terminologia técnica",
-                    value=True,
-                    key="manter_terminologia"
-                )
-        
-        with col_resumo:
-            st.subheader("Resumo Gerado")
-            
-            if st.button("Gerar Resumo", key="gerar_resumo"):
-                if not texto_original.strip():
-                    st.warning("Por favor, insira um texto para resumir")
-                else:
-                    with st.spinner("Processando resumo..."):
-                        try:
-                            config_resumo = {
-                                "Extenso": "um resumo detalhado mantendo cerca de 50% do conteúdo original",
-                                "Moderado": "um resumo conciso mantendo cerca de 30% do conteúdo original",
-                                "Conciso": "um resumo muito breve com apenas os pontos essenciais (cerca de 10-15%)"
-                            }[nivel_resumo]
-                            
-                            prompt = f"""
-                            {agente['system_prompt']}
-                            
-                            Brand Guidelines:
-                            {agente.get('base_conhecimento', '')}
-                            
-                            Planejamento:
-                            {agente.get('planejamento', '')}
-                            
-                            Crie um resumo deste texto com as seguintes características:
-                            - {config_resumo}
-                            - {"Inclua os principais pontos em tópicos" if incluir_pontos else "Formato de texto contínuo"}
-                            - {"Mantenha a terminologia técnica específica" if manter_terminologia else "Simplifique a linguagem"}
-                            
-                            Texto para resumir:
-                            {texto_original}
-                            
-                            Estrutura do resumo:
-                            1. Título do resumo
-                            2. {"Principais pontos em tópicos" if incluir_pontos else "Resumo textual"}
-                            3. Conclusão/Recomendações
-                            """
-                            
-                            resposta = modelo_texto.generate_content(prompt)
-                            st.markdown(resposta.text)
-                            
-                            st.download_button(
-                                "📋 Copiar Resumo",
-                                data=resposta.text,
-                                file_name="resumo_gerado.txt",
-                                mime="text/plain",
-                                key="download_resumo"
-                            )
-                            
-                        except Exception as e:
-                            st.error(f"Erro ao gerar resumo: {str(e)}")
 
 # --- ABA: BUSCA WEB ---
 with tab_mapping["🌐 Busca Web"]:
