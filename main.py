@@ -1863,72 +1863,8 @@ def criar_analisadores_especialistas(contexto_agente, contexto_global):
 ### 💡 RECOMENDAÇÕES ESTRATÉGICAS
 - [Sugestões para melhor alinhamento]
 """
-        },
-        'estrutura': {
-            'nome': '📋 Especialista em Estrutura e Formatação',
-            'prompt': f"""
-{contexto_agente}
-{contexto_global}
-
-## FUNÇÃO: ESPECIALISTA EM ESTRUTURA E FORMATAÇÃO
-
-**Sua tarefa:** Analisar EXCLUSIVAMENTE estrutura e organização do conteúdo.
-
-### CRITÉRIOS DE ANÁLISE:
-1. **Organização** - Estrutura lógica e sequência
-2. **Hierarquia** - Uso adequado de títulos e subtítulos
-3. **Coesão** - Ligação entre ideias e parágrafos
-4. **Formatação** - Consistência visual
-5. **Objetividade** - Clareza na apresentação das ideias
-
-### FORMATO DE RESPOSTA OBRIGATÓRIO:
-
-## 📋 RELATÓRIO ESTRUTURAL
-
-### ✅ ESTRUTURA ADEQUADA
-- [Elementos bem organizados]
-
-### ⚠️ PROBLEMAS ESTRUTURAIS
-- [Issues de organização identificados]
-
-### 📊 SCORE ESTRUTURAL: [X/10]
-
-### 🏗️ SUGESTÕES DE REORGANIZAÇÃO
-- [Melhorias na estrutura]
-"""
-        },
-        'engajamento': {
-            'nome': '🎯 Especialista em Engajamento e Persuasão',
-            'prompt': f"""
-{contexto_agente}
-{contexto_global}
-
-## FUNÇÃO: ESPECIALISTA EM ENGAJAMENTO E PERSUASÃO
-
-**Sua tarefa:** Analisar EXCLUSIVAMENTE poder de engajamento e persuasão.
-
-### CRITÉRIOS DE ANÁLISE:
-1. **Apelo Emocional** - Conexão emocional com o público
-2. **Chamadas para Ação** - Clareza e efetividade
-3. **Storytelling** - Uso de narrativas envolventes
-4. **Persuasão** - Argumentação convincente
-5. **Retenção** - Capacidade de manter atenção
-
-### FORMATO DE RESPOSTA OBRIGATÓRIO:
-
-## 🎯 RELATÓRIO DE ENGAJAMENTO
-
-### ✅ ELEMENTOS ENGAJADORES
-- [Pontos fortes de persuasão]
-
-### 📉 OPORTUNIDADES DE MELHORIA
-- [Áreas para aumentar engajamento]
-
-### 📊 SCORE ENGAJAMENTO: [X/10]
-
-### 🚀 ESTRATÉGIAS DE OTIMIZAÇÃO
-- [Técnicas para melhorar persuasão]
-"""
+        }
+        
         }
     }
     
@@ -2495,7 +2431,7 @@ def criar_analisadores_video(contexto_agente, contexto_global, contexto_video_es
 {contexto_global}
 {contexto_video_especifico}
 
-## FUNÇÃO: ESPECIALISTA EM VISUAL E CINEMATOGRAFIA
+## FUNÇÃO: ESPECIALISTA EM VISUAL
 
 **Sua tarefa:** Analisar EXCLUSIVAMENTE aspectos visuais do vídeo.
 
@@ -2555,40 +2491,7 @@ def criar_analisadores_video(contexto_agente, contexto_global, contexto_video_es
 ### 🎯 RECOMENDAÇÕES DE MARCA
 - [Sugestões para melhor alinhamento]
 """
-        },
-        'engajamento_eficacia': {
-            'nome': '📈 Especialista em Engajamento e Eficácia',
-            'prompt': f"""
-{contexto_agente}
-{contexto_global}
-{contexto_video_especifico}
-
-## FUNÇÃO: ESPECIALISTA EM ENGAJAMENTO E EFICÁCIA
-
-**Sua tarefa:** Analisar EXCLUSIVAMENTE poder de engajamento.
-
-### CRITÉRIOS DE ANÁLISE:
-1. **Retenção de Atenção** - Capacidade de prender o público
-2. **Chamadas para Ação** - Clareza e efetividade
-3. **Apelo Emocional** - Conexão com espectador
-4. **Valor Educativo** - Conteúdo informativo
-5. **Shareability** - Potencial de compartilhamento
-
-### FORMATO DE RESPOSTA OBRIGATÓRIO:
-
-## 📈 RELATÓRIO DE ENGAJAMENTO
-
-### ✅ ELEMENTOS ENGAJADORES
-- [Pontos fortes de persuasão]
-
-### 📉 OPORTUNIDADES DE ENGajamento
-- [Áreas para aumentar envolvimento]
-
-### 📊 SCORE ENGAJAMENTO: [X/10]
-
-### 🚀 ESTRATÉGIAS DE ENGAJAMENTO
-- [Técnicas para melhor envolvimento]
-"""
+        }
         }
     }
     
@@ -2961,39 +2864,7 @@ def criar_analisadores_texto(contexto_agente, contexto_global):
 ### 🏗️ SUGESTÕES DE REORGANIZAÇÃO
 - [Melhorias na estrutura]
 """
-        },
-        'engajamento': {
-            'nome': '🎯 Especialista em Engajamento e Persuasão',
-            'prompt': f"""
-{contexto_agente}
-{contexto_global}
-
-## FUNÇÃO: ESPECIALISTA EM ENGAJAMENTO E PERSUASÃO
-
-**Sua tarefa:** Analisar EXCLUSIVAMENTE poder de engajamento e persuasão.
-
-### CRITÉRIOS DE ANÁLISE:
-1. **Apelo Emocional** - Conexão emocional com o público
-2. **Chamadas para Ação** - Clareza e efetividade
-3. **Storytelling** - Uso de narrativas envolventes
-4. **Persuasão** - Argumentação convincente
-5. **Retenção** - Capacidade de manter atenção
-
-### FORMATO DE RESPOSTA OBRIGATÓRIO:
-
-## 🎯 RELATÓRIO DE ENGAJAMENTO
-
-### ✅ ELEMENTOS ENGAJADORES
-- [Pontos fortes de persuasão]
-
-### 📉 OPORTUNIDADES DE MELHORIA
-- [Áreas para aumentar engajamento]
-
-### 📊 SCORE ENGAJAMENTO: [X/10]
-
-### 🚀 ESTRATÉGIAS DE OTIMIZAÇÃO
-- [Técnicas para melhorar persuasão]
-"""
+        }
         }
     }
     
@@ -3319,13 +3190,13 @@ if 'analise_especializada_video' not in st.session_state:
     st.session_state.analise_especializada_video = True
 
 if 'analisadores_selecionados_texto' not in st.session_state:
-    st.session_state.analisadores_selecionados_texto = ['ortografia', 'lexico', 'branding', 'estrutura', 'engajamento']
+    st.session_state.analisadores_selecionados_texto = ['ortografia', 'lexico', 'branding']
 
 if 'analisadores_selecionados_imagem' not in st.session_state:
-    st.session_state.analisadores_selecionados_imagem = ['composicao_visual', 'cores_branding', 'tipografia_texto', 'elementos_marca', 'impacto_comunicacao']
+    st.session_state.analisadores_selecionados_imagem = ['composicao_visual', 'cores_branding', 'tipografia_texto', 'elementos_marca']
 
 if 'analisadores_selecionados_video' not in st.session_state:
-    st.session_state.analisadores_selecionados_video = ['narrativa_estrutura', 'qualidade_audio', 'visual_cinematografia', 'branding_consistencia', 'engajamento_eficacia']
+    st.session_state.analisadores_selecionados_video = ['narrativa_estrutura', 'qualidade_audio', 'visual_cinematografia', 'branding_consistencia']
 
 if 'analise_detalhada' not in st.session_state:
     st.session_state.analise_detalhada = True
