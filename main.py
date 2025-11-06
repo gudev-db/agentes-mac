@@ -4076,7 +4076,7 @@ with tab_mapping["✨ Geração de Conteúdo"]:
         if imagem_upload:
             col_img1, col_img2 = st.columns([1, 2])
             with col_img1:
-                st.image(imagem_upload, caption="Imagem Carregada", use_column_width=True)
+                st.image(imagem_upload, caption="Imagem Carregada", use_container_width=True)
                 st.write(f"**Arquivo:** {imagem_upload.name}")
                 st.write(f"**Tamanho:** {imagem_upload.size / 1024:.1f} KB")
             
@@ -4135,7 +4135,7 @@ with tab_mapping["✨ Geração de Conteúdo"]:
                                 """
                                 
                                 # Usar modelo de visão para gerar legenda
-                                modelo_visao = genai.GenerativeModel('gemini-pro-vision')
+                                modelo_visao = genai.GenerativeModel('gemini-2.5-flash')
                                 resposta_legenda = modelo_visao.generate_content([
                                     prompt_legenda,
                                     {"mime_type": imagem_upload.type, "data": imagem_upload.getvalue()}
