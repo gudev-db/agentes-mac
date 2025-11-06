@@ -1918,30 +1918,14 @@ def extrair_score(texto_analise):
 def gerar_relatorio_consolidado(resultados_especialistas, nome_arquivo):
     """Gera relatório consolidado a partir das análises especializadas"""
     
-    # Calcular score médio
-    scores = [resultado['score'] for resultado in resultados_especialistas.values() if resultado['score'] > 0]
-    score_medio = sum(scores) / len(scores) if scores else 0
-    
-    # Determinar status geral
-    if score_medio >= 8:
-        status = "✅ APROVADO"
-        cor_status = "green"
-    elif score_medio >= 6:
-        status = "⚠️ AJUSTES MENORES"
-        cor_status = "orange"
-    else:
-        status = "❌ REPROVADO"
-        cor_status = "red"
+   
     
     relatorio = f"""
 # 📊 RELATÓRIO CONSOLIDADO DE VALIDAÇÃO
 
 **Documento:** {nome_arquivo}
-**Status Geral:** <span style='color:{cor_status}'>{status}</span>
-**Score Médio:** {score_medio:.1f}/10
 **Data da Análise:** {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}
 
-## 🎖️ SCORES POR ÁREA
 """
     
     # Adicionar scores individuais
@@ -2587,38 +2571,21 @@ Por favor, forneça sua análise especializada no formato solicitado.
 
 def gerar_relatorio_imagem_consolidado(resultados_especialistas, nome_imagem, dimensoes):
     """Gera relatório consolidado para imagens"""
-    
-    # Calcular score médio
-    scores = [resultado['score'] for resultado in resultados_especialistas.values() if resultado['score'] > 0]
-    score_medio = sum(scores) / len(scores) if scores else 0
-    
-    # Determinar status geral
-    if score_medio >= 8:
-        status = "✅ APROVADO"
-        cor_status = "green"
-    elif score_medio >= 6:
-        status = "⚠️ AJUSTES MENORES"
-        cor_status = "orange"
-    else:
-        status = "❌ REPROVADO"
-        cor_status = "red"
+
     
     relatorio = f"""
 # 🖼️ RELATÓRIO CONSOLIDADO DE IMAGEM
 
 **Arquivo:** {nome_imagem}
 **Dimensões:** {dimensoes}
-**Status Geral:** <span style='color:{cor_status}'>{status}</span>
-**Score Médio:** {score_medio:.1f}/10
+
 **Data da Análise:** {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}
 
 ## 🎖️ SCORES POR ÁREA ESPECIALIZADA
 """
     
     # Adicionar scores individuais
-    for area, resultado in resultados_especialistas.items():
-        emoji = "✅" if resultado['score'] >= 8 else "⚠️" if resultado['score'] >= 6 else "❌"
-        relatorio += f"- {emoji} **{resultado['nome']}:** {resultado['score']}/10\n"
+
     
     relatorio += "\n## 📋 ANÁLISES DETALHADAS POR ESPECIALISTA\n"
     
@@ -2632,64 +2599,31 @@ def gerar_relatorio_imagem_consolidado(resultados_especialistas, nome_imagem, di
     relatorio += f"""
 ## 🚀 RESUMO EXECUTIVO - IMAGEM
 
-**Status Final:** {status}
-**Score Geral:** {score_medio:.1f}/10
+
 
 ### 🎯 PRÓXIMOS PASSOS RECOMENDADOS:
 """
     
-    # Recomendações baseadas nos scores
-    areas_baixas = [area for area, resultado in resultados_especialistas.items() if resultado['score'] < 6]
-    if areas_baixas:
-        nomes_areas = [resultados_especialistas[area]['nome'] for area in areas_baixas]
-        relatorio += f"- **Prioridade Máxima:** Focar em {', '.join(nomes_areas)}\n"
+
     
-    areas_medianas = [area for area, resultado in resultados_especialistas.items() if 6 <= resultado['score'] < 8]
-    if areas_medianas:
-        nomes_areas = [resultados_especialistas[area]['nome'] for area in areas_medianas]
-        relatorio += f"- **Otimização Necessária:** Melhorar {', '.join(nomes_areas)}\n"
-    
-    areas_altas = [area for area, resultado in resultados_especialistas.items() if resultado['score'] >= 8]
-    if areas_altas:
-        nomes_areas = [resultados_especialistas[area]['nome'] for area in areas_altas]
-        relatorio += f"- **Manutenção:** Manter a excelência em {', '.join(nomes_areas)}\n"
-    
-    return relatorio, score_medio, status
+    return relatorio
 
 def gerar_relatorio_video_consolidado(resultados_especialistas, nome_video, tipo_video):
     """Gera relatório consolidado para vídeos"""
     
-    # Calcular score médio
-    scores = [resultado['score'] for resultado in resultados_especialistas.values() if resultado['score'] > 0]
-    score_medio = sum(scores) / len(scores) if scores else 0
-    
-    # Determinar status geral
-    if score_medio >= 8:
-        status = "✅ APROVADO"
-        cor_status = "green"
-    elif score_medio >= 6:
-        status = "⚠️ AJUSTES MENORES"
-        cor_status = "orange"
-    else:
-        status = "❌ REPROVADO"
-        cor_status = "red"
+   
     
     relatorio = f"""
 # 🎬 RELATÓRIO CONSOLIDADO DE VÍDEO
 
 **Arquivo:** {nome_video}
 **Formato:** {tipo_video}
-**Status Geral:** <span style='color:{cor_status}'>{status}</span>
-**Score Médio:** {score_medio:.1f}/10
 **Data da Análise:** {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}
 
 ## 🎖️ SCORES POR ÁREA ESPECIALIZADA
 """
     
-    # Adicionar scores individuais
-    for area, resultado in resultados_especialistas.items():
-        emoji = "✅" if resultado['score'] >= 8 else "⚠️" if resultado['score'] >= 6 else "❌"
-        relatorio += f"- {emoji} **{resultado['nome']}:** {resultado['score']}/10\n"
+    
     
     relatorio += "\n## 📋 ANÁLISES DETALHADAS POR ESPECIALISTA\n"
     
@@ -2703,8 +2637,6 @@ def gerar_relatorio_video_consolidado(resultados_especialistas, nome_video, tipo
     relatorio += f"""
 ## 🚀 RESUMO EXECUTIVO - VÍDEO
 
-**Status Final:** {status}
-**Score Geral:** {score_medio:.1f}/10
 
 ### 🎯 PRÓXIMOS PASSOS RECOMENDADOS:
 """
@@ -2908,37 +2840,20 @@ Por favor, forneça sua análise no formato solicitado.
 
 def gerar_relatorio_texto_consolidado(resultados_especialistas, nome_arquivo):
     """Gera relatório consolidado a partir das análises especializadas de texto"""
-    
-    # Calcular score médio
-    scores = [resultado['score'] for resultado in resultados_especialistas.values() if resultado['score'] > 0]
-    score_medio = sum(scores) / len(scores) if scores else 0
-    
-    # Determinar status geral
-    if score_medio >= 8:
-        status = "✅ APROVADO"
-        cor_status = "green"
-    elif score_medio >= 6:
-        status = "⚠️ AJUSTES MENORES"
-        cor_status = "orange"
-    else:
-        status = "❌ REPROVADO"
-        cor_status = "red"
+
+  
     
     relatorio = f"""
 # 📊 RELATÓRIO CONSOLIDADO DE VALIDAÇÃO
 
 **Documento:** {nome_arquivo}
-**Status Geral:** <span style='color:{cor_status}'>{status}</span>
-**Score Médio:** {score_medio:.1f}/10
+
 **Data da Análise:** {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}
 
 ## 🎖️ SCORES POR ÁREA
 """
     
-    # Adicionar scores individuais
-    for area, resultado in resultados_especialistas.items():
-        emoji = "✅" if resultado['score'] >= 8 else "⚠️" if resultado['score'] >= 6 else "❌"
-        relatorio += f"- {emoji} **{resultado['nome']}:** {resultado['score']}/10\n"
+  
     
     relatorio += "\n## 📋 ANÁLISES DETALHADAS POR ESPECIALISTA\n"
     
@@ -2952,20 +2867,12 @@ def gerar_relatorio_texto_consolidado(resultados_especialistas, nome_arquivo):
     relatorio += f"""
 ## 🚀 RESUMO EXECUTIVO
 
-**Status Final:** {status}
-**Score Geral:** {score_medio:.1f}/10
+
 
 ### 🎯 PRÓXIMOS PASSOS RECOMENDADOS:
 """
     
-    # Recomendações baseadas nos scores
-    areas_baixas = [area for area, resultado in resultados_especialistas.items() if resultado['score'] < 6]
-    if areas_baixas:
-        relatorio += f"- **Prioridade:** Focar em {', '.join(areas_baixas)}\n"
-    
-    areas_medianas = [area for area, resultado in resultados_especialistas.items() if 6 <= resultado['score'] < 8]
-    if areas_medianas:
-        relatorio += f"- **Otimização:** Melhorar {', '.join(areas_medianas)}\n"
+   
     
     relatorio += "- **Manutenção:** Manter as áreas com scores altos\n"
     
@@ -3429,7 +3336,7 @@ with tab_mapping["✅ Validação Unificada"]:
                                             )
                                             
                                             # Gerar relatório consolidado
-                                            relatorio_consolidado, score_medio, status = gerar_relatorio_texto_consolidado(
+                                            relatorio_consolidado = gerar_relatorio_texto_consolidado(
                                                 resultados_especialistas, 
                                                 doc['nome']
                                             )
@@ -3593,7 +3500,7 @@ with tab_mapping["✅ Validação Unificada"]:
                                                 )
                                                 
                                                 # Gerar relatório consolidado
-                                                relatorio_consolidado, score_medio, status = gerar_relatorio_imagem_consolidado(
+                                                relatorio_consolidado = gerar_relatorio_imagem_consolidado(
                                                     resultados_especialistas, 
                                                     uploaded_image.name,
                                                     f"{image.width}x{image.height}"
@@ -3607,9 +3514,7 @@ with tab_mapping["✅ Validação Unificada"]:
                                                     'indice': idx,
                                                     'analise': relatorio_consolidado,
                                                     'dimensoes': f"{image.width}x{image.height}",
-                                                    'tamanho': uploaded_image.size,
-                                                    'score_medio': score_medio,
-                                                    'status': status
+                                                    'tamanho': uploaded_image.size
                                                 })
                                                 
                                             else:
@@ -3676,29 +3581,13 @@ with tab_mapping["✅ Validação Unificada"]:
                     st.markdown("---")
                     st.subheader("📋 Resumo Executivo de Imagens")
                     
-                    if resultados_analise and all('score_medio' in resultado for resultado in resultados_analise):
-                        # Calcular estatísticas com scores
-                        scores = [resultado['score_medio'] for resultado in resultados_analise if 'score_medio' in resultado]
-                        score_medio_geral = sum(scores) / len(scores) if scores else 0
-                        
-                        col_resumo1, col_resumo2, col_resumo3, col_resumo4 = st.columns(4)
-                        with col_resumo1:
-                            st.metric("📊 Total de Imagens", len(uploaded_images))
-                        with col_resumo2:
-                            st.metric("✅ Análises Concluídas", len(resultados_analise))
-                        with col_resumo3:
-                            st.metric("⭐ Score Médio", f"{score_medio_geral:.1f}/10")
-                        with col_resumo4:
-                            aprovadas = sum(1 for r in resultados_analise if r.get('status') == '✅ APROVADO')
-                            st.metric("🎯 Aprovadas", aprovadas)
-                    else:
-                        col_resumo1, col_resumo2, col_resumo3 = st.columns(3)
-                        with col_resumo1:
-                            st.metric("📊 Total de Imagens", len(uploaded_images))
-                        with col_resumo2:
-                            st.metric("✅ Análises Concluídas", len(resultados_analise))
-                        with col_resumo3:
-                            st.metric("🖼️ Processadas", len(uploaded_images))
+                    col_resumo1, col_resumo2, col_resumo3 = st.columns(3)
+                    with col_resumo1:
+                        st.metric("📊 Total de Imagens", len(uploaded_images))
+                    with col_resumo2:
+                        st.metric("✅ Análises Concluídas", len(resultados_analise))
+                    with col_resumo3:
+                        st.metric("🖼️ Processadas", len(uploaded_images))
                     
                     # Contexto aplicado no resumo
                     if contexto_global and contexto_global.strip():
@@ -3896,7 +3785,7 @@ with tab_mapping["✅ Validação Unificada"]:
                                                 )
                                                 
                                                 # Gerar relatório consolidado
-                                                relatorio_consolidado, score_medio, status = gerar_relatorio_video_consolidado(
+                                                relatorio_consolidado = gerar_relatorio_video_consolidado(
                                                     resultados_especialistas, 
                                                     uploaded_video.name,
                                                     uploaded_video.type
@@ -3910,9 +3799,7 @@ with tab_mapping["✅ Validação Unificada"]:
                                                     'indice': idx,
                                                     'analise': relatorio_consolidado,
                                                     'tipo': uploaded_video.type,
-                                                    'tamanho': uploaded_video.size,
-                                                    'score_medio': score_medio,
-                                                    'status': status
+                                                    'tamanho': uploaded_video.size
                                                 })
                                                 
                                             else:
@@ -4009,27 +3896,11 @@ with tab_mapping["✅ Validação Unificada"]:
                     st.markdown("---")
                     st.subheader("📋 Resumo Executivo - Vídeos")
                     
-                    if resultados_video and all('score_medio' in resultado for resultado in resultados_video):
-                        # Calcular estatísticas com scores
-                        scores = [resultado['score_medio'] for resultado in resultados_video if 'score_medio' in resultado]
-                        score_medio_geral = sum(scores) / len(scores) if scores else 0
-                        
-                        col_vid1, col_vid2, col_vid3, col_vid4 = st.columns(4)
-                        with col_vid1:
-                            st.metric("🎬 Total de Vídeos", len(uploaded_videos))
-                        with col_vid2:
-                            st.metric("✅ Análises Concluídas", len(resultados_video))
-                        with col_vid3:
-                            st.metric("⭐ Score Médio", f"{score_medio_geral:.1f}/10")
-                        with col_vid4:
-                            aprovados = sum(1 for r in resultados_video if r.get('status') == '✅ APROVADO')
-                            st.metric("🎯 Aprovados", aprovados)
-                    else:
-                        col_vid1, col_vid2 = st.columns(2)
-                        with col_vid1:
-                            st.metric("🎬 Total de Vídeos", len(uploaded_videos))
-                        with col_vid2:
-                            st.metric("✅ Análises Concluídas", len(resultados_video))
+                    col_vid1, col_vid2 = st.columns(2)
+                    with col_vid1:
+                        st.metric("🎬 Total de Vídeos", len(uploaded_videos))
+                    with col_vid2:
+                        st.metric("✅ Análises Concluídas", len(resultados_video))
                     
                     # Contexto aplicado no resumo
                     if contexto_global and contexto_global.strip():
@@ -4073,6 +3944,7 @@ with tab_mapping["✅ Validação Unificada"]:
             
             else:
                 st.info("🎬 Carregue um ou mais vídeos para iniciar a validação")
+                
 # --- ABA: GERAÇÃO DE CONTEÚDO ---
 with tab_mapping["✨ Geração de Conteúdo"]:
     st.header("✨ Geração de Conteúdo com Múltiplos Insumos")
