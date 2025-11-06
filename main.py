@@ -1941,8 +1941,6 @@ def gerar_relatorio_consolidado(resultados_especialistas, nome_arquivo):
     relatorio += f"""
 ## 🚀 RESUMO EXECUTIVO
 
-**Status Final:** {status}
-**Score Geral:** {score_medio:.1f}/10
 
 ### 🎯 PRÓXIMOS PASSOS RECOMENDADOS:
 """
@@ -1958,7 +1956,7 @@ def gerar_relatorio_consolidado(resultados_especialistas, nome_arquivo):
     
     relatorio += "- **Manutenção:** Manter as áreas com scores altos\n"
     
-    return relatorio, score_medio, status
+    return relatorio
 
 # --- FUNÇÕES ORIGINAIS MANTIDAS ---
 
@@ -2653,7 +2651,7 @@ def gerar_relatorio_video_consolidado(resultados_especialistas, nome_video, tipo
         nomes_areas = [resultados_especialistas[area]['nome'] for area in areas_altas]
         relatorio += f"- **Manutenção:** Manter a excelência em {', '.join(nomes_areas)}\n"
     
-    return relatorio, score_medio, status
+    return relatorio
 
 # --- FUNÇÕES DE ANÁLISE DE TEXTO (MANTIDAS) ---
 
@@ -2872,7 +2870,7 @@ def gerar_relatorio_texto_consolidado(resultados_especialistas, nome_arquivo):
     
     relatorio += "- **Manutenção:** Manter as áreas com scores altos\n"
     
-    return relatorio, score_medio, status
+    return relatorio
 
 def extrair_score(texto_analise):
     """Extrai score numérico do texto de análise"""
