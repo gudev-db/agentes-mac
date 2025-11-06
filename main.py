@@ -1792,7 +1792,6 @@ def criar_analisadores_especialistas(contexto_agente, contexto_global):
 ### ❌ ERROS IDENTIFICADOS
 - [Lista específica de erros com correções]
 
-### 📊 SCORE ORTOGRÁFICO: [X/10]
 
 ### 💡 SUGESTÕES DE MELHORIA
 - [Recomendações específicas]
@@ -1828,7 +1827,6 @@ def criar_analisadores_especialistas(contexto_agente, contexto_global):
 ### 🔄 SUGESTÕES DE SINÔNIMOS
 - [Palavras para substituir]
 
-### 📊 SCORE LEXICAL: [X/10]
 """
         },
         'branding': {
@@ -1858,7 +1856,6 @@ def criar_analisadores_especialistas(contexto_agente, contexto_global):
 ### ❌ DESVIOS IDENTIFICADOS
 - [Elementos fora do padrão da marca]
 
-### 📊 SCORE BRANDING: [X/10]
 
 ### 💡 RECOMENDAÇÕES ESTRATÉGICAS
 - [Sugestões para melhor alinhamento]
@@ -1894,7 +1891,6 @@ Por favor, forneça sua análise no formato solicitado.
                 resultados[area] = {
                     'nome': config['nome'],
                     'analise': resposta.text,
-                    'score': extrair_score(resposta.text)
                 }
                 
             except Exception as e:
