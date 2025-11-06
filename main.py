@@ -4064,7 +4064,118 @@ with tab_mapping["✨ Geração de Conteúdo"]:
                                        height=100,
                                        key=f"preview_{i}")
         
+        # Opção 2: Upload de imagem para geração de legenda
+        st.write("🖼️ Gerar Legenda para Imagem:")
+        imagem_upload = st.file_uploader(
+            "Selecione uma imagem:",
+            type=['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'],
+            help="A legenda será gerada com base na imagem e no contexto do agente selecionado"
+        )
         
+        # Mostrar preview da imagem se carregada
+        if imagem_upload:
+            col_img1, col_img2 = st.columns([1, 2])
+            with col_img1:
+                st.image(imagem_upload, caption="Imagem Carregada", use_column_width=True)
+                st.write(f"**Arquivo:** {imagem_upload.name}")
+                st.write(f"**Tamanho:** {imagem_upload.size / 1024:.1f} KB")
+            
+            with col_img2:
+                # Configurações específicas para legenda de imagem
+                st.subheader("Configurações da Legenda")
+                
+                estilo_legenda = st.selectbox(
+                    "Estilo da Legenda:",
+                    ["Descritiva", "Criativa", "Técnica", "Comercial", "Emocional", "Storytelling"],
+                    help="Escolha o estilo da legenda a ser gerada"
+                )
+                
+                comprimento_legenda = st.select_slider(
+                    "Comprimento da Legenda:",
+                    options=["Curta", "Média", "Longa"],
+                    value="Média"
+                )
+                
+                incluir_hashtags = st.checkbox("Incluir hashtags relevantes", value=True)
+                
+                # Botão para gerar legenda individual
+                if st.button("📝 Gerar Legenda para esta Imagem", use_container_width=True):
+                    if not st.session_state.agente_selecionado:
+                        st.error("❌ Selecione um agente primeiro para usar seu contexto na geração da legenda")
+                    else:
+                        with st.spinner("Analisando imagem e gerando legenda..."):
+                            try:
+                                # Preparar contexto do agente
+                                contexto_agente = ""
+                                if st.session_state.agente_selecionado:
+                                    agente = st.session_state.agente_selecionado
+                                    contexto_agente = construir_contexto(agente, st.session_state.segmentos_selecionados)
+                                
+                                # Usar modelo de visão para analisar a imagem
+                                prompt_legenda = f"""
+                                {contexto_agente}
+                                
+                                ## ANÁLISE DE IMAGEM PARA GERAÇÃO DE LEGENDA:
+                                
+                                **ESTILO SOLICITADO:** {estilo_legenda}
+                                **COMPRIMENTO:** {comprimento_legenda}
+                                **INCLUIR HASHTAGS:** {incluir_hashtags}
+                                
+                                ## TAREFA:
+                                Analise esta imagem e gere uma legenda que:
+                                
+                                1. **Descreva** accuratamente o conteúdo visual
+                                2. **Contextualize** com base no conhecimento do agente selecionado
+                                3. **Engaje** o público-alvo apropriado
+                                4. **Siga** o estilo {estilo_legenda.lower()}
+                                5. **Tenha** comprimento {comprimento_legenda.lower()}
+                                { "6. **Inclua** hashtags relevantes ao final" if incluir_hashtags else "" }
+                                
+                                Seja criativo mas mantenha a precisão factual.
+                                """
+                                
+                                # Usar modelo de visão para gerar legenda
+                                modelo_visao = genai.GenerativeModel('gemini-pro-vision')
+                                resposta_legenda = modelo_visao.generate_content([
+                                    prompt_legenda,
+                                    {"mime_type": imagem_upload.type, "data": imagem_upload.getvalue()}
+                                ])
+                                
+                                legenda_gerada = resposta_legenda.text
+                                
+                                # Mostrar resultado
+                                st.success("✅ Legenda gerada com sucesso!")
+                                st.subheader("Legenda Gerada:")
+                                st.write(legenda_gerada)
+                                
+                                # Botão para copiar legenda
+                                st.download_button(
+                                    "📋 Copiar Legenda",
+                                    data=legenda_gerada,
+                                    file_name=f"legenda_{imagem_upload.name.split('.')[0]}.txt",
+                                    mime="text/plain"
+                                )
+                                
+                                # Salvar no histórico se MongoDB disponível
+                                if mongo_connected_conteudo:
+                                    try:
+                                        historico_legenda = {
+                                            "tipo": "legenda_imagem",
+                                            "nome_imagem": imagem_upload.name,
+                                            "estilo_legenda": estilo_legenda,
+                                            "comprimento_legenda": comprimento_legenda,
+                                            "legenda_gerada": legenda_gerada,
+                                            "agente_utilizado": st.session_state.agente_selecionado.get('nome') if st.session_state.agente_selecionado else "Nenhum",
+                                            "data_criacao": datetime.datetime.now()
+                                        }
+                                        db_briefings['historico_legendas'].insert_one(historico_legenda)
+                                        st.success("✅ Legenda salva no histórico!")
+                                    except Exception as e:
+                                        st.warning(f"Legenda gerada, mas não salva no histórico: {str(e)}")
+                                
+                            except Exception as e:
+                                st.error(f"❌ Erro ao gerar legenda: {str(e)}")
+                                st.info("💡 Dica: Verifique se a imagem não está corrompida e tente novamente.")
         
         # Opção 3: Inserir briefing manualmente
         st.write("✍️ Briefing Manual:")
@@ -4097,6 +4208,12 @@ Pontos-chave: [lista os principais pontos]""")
     
     with col2:
         st.subheader("⚙️ Configurações de Geração")
+        
+        # Indicador de agente selecionado
+        if st.session_state.agente_selecionado:
+            st.info(f"🤖 Agente: {st.session_state.agente_selecionado.get('nome', 'N/A')}")
+        else:
+            st.warning("⚠️ Nenhum agente selecionado")
         
         # Opção para o usuário escolher entre configurações padrão ou prompt personalizado
         modo_geracao = st.radio(
@@ -4356,6 +4473,21 @@ Gere o conteúdo em formato {formato} com aproximadamente {palavras} palavras.""
                     st.info("Nenhuma geração no histórico")
             except Exception as e:
                 st.warning(f"Erro ao carregar histórico: {str(e)}")
+
+        # Histórico de legendas geradas
+        with st.expander("🖼️ Histórico de Legendas"):
+            try:
+                historico_legendas = list(db_briefings['historico_legendas'].find().sort("data_criacao", -1).limit(5))
+                if historico_legendas:
+                    for item in historico_legendas:
+                        st.write(f"**{item['nome_imagem']}** - {item['data_criacao'].strftime('%d/%m/%Y %H:%M')}")
+                        st.caption(f"Estilo: {item['estilo_legenda']} | Comprimento: {item['comprimento_legenda']}")
+                        st.write(f"*{item['legenda_gerada'][:100]}...*" if len(item['legenda_gerada']) > 100 else item['legenda_gerada'])
+                        st.divider()
+                else:
+                    st.info("Nenhuma legenda no histórico")
+            except Exception as e:
+                st.warning(f"Erro ao carregar histórico de legendas: {str(e)}")
 
 
 
