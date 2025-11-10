@@ -17,6 +17,8 @@ from typing import List, Dict, Tuple
 import hashlib
 import pandas as pd
 import re
+from pypdf import PdfReader, PdfWriter
+from pypdf.annotations import Text
 
 # Configuração inicial
 st.set_page_config(
