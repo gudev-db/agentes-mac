@@ -17,6 +17,8 @@ from typing import List, Dict, Tuple
 import hashlib
 import pandas as pd
 import re
+from pypdf import PdfReader, PdfWriter
+from pypdf.annotations import Text
 
 # Configuração inicial
 st.set_page_config(
@@ -3114,7 +3116,120 @@ if 'resultados_analise_imagem' not in st.session_state:
 if 'resultados_analise_video' not in st.session_state:
     st.session_state.resultados_analise_video = []
 
-# --- ABA: VALIDAÇÃO UNIFICADA ---
+# --- NOVAS FUNÇÕES PARA COMENTÁRIOS EM PDF ---
+from pypdf import PdfReader, PdfWriter
+from pypdf.annotations import Text
+import io
+
+def extrair_comentarios_analise(texto_analise):
+    """Extrai os comentários principais do texto de análise da LLM"""
+    comentarios = []
+    
+    # Padrões para extrair comentários
+    padroes = [
+        r'❌\s*(.*?)(?=\n|$)',
+        r'⚠️\s*(.*?)(?=\n|$)',
+        r'###\s*❌\s*(.*?)(?=###|\n\n|$)',
+        r'###\s*⚠️\s*(.*?)(?=###|\n\n|$)',
+        r'PROBLEMAS.*?\n(.*?)(?=###|\n\n|$)',
+        r'ALTERAÇÕES.*?\n(.*?)(?=###|\n\n|$)',
+        r'DESVIOS.*?\n(.*?)(?=###|\n\n|$)'
+    ]
+    
+    for padrao in padroes:
+        matches = re.findall(padrao, texto_analise, re.IGNORECASE | re.DOTALL)
+        for match in matches:
+            if isinstance(match, tuple):
+                match = match[0]
+            comentario = match.strip()
+            if comentario and len(comentario) > 10:  # Filtra comentários muito curtos
+                comentarios.append(comentario)
+    
+    # Se não encontrou padrões específicos, extrai parágrafos que contenham palavras-chave
+    if not comentarios:
+        linhas = texto_analise.split('\n')
+        for linha in linhas:
+            linha = linha.strip()
+            if any(palavra in linha.lower() for palavra in ['erro', 'problema', 'ajuste', 'corrigir', 'melhorar', 'sugestão', 'recomendação']):
+                if len(linha) > 20 and not linha.startswith('#'):
+                    comentarios.append(linha)
+    
+    return comentarios[:10]  # Limita a 10 comentários
+
+def adicionar_comentarios_pdf(arquivo_pdf_original, comentarios, nome_documento):
+    """Adiciona comentários como anotações no PDF"""
+    try:
+        # Ler o PDF original
+        reader = PdfReader(io.BytesIO(arquivo_pdf_original.getvalue()))
+        writer = PdfWriter()
+        
+        # Copiar todas as páginas
+        for page in reader.pages:
+            writer.add_page(page)
+        
+        # Adicionar comentários como anotações
+        for i, comentario in enumerate(comentarios):
+            if i >= 5:  # Limita a 5 comentários para não sobrecarregar
+                break
+                
+            # Calcular posição (distribui os comentários verticalmente)
+            y_pos = 750 - (i * 100)
+            
+            # Criar anotação de texto
+            annotation = Text(
+                text=f"📝 Comentário {i+1}: {comentario[:200]}...",  # Limita o texto
+                rect=(50, y_pos, 400, y_pos + 20),
+                open=False
+            )
+            
+            # Adicionar anotação à primeira página
+            writer.add_annotation(page_number=0, annotation=annotation)
+        
+        # Salvar PDF com comentários
+        pdf_com_comentarios = io.BytesIO()
+        writer.write(pdf_com_comentarios)
+        pdf_com_comentarios.seek(0)
+        
+        return pdf_com_comentarios
+        
+    except Exception as e:
+        st.error(f"❌ Erro ao adicionar comentários ao PDF: {str(e)}")
+        return None
+
+def criar_relatorio_comentarios(comentarios, nome_documento, contexto_analise):
+    """Cria um relatório de comentários em formato de texto"""
+    relatorio = f"""
+# 📋 RELATÓRIO DE COMENTÁRIOS - {nome_documento}
+
+**Data da Análise:** {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}
+**Total de Comentários:** {len(comentarios)}
+
+## 🎯 CONTEXTO DA ANÁLISE
+{contexto_analise[:500]}...
+
+## 📝 COMENTÁRIOS E SUGESTÕES
+
+"""
+    
+    for i, comentario in enumerate(comentarios, 1):
+        relatorio += f"### 🔍 Comentário {i}\n{comentario}\n\n"
+    
+    relatorio += """
+## 📊 RESUMO EXECUTIVO
+
+**Próximos Passos Recomendados:**
+1. Revisar os comentários no PDF anotado
+2. Implementar as correções sugeridas
+3. Validar conformidade com diretrizes de branding
+4. Realizar revisão final do documento
+
+---
+*Relatório gerado automaticamente pelo Sistema de Validação Unificada*
+"""
+    
+    return relatorio
+
+# --- MODIFICAÇÃO DA ABA: VALIDAÇÃO UNIFICADA ---
 with tab_mapping["✅ Validação Unificada"]:
     st.header("✅ Validação Unificada de Conteúdo")
     
@@ -3141,10 +3256,37 @@ with tab_mapping["✅ Validação Unificada"]:
         with subtab_texto:
             st.subheader("📄 Validação de Documentos e Texto")
             
+            # NOVO: Configurações de exportação PDF
+            with st.expander("📤 Configurações de Exportação PDF", expanded=True):
+                col_export1, col_export2 = st.columns(2)
+                
+                with col_export1:
+                    incluir_comentarios_pdf = st.checkbox(
+                        "Incluir comentários no PDF",
+                        value=True,
+                        help="Adiciona os comentários da análise como anotações no PDF original"
+                    )
+                    
+                    gerar_relatorio_completo = st.checkbox(
+                        "Gerar relatório completo",
+                        value=True,
+                        help="Cria um arquivo de texto com todos os comentários e análises"
+                    )
+                
+                with col_export2:
+                    limitar_comentarios = st.slider(
+                        "Máximo de comentários por PDF:",
+                        min_value=1,
+                        max_value=10,
+                        value=5,
+                        help="Limita o número de comentários adicionados ao PDF"
+                    )
+            
             # Botão para limpar análises de texto
             if st.button("🗑️ Limpar Análises de Texto", key="limpar_analises_texto"):
                 st.session_state.validacao_triggered = False
                 st.session_state.todos_textos = []
+                st.session_state.resultados_pdf = {}
                 st.rerun()
             
             # Container principal com duas colunas
@@ -3211,6 +3353,7 @@ with tab_mapping["✅ Validação Unificada"]:
                     # Processar todos os conteúdos
                     todos_textos = []
                     arquivos_processados = []
+                    resultados_pdf = {}  # Armazena resultados para exportação PDF
                     
                     # Adicionar texto manual se existir
                     if texto_input and texto_input.strip():
@@ -3229,23 +3372,29 @@ with tab_mapping["✅ Validação Unificada"]:
                                 try:
                                     if arquivo.type == "application/pdf":
                                         texto_extraido, slides_info = extract_text_from_pdf_com_slides(arquivo)
+                                        # Guardar o arquivo PDF original para possível anotação
+                                        arquivo_original = arquivo
                                     elif arquivo.type == "application/vnd.openxmlformats-officedocument.presentationml.presentation":
                                         texto_extraido, slides_info = extract_text_from_pptx_com_slides(arquivo)
+                                        arquivo_original = None
                                     elif arquivo.type in ["text/plain", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"]:
                                         texto_extraido = extrair_texto_arquivo(arquivo)
                                         slides_info = []
+                                        arquivo_original = None
                                     else:
                                         st.warning(f"Tipo de arquivo não suportado: {arquivo.name}")
                                         continue
                                     
                                     if texto_extraido and texto_extraido.strip():
-                                        todos_textos.append({
+                                        doc_info = {
                                             'nome': arquivo.name,
                                             'conteudo': texto_extraido,
                                             'slides': slides_info,
                                             'tipo': arquivo.type,
-                                            'tamanho': len(texto_extraido)
-                                        })
+                                            'tamanho': len(texto_extraido),
+                                            'arquivo_original': arquivo_original
+                                        }
+                                        todos_textos.append(doc_info)
                                         arquivos_processados.append(arquivo.name)
                                     
                                 except Exception as e:
@@ -3337,47 +3486,189 @@ with tab_mapping["✅ Validação Unificada"]:
                                             
                                             st.markdown(relatorio_consolidado, unsafe_allow_html=True)
                                             
+                                            # EXTRAIR COMENTÁRIOS PARA PDF
+                                            if incluir_comentarios_pdf and doc['tipo'] == "application/pdf" and doc.get('arquivo_original'):
+                                                comentarios = extrair_comentarios_analise(relatorio_consolidado)
+                                                if comentarios:
+                                                    with st.spinner("📝 Adicionando comentários ao PDF..."):
+                                                        pdf_com_comentarios = adicionar_comentarios_pdf(
+                                                            doc['arquivo_original'],
+                                                            comentarios[:limitar_comentarios],
+                                                            doc['nome']
+                                                        )
+                                                        
+                                                        if pdf_com_comentarios:
+                                                            # Armazenar para download posterior
+                                                            resultados_pdf[doc['nome']] = {
+                                                                'pdf_com_comentarios': pdf_com_comentarios,
+                                                                'comentarios': comentarios,
+                                                                'relatorio': relatorio_consolidado
+                                                            }
+                                                            
+                                                            # Botão de download imediato
+                                                            st.download_button(
+                                                                label="📥 Baixar PDF com Comentários",
+                                                                data=pdf_com_comentarios.getvalue(),
+                                                                file_name=f"comentarios_{doc['nome']}",
+                                                                mime="application/pdf",
+                                                                key=f"download_pdf_{doc['nome']}"
+                                                            )
+                                            
                                         elif st.session_state.analise_detalhada and doc['slides']:
                                             # Análise detalhada por slide (método antigo)
                                             resultado_analise = analisar_documento_por_slides(doc, contexto_completo)
                                             st.markdown(resultado_analise)
+                                            
+                                            # EXTRAIR COMENTÁRIOS PARA PDF
+                                            if incluir_comentarios_pdf and doc['tipo'] == "application/pdf" and doc.get('arquivo_original'):
+                                                comentarios = extrair_comentarios_analise(resultado_analise)
+                                                if comentarios:
+                                                    with st.spinner("📝 Adicionando comentários ao PDF..."):
+                                                        pdf_com_comentarios = adicionar_comentarios_pdf(
+                                                            doc['arquivo_original'],
+                                                            comentarios[:limitar_comentarios],
+                                                            doc['nome']
+                                                        )
+                                                        
+                                                        if pdf_com_comentarios:
+                                                            resultados_pdf[doc['nome']] = {
+                                                                'pdf_com_comentarios': pdf_com_comentarios,
+                                                                'comentarios': comentarios,
+                                                                'relatorio': resultado_analise
+                                                            }
+                                                            
+                                                            st.download_button(
+                                                                label="📥 Baixar PDF com Comentários",
+                                                                data=pdf_com_comentarios.getvalue(),
+                                                                file_name=f"comentarios_{doc['nome']}",
+                                                                mime="application/pdf",
+                                                                key=f"download_pdf_{doc['nome']}"
+                                                            )
+                                            
                                         else:
                                             # Análise geral do documento (método antigo)
                                             prompt_analise = criar_prompt_validacao_preciso(doc['conteudo'], doc['nome'], contexto_completo)
                                             resposta = modelo_texto.generate_content(prompt_analise)
                                             st.markdown(resposta.text)
+                                            
+                                            # EXTRAIR COMENTÁRIOS PARA PDF
+                                            if incluir_comentarios_pdf and doc['tipo'] == "application/pdf" and doc.get('arquivo_original'):
+                                                comentarios = extrair_comentarios_analise(resposta.text)
+                                                if comentarios:
+                                                    with st.spinner("📝 Adicionando comentários ao PDF..."):
+                                                        pdf_com_comentarios = adicionar_comentarios_pdf(
+                                                            doc['arquivo_original'],
+                                                            comentarios[:limitar_comentarios],
+                                                            doc['nome']
+                                                        )
+                                                        
+                                                        if pdf_com_comentarios:
+                                                            resultados_pdf[doc['nome']] = {
+                                                                'pdf_com_comentarios': pdf_com_comentarios,
+                                                                'comentarios': comentarios,
+                                                                'relatorio': resposta.text
+                                                            }
+                                                            
+                                                            st.download_button(
+                                                                label="📥 Baixar PDF com Comentários",
+                                                                data=pdf_com_comentarios.getvalue(),
+                                                                file_name=f"comentarios_{doc['nome']}",
+                                                                mime="application/pdf",
+                                                                key=f"download_pdf_{doc['nome']}"
+                                                            )
                                         
                                     except Exception as e:
                                         st.error(f"❌ Erro na análise de {doc['nome']}: {str(e)}")
                         
-                        # Relatório consolidado
-                        st.markdown("---")
-                        st.subheader("📑 Relatório Consolidado de Texto")
-                        
-                        # Botão para exportar
-                        if st.button("📥 Exportar Relatório Completo de Texto", key="exportar_relatorio_completo"):
-                            relatorio = f"""
-                            # RELATÓRIO DE VALIDAÇÃO DE CONTEÚDO DE TEXTO
-                            
-                            **Agente:** {agente.get('nome', 'N/A')}
-                            **Data:** {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}
-                            **Total de Documentos:** {len(todos_textos)}
-                            **Contexto Aplicado:** {contexto_global if contexto_global else 'Nenhum contexto adicional'}
-                            **Método de Análise:** {'Especializada por Múltiplos Especialistas' if st.session_state.analise_especializada_texto else 'Tradicional'}
-                            
-                            ## DOCUMENTOS ANALISADOS:
-                            {chr(10).join([f"{idx+1}. {doc['nome']} ({doc['tipo']}) - {doc['tamanho']} caracteres" for idx, doc in enumerate(todos_textos)])}
-                            """
-                            
-                            st.download_button(
-                                "💾 Baixar Relatório em TXT",
-                                data=relatorio,
-                                file_name=f"relatorio_validacao_texto_{datetime.datetime.now().strftime('%Y%m%d_%H%M')}.txt",
-                                mime="text/plain"
-                            )
-                        
                         # Armazenar na sessão
                         st.session_state.todos_textos = todos_textos
+                        st.session_state.resultados_pdf = resultados_pdf
+                        
+                        # NOVA SEÇÃO: DOWNLOADS CONSOLIDADOS
+                        if resultados_pdf or gerar_relatorio_completo:
+                            st.markdown("---")
+                            st.subheader("📦 Downloads Consolidados")
+                            
+                            # Download de todos os PDFs com comentários
+                            if resultados_pdf and incluir_comentarios_pdf:
+                                col_dl1, col_dl2 = st.columns(2)
+                                
+                                with col_dl1:
+                                    # Criar ZIP com todos os PDFs comentados
+                                    import zipfile
+                                    from io import BytesIO
+                                    
+                                    zip_buffer = BytesIO()
+                                    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+                                        for nome_doc, resultado in resultados_pdf.items():
+                                            pdf_data = resultado['pdf_com_comentarios'].getvalue()
+                                            zip_file.writestr(f"comentarios_{nome_doc}", pdf_data)
+                                    
+                                    zip_buffer.seek(0)
+                                    
+                                    st.download_button(
+                                        "📚 Baixar Todos os PDFs com Comentários (ZIP)",
+                                        data=zip_buffer.getvalue(),
+                                        file_name=f"pdfs_com_comentarios_{datetime.datetime.now().strftime('%Y%m%d_%H%M')}.zip",
+                                        mime="application/zip",
+                                        key="download_zip_pdfs"
+                                    )
+                                
+                                with col_dl2:
+                                    # Relatório completo com todos os comentários
+                                    if gerar_relatorio_completo:
+                                        relatorio_completo = f"""
+# 📋 RELATÓRIO COMPLETO DE VALIDAÇÃO
+
+**Data:** {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}
+**Agente:** {agente.get('nome', 'N/A')}
+**Total de Documentos:** {len(todos_textos)}
+**Contexto Aplicado:** {contexto_global if contexto_global else 'Nenhum contexto adicional'}
+
+## DOCUMENTOS ANALISADOS:
+"""
+                                        
+                                        for doc in todos_textos:
+                                            relatorio_completo += f"\n### 📄 {doc['nome']}\n"
+                                            if doc['nome'] in resultados_pdf:
+                                                resultado = resultados_pdf[doc['nome']]
+                                                relatorio_completo += f"**Comentários extraídos:** {len(resultado['comentarios'])}\n\n"
+                                                for i, comentario in enumerate(resultado['comentarios'][:limitar_comentarios], 1):
+                                                    relatorio_completo += f"**Comentário {i}:** {comentario}\n\n"
+                                            relatorio_completo += "---\n"
+                                        
+                                        st.download_button(
+                                            "📝 Baixar Relatório Completo (TXT)",
+                                            data=relatorio_completo,
+                                            file_name=f"relatorio_completo_{datetime.datetime.now().strftime('%Y%m%d_%H%M')}.txt",
+                                            mime="text/plain",
+                                            key="download_relatorio_completo"
+                                        )
+                            
+                            # Download individual de relatórios de comentários
+                            if gerar_relatorio_completo:
+                                st.markdown("### 📄 Relatórios Individuais de Comentários")
+                                
+                                for nome_doc, resultado in resultados_pdf.items():
+                                    col_rel1, col_rel2 = st.columns([3, 1])
+                                    
+                                    with col_rel1:
+                                        st.write(f"**{nome_doc}** - {len(resultado['comentarios'])} comentários")
+                                    
+                                    with col_rel2:
+                                        relatorio_individual = criar_relatorio_comentarios(
+                                            resultado['comentarios'],
+                                            nome_doc,
+                                            resultado['relatorio'][:500]  # Contexto resumido
+                                        )
+                                        
+                                        st.download_button(
+                                            "📋 Baixar Relatório",
+                                            data=relatorio_individual,
+                                            file_name=f"relatorio_comentarios_{nome_doc.split('.')[0]}.txt",
+                                            mime="text/plain",
+                                            key=f"download_relatorio_{nome_doc}"
+                                        )
                 
                 else:
                     st.info("Digite texto ou carregue arquivos para validar")
