@@ -2223,7 +2223,6 @@ def criar_analisadores_imagem(contexto_agente, contexto_global):
 ### ❌ PROBLEMAS DE COR
 - [Cores fora do padrão]
 
-### 📊 SCORE CORES: [X/10]
 
 ### 🎯 RECOMENDAÇÕES DE COR
 - [Sugestões para paleta de cores]
@@ -2254,9 +2253,8 @@ def criar_analisadores_imagem(contexto_agente, contexto_global):
 - [Elementos textuais bem executados]
 
 ### ⚠️ PROBLEMAS DE TEXTO
-- [Issues com tipografia e texto]
+- [Problemas com tipografia e texto - Sejam erros visuais, ortográficos ou lexicais]
 
-### 📊 SCORE TIPOGRAFIA: [X/10]
 
 ### ✏️ SUGESTÕES TIPOGRÁFICAS
 - [Melhorias para texto e fontes]
@@ -2289,7 +2287,6 @@ def criar_analisadores_imagem(contexto_agente, contexto_global):
 ### ❌ ELEMENTOS INCORRETOS
 - [Elementos fora do padrão]
 
-### 📊 SCORE MARCA: [X/10]
 
 ### 🎨 RECOMENDAÇÕES DE MARCA
 - [Sugestões para identidade visual]
@@ -2322,7 +2319,6 @@ def criar_analisadores_imagem(contexto_agente, contexto_global):
 ### 📉 OPORTUNIDADES DE MELHORIA
 - [Áreas para aumentar impacto]
 
-### 📊 SCORE IMPACTO: [X/10]
 
 ### 🚀 ESTRATÉGIAS DE COMUNICAÇÃO
 - [Técnicas para melhor comunicação]
@@ -2398,7 +2394,6 @@ def criar_analisadores_video(contexto_agente, contexto_global, contexto_video_es
 ### ❌ PROBLEMAS DE ÁUDIO
 - [Issues técnicos e de qualidade]
 
-### 📊 SCORE ÁUDIO: [X/10]
 
 ### 🎧 RECOMENDAÇÕES DE ÁUDIO
 - [Sugestões para melhor qualidade sonora]
