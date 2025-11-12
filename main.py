@@ -2382,6 +2382,8 @@ def criar_analisadores_video(contexto_agente, contexto_global, contexto_video_es
 3. **Trilha Sonora** - Música e efeitos sonoros
 4. **Sincronização** - Relação áudio-vídeo no caso de legendas
 5. **Mixagem** - Balanceamento de elementos sonoros
+6. **Erros legenda - audio** - Verifique se o audio do video está integralmente alinhado com a legenda
+7. **Erros lexicos ou gramaticais nas legendas**
 
 ### FORMATO DE RESPOSTA OBRIGATÓRIO:
 
