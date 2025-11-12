@@ -2511,24 +2511,15 @@ def criar_analisadores_video(contexto_agente, contexto_global, contexto_video_es
     ### CRITÉRIOS DE ANÁLISE:
     1. **Timing** - Sincronização precisa
     2. **Legibilidade** - Clareza das legendas
-    3. **Precisão** - Correspondência com áudio
-    4. **Formatação** - Tamanho, cor e posição
-    5. **Consistência** - Uniformidade ao longo do vídeo
+
     
     ### FORMATO DE RESPOSTA OBRIGATÓRIO:
     
     ## 🎯 RELATÓRIO DE SINCRONIZAÇÃO
     
-    ### ✅ ACERTOS DE SINCRONIZAÇÃO
-    - [Elementos bem sincronizados]
+    ### Time stamps específicos das ocorrências de erros entre o que foi falado e o que está escrito nas legendas
     
-    ### ❌ PROBLEMAS DE SINCRONIZAÇÃO
-    - [Issues de timing e legibilidade]
-    
-    ### 📊 SCORE SINCRONIZAÇÃO: [X/10]
-    
-    ### ⚙️ RECOMENDAÇÕES TÉCNICAS
-    - [Sugestões para melhor sincronização]
+
     """
             }
         }
