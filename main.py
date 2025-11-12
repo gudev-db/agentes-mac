@@ -3965,12 +3965,13 @@ with tab_mapping["✅ Validação Unificada"]:
                 
                 analisadores_selecionados_video = st.multiselect(
                     "Especialistas de vídeo a incluir:",
-                    options=['narrativa_estrutura', 'qualidade_audio', 'visual_cinematografia', 'branding_consistencia', 'engajamento_eficacia'],
+                    options=['narrativa_estrutura', 'qualidade_audio', 'visual_cinematografia', 'branding_consistencia', 'engajamento_eficacia', 'validador_textual'],
                     default=st.session_state.analisadores_selecionados_video,
                     format_func=lambda x: {
                         'narrativa_estrutura': '📖 Narrativa e Estrutura',
                         'qualidade_audio': '🔊 Qualidade de Áudio', 
                         'visual_cinematografia': '🎥 Visual e Cinematografia',
+                        'validador_textual': 'Gesão Textual',
                         'branding_consistencia': '🏢 Branding e Consistência',
                         'engajamento_eficacia': '📈 Engajamento e Eficácia'
                     }[x],
