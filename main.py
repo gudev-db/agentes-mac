@@ -4036,7 +4036,7 @@ with tab_mapping["✅ Validação Unificada"]:
                                     with st.expander("👀 Preview do Vídeo", expanded=False):
                                         st.video(uploaded_video, format=f"video/{uploaded_video.type.split('/')[-1]}")
                                     
-                                    # Análise detalhada - APENAS UMA VEZ
+                                    # Análise detalhada
                                     with st.expander(f"📋 Análise Completa - {uploaded_video.name}", expanded=True):
                                         try:
                                             # Construir contexto com base de conhecimento do agente
@@ -4065,33 +4065,39 @@ with tab_mapping["✅ Validação Unificada"]:
                                                 ###END CONTEXTO ESPECÍFICO PARA VÍDEOS###
                                                 """
                                             
-                                            # Escolher método de análise - APENAS UMA EXECUÇÃO
+                                            # Escolher método de análise
                                             if st.session_state.analise_especializada_video:
                                                 # ANÁLISE ESPECIALIZADA POR MÚLTIPLOS ESPECIALISTAS DE VÍDEO
                                                 st.info("🎯 **Executando análise especializada por múltiplos especialistas de vídeo...**")
                                                 
+                                                # Atualizar os analisadores selecionados na sessão
+                                                st.session_state.analisadores_selecionados_video = analisadores_selecionados_video
+                                                
                                                 # Criar analisadores especialistas
                                                 analisadores_config = criar_analisadores_video(contexto_agente, contexto_global, contexto_video_especifico)
                                                 
-                                                # Filtrar apenas os selecionados
+                                                # Filtrar apenas os selecionados - GARANTIR QUE O ESPECIALISTA DE SINCRONIZAÇÃO ESTÁ INCLUÍDO
                                                 analisadores_filtrados = {k: v for k, v in analisadores_config.items() 
                                                                          if k in st.session_state.analisadores_selecionados_video}
                                                 
-                                                # Executar análises especializadas - APENAS UMA VEZ
+                                                # VERIFICAR SE O ESPECIALISTA DE SINCRONIZAÇÃO ESTÁ PRESENTE
+                                                if 'sincronizacao_audio_legendas' in st.session_state.analisadores_selecionados_video:
+                                                    st.success("🎯 **Especialista em Sincronização Áudio-Legendas ativado**")
+                                                
+                                                # Executar análises especializadas
                                                 resultados_especialistas = executar_analise_video_especializada(
                                                     uploaded_video, 
                                                     uploaded_video.name, 
                                                     analisadores_filtrados
                                                 )
                                                 
-                                                # Gerar relatório consolidado - APENAS UMA VEZ
+                                                # Gerar relatório consolidado
                                                 relatorio_consolidado = gerar_relatorio_video_consolidado(
                                                     resultados_especialistas, 
                                                     uploaded_video.name,
                                                     uploaded_video.type
                                                 )
                                                 
-                                                # EXIBIR APENAS UMA VEZ
                                                 st.markdown(relatorio_consolidado, unsafe_allow_html=True)
                                                 
                                                 # Armazenar resultado
@@ -4104,63 +4110,53 @@ with tab_mapping["✅ Validação Unificada"]:
                                                 })
                                                 
                                             else:
-                                                # Análise geral do vídeo (método antigo) - APENAS UMA VEZ
+                                                # Análise geral do vídeo (método antigo) com foco em sincronização
                                                 prompt_analise = f"""
                                                 {contexto_completo}
                                                 
-                                                Analise este vídeo considerando:
-                                                - Alinhamento com diretrizes de branding
-                                                - Qualidade e consistência visual  
-                                                - Mensagem e tom da comunicação
-                                                - Elementos de áudio e transcrição
-                                                - Texto presente nos frames
-                                                - SINCRONIZAÇÃO ENTRE ÁUDIO E LEGENDAS (se aplicável)
-                                                
-                                                Forneça a análise em formato estruturado:
+                                                Analise este vídeo considerando ESPECIALMENTE a sincronização entre áudio e legendas:
                                                 
                                                 ## 🎬 RELATÓRIO DE ALINHAMENTO - VÍDEO {idx+1}
                                                 
                                                 **Arquivo:** {uploaded_video.name}
                                                 **Formato:** {uploaded_video.type}
                                                 
-                                                ### 🎯 RESUMO EXECUTIVO
-                                                [Avaliação geral do alinhamento do vídeo com as diretrizes]
+                                                ### 🎯 SINCRONIZAÇÃO ÁUDIO-LEGENDAS (ANÁLISE DETALHADA)
+                                                [Verifique minuciosamente:
+                                                - Timing correto entre fala e exibição de legendas
+                                                - Correspondência exata entre conteúdo falado e texto legendado  
+                                                - Atrasos ou avanços nas legendas
+                                                - Omissões ou adições no texto das legendas
+                                                - Consistência na velocidade de exibição das legendas
+                                                - Legibilidade e tempo de leitura adequado das legendas]
                                                 
-                                                ### 🔊 ANÁLISE DE ÁUDIO E SINCRONIZAÇÃO
-                                                [Transcrição e análise do conteúdo de áudio, tom, mensagem verbal]
-                                                [AVALIAÇÃO DE SINCRONIZAÇÃO: Verifique se o áudio está sincronizado com legendas visuais]
+                                                ### 🔊 ANÁLISE DE ÁUDIO
+                                                [Qualidade do áudio, clareza vocal, ruídos de fundo]
                                                 
                                                 ### 👁️ ANÁLISE VISUAL
-                                                [Análise de elementos visuais, cores, composição, branding visual]
-        
-                                                ### 📝 TEXTO EM FRAMES E LEGENDAS
-                                                [Identificação e análise de texto presente nos frames - validação ortográfica e léxica. 
-                                                Caso o texto no vídeo seja uma legenda, verifique se está alinhado com o áudio no vídeo]
+                                                [Qualidade de imagem, cores, composição]
                                                 
-                                                ### 🎯 SINCRONIZAÇÃO ÁUDIO-LEGENDAS
-                                                [Análise específica da sincronização entre áudio e legendas:
-                                                - Timing correto entre fala e exibição de legendas
-                                                - Correspondência exata entre conteúdo falado e texto legendado
-                                                - Atrasos ou avanços nas legendas
-                                                - Omissões ou adições no texto das legendas]
+                                                ### 📝 TEXTO EM FRAMES E LEGENDAS
+                                                [Identificação e análise de texto presente nos frames
+                                                Validação ortográfica e léxica das legendas
+                                                Formatação e posicionamento das legendas]
                                                 
                                                 ### ✅ PONTOS FORTES
-                                                - [Elementos bem alinhados com as diretrizes]
+                                                - [Elementos bem sincronizados e alinhados]
                                                 
                                                 ### ⚠️ PONTOS DE ATENÇÃO
-                                                - [Desvios identificados e timestamps específicos]
-                                                - [Problemas de sincronização áudio-legendas com timestamps]
+                                                - [Problemas de sincronização com timestamps específicos (MM:SS)]
+                                                - [Desvios no texto das legendas]
                                                 
                                                 ### 💡 RECOMENDAÇÕES
-                                                - [Sugestões para melhorar o alinhamento]
-                                                - [Correções específicas para sincronização áudio-legendas]
+                                                - [Sugestões específicas para corrigir sincronização]
+                                                - [Ajustes no timing das legendas]
                                                 
-                                                ### 🕒 MOMENTOS CHAVE
-                                                [Timestamps importantes com descrição: MM:SS]
-                                                [Timestamps com problemas de sincronização: MM:SS]
+                                                ### 🕒 MOMENTOS CHAVE DE SINCRONIZAÇÃO
+                                                [Listar timestamps específicos com problemas ou acertos de sincronização: MM:SS]
                                                 """
                                                 
-                                                # Processar vídeo usando a API do Gemini - APENAS UMA VEZ
+                                                # Processar vídeo usando a API do Gemini
                                                 video_bytes = uploaded_video.getvalue()
                                                 
                                                 if len(video_bytes) < 200 * 1024 * 1024:
@@ -4175,7 +4171,6 @@ with tab_mapping["✅ Validação Unificada"]:
                                                         {"mime_type": uploaded_video.type, "data": video_bytes}
                                                     ])
                                                 
-                                                # EXIBIR APENAS UMA VEZ
                                                 st.markdown(response.text)
                                                 
                                                 # Armazenar resultado
@@ -4196,12 +4191,6 @@ with tab_mapping["✅ Validação Unificada"]:
                                                 'tipo': uploaded_video.type,
                                                 'tamanho': uploaded_video.size
                                             })
-                                    
-                                    # REMOVER AS CHAMADAS EXTRAS DE ANÁLISE QUE ESTAVAM CAUSANDO DUPLICAÇÃO
-                                    
-                                # Separador entre vídeos
-                                if idx < len(uploaded_videos) - 1:
-                                    st.markdown("---")
                                     
                             except Exception as e:
                                 st.error(f"❌ Erro ao processar vídeo {uploaded_video.name}: {str(e)}")
@@ -4236,6 +4225,7 @@ with tab_mapping["✅ Validação Unificada"]:
                         **Contexto Global:** {contexto_global if contexto_global else 'Nenhum'}
                         **Contexto Específico:** {contexto_video_especifico if contexto_video_especifico else 'Nenhum'}
                         **Método de Análise:** {'Especializada por Múltiplos Especialistas' if st.session_state.analise_especializada_video else 'Tradicional'}
+                        **Especialistas Incluídos:** {', '.join(st.session_state.analisadores_selecionados_video)}
                         
                         ## VÍDEOS ANALISADOS:
                         {chr(10).join([f"{idx+1}. {vid.name} ({vid.type}) - {vid.size/(1024*1024):.1f} MB" for idx, vid in enumerate(uploaded_videos)])}
@@ -4251,7 +4241,7 @@ with tab_mapping["✅ Validação Unificada"]:
                             mime="text/plain"
                         )
             
-            # Mostrar análises existentes da sessão - APENAS SE NÃO ESTIVER PROCESSANDO NOVAMENTE
+            # Mostrar análises existentes da sessão
             elif st.session_state.get('resultados_analise_video'):
                 st.info("📋 Análises anteriores encontradas. Use o botão 'Limpar Análises' para recomeçar.")
                 
