@@ -3270,7 +3270,7 @@ with tab_mapping["✅ Validação Unificada"]:
         with subtab_texto:
             st.subheader("📄 Validação de Documentos e Texto")
             
-            # NOVO: Configurações de exportação PDF
+            # Configurações de exportação PDF
             with st.expander("📤 Configurações de Exportação PDF", expanded=True):
                 col_export1, col_export2 = st.columns(2)
                 
@@ -3965,13 +3965,13 @@ with tab_mapping["✅ Validação Unificada"]:
                 
                 analisadores_selecionados_video = st.multiselect(
                     "Especialistas de vídeo a incluir:",
-                    options=['narrativa_estrutura', 'qualidade_audio', 'visual_cinematografia', 'branding_consistencia', 'engajamento_eficacia', 'validador_textual'],
+                    options=['narrativa_estrutura', 'qualidade_audio', 'visual_cinematografia', 'branding_consistencia', 'engajamento_eficacia', 'sincronizacao_audio_legendas'],
                     default=st.session_state.analisadores_selecionados_video,
                     format_func=lambda x: {
                         'narrativa_estrutura': '📖 Narrativa e Estrutura',
                         'qualidade_audio': '🔊 Qualidade de Áudio', 
                         'visual_cinematografia': '🎥 Visual e Cinematografia',
-                        'validador_textual': 'Gesão Textual',
+                        'sincronizacao_audio_legendas': '🎯 SINCRONIZAÇÃO ÁUDIO-LEGENDAS',
                         'branding_consistencia': '🏢 Branding e Consistência',
                         'engajamento_eficacia': '📈 Engajamento e Eficácia'
                     }[x],
@@ -4113,6 +4113,7 @@ with tab_mapping["✅ Validação Unificada"]:
                                                 - Mensagem e tom da comunicação
                                                 - Elementos de áudio e transcrição
                                                 - Texto presente nos frames
+                                                - SINCRONIZAÇÃO ENTRE ÁUDIO E LEGENDAS (se aplicável)
                                                 
                                                 Forneça a análise em formato estruturado:
                                                 
@@ -4124,28 +4125,38 @@ with tab_mapping["✅ Validação Unificada"]:
                                                 ### 🎯 RESUMO EXECUTIVO
                                                 [Avaliação geral do alinhamento do vídeo com as diretrizes]
                                                 
-                                                ### 🔊 ANÁLISE DE ÁUDIO
+                                                ### 🔊 ANÁLISE DE ÁUDIO E SINCRONIZAÇÃO
                                                 [Transcrição e análise do conteúdo de áudio, tom, mensagem verbal]
+                                                [AVALIAÇÃO DE SINCRONIZAÇÃO: Verifique se o áudio está sincronizado com legendas visuais]
                                                 
                                                 ### 👁️ ANÁLISE VISUAL
                                                 [Análise de elementos visuais, cores, composição, branding visual]
 
-                                                ### 📝 TEXTO EM FRAMES
-                                                [Identificação e análise de texto presente nos frames - validação ortográfica e léxica. Caso o texto no vídeo seja uma legenda, verifique se está alinhado com o áudio no vídeo]
-
+                                                ### 📝 TEXTO EM FRAMES E LEGENDAS
+                                                [Identificação e análise de texto presente nos frames - validação ortográfica e léxica. 
+                                                Caso o texto no vídeo seja uma legenda, verifique se está alinhado com o áudio no vídeo]
                                                 
+                                                ### 🎯 SINCRONIZAÇÃO ÁUDIO-LEGENDAS
+                                                [Análise específica da sincronização entre áudio e legendas:
+                                                - Timing correto entre fala e exibição de legendas
+                                                - Correspondência exata entre conteúdo falado e texto legendado
+                                                - Atrasos ou avanços nas legendas
+                                                - Omissões ou adições no texto das legendas]
                                                 
                                                 ### ✅ PONTOS FORTES
                                                 - [Elementos bem alinhados com as diretrizes]
                                                 
                                                 ### ⚠️ PONTOS DE ATENÇÃO
                                                 - [Desvios identificados e timestamps específicos]
+                                                - [Problemas de sincronização áudio-legendas com timestamps]
                                                 
                                                 ### 💡 RECOMENDAÇÕES
                                                 - [Sugestões para melhorar o alinhamento]
+                                                - [Correções específicas para sincronização áudio-legendas]
                                                 
                                                 ### 🕒 MOMENTOS CHAVE
                                                 [Timestamps importantes com descrição: MM:SS]
+                                                [Timestamps com problemas de sincronização: MM:SS]
                                                 """
                                                 
                                                 # Processar vídeo usando a API do Gemini
