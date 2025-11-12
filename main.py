@@ -4111,7 +4111,9 @@ with tab_mapping["✅ Validação Unificada"]:
                                                 [Análise de elementos visuais, cores, composição, branding visual]
 
                                                 ### 📝 TEXTO EM FRAMES
-                                                [Identificação e análise de texto presente nos frames]
+                                                [Identificação e análise de texto presente nos frames - validação ortográfica e léxica. Caso o texto no vídeo seja uma legenda, verifique se está alinhado com o áudio no vídeo]
+
+                                                
                                                 
                                                 ### ✅ PONTOS FORTES
                                                 - [Elementos bem alinhados com as diretrizes]
