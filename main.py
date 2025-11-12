@@ -2518,6 +2518,7 @@ def criar_analisadores_video(contexto_agente, contexto_global, contexto_video_es
     ## 🎯 RELATÓRIO DE SINCRONIZAÇÃO
     
     ### Time stamps específicos das ocorrências de erros entre o que foi falado e o que está escrito nas legendas
+    ### Verificação se a legenda em si está escrita corretamente
     
 
     """
