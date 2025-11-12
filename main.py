@@ -2324,6 +2324,7 @@ def criar_analisadores_imagem(contexto_agente, contexto_global):
 - [Técnicas para melhor comunicação]
 """
         }
+        
     }
     
     return analisadores
@@ -2360,7 +2361,6 @@ def criar_analisadores_video(contexto_agente, contexto_global, contexto_video_es
 ### ⚠️ PROBLEMAS DE ESTRUTURA
 - [Issues na organização do conteúdo]
 
-### 📊 SCORE NARRATIVA: [X/10]
 
 ### 💡 SUGESTÕES NARRATIVAS
 - [Melhorias para estrutura e ritmo]
@@ -2465,6 +2465,25 @@ def criar_analisadores_video(contexto_agente, contexto_global, contexto_video_es
 
 ### 🎯 RECOMENDAÇÕES DE MARCA
 - [Sugestões para melhor alinhamento]
+"""
+        },'validador_textual': {
+            'nome': '🎯 Especialista em Gestão Textual',
+            'prompt': f"""
+{contexto_agente}
+{contexto_global}
+
+## FUNÇÃO: ESPECIALISTA EM GESTÃO TEXTUAL
+
+**Sua tarefa:** Analisar EXCLUSIVAMENTE a integridade textual.
+
+### CRITÉRIOS DE ANÁLISE:
+1. **Ortografia**
+2. **Léxico**
+3. **Pontuação**
+4. **Legenda** - Em caso de presença de texto que seja legenda, veja se está batendo com o que está sendo falado.
+
+
+
 """
         }
         }
