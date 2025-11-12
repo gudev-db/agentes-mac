@@ -2329,147 +2329,211 @@ def criar_analisadores_imagem(contexto_agente, contexto_global):
     return analisadores
 
 def criar_analisadores_video(contexto_agente, contexto_global, contexto_video_especifico):
-    """Cria analisadores especializados para vídeos"""
+        """Cria analisadores especializados para vídeos - VERSÃO COMPLETA COM 6 ESPECIALISTAS"""
+        
+        analisadores = {
+            'narrativa_estrutura': {
+                'nome': '📖 Especialista em Narrativa e Estrutura',
+                'prompt': f"""
+    {contexto_agente}
+    {contexto_global}
+    {contexto_video_especifico}
     
-    analisadores = {
-        'narrativa_estrutura': {
-            'nome': '📖 Especialista em Narrativa e Estrutura',
-            'prompt': f"""
-{contexto_agente}
-{contexto_global}
-{contexto_video_especifico}
-
-## FUNÇÃO: ESPECIALISTA EM NARRATIVA E ESTRUTURA
-
-**Sua tarefa:** Analisar EXCLUSIVAMENTE a estrutura narrativa do vídeo.
-
-### CRITÉRIOS DE ANÁLISE:
-1. **Arco Narrativo** - Desenvolvimento da história
-2. **Ritmo** - Velocidade e fluidez da narrativa
-3. **Estrutura** - Organização do conteúdo
-4. **Transições** - Conexão entre cenas/ideias
-5. **Clímax e Resolução** - Ponto alto e conclusão
-
-### FORMATO DE RESPOSTA OBRIGATÓRIO:
-
-## 📖 RELATÓRIO DE NARRATIVA
-
-### ✅ PONTOS FORTES DA NARRATIVA
-- [Elementos narrativos bem executados]
-
-### ⚠️ PROBLEMAS DE ESTRUTURA
-- [Issues na organização do conteúdo]
-
-
-### 💡 SUGESTÕES NARRATIVAS
-- [Melhorias para estrutura e ritmo]
-"""
-        },
-        'qualidade_audio': {
-            'nome': '🔊 Especialista em Qualidade de Áudio',
-            'prompt': f"""
-{contexto_agente}
-{contexto_global}
-{contexto_video_especifico}
-
-## FUNÇÃO: ESPECIALISTA EM QUALIDADE DE ÁUDIO
-
-**Sua tarefa:** Analisar EXCLUSIVAMENTE aspectos de áudio do vídeo.
-
-### CRITÉRIOS DE ANÁLISE:
-1. **Clareza Vocal** - Inteligibilidade da fala
-2. **Qualidade Técnica** - Ruído, distorção, equilíbrio
-3. **Trilha Sonora** - Música e efeitos sonoros
-4. **Sincronização** - Relação áudio-vídeo no caso de legendas
-5. **Mixagem** - Balanceamento de elementos sonoros
-6. **Erros legenda - audio** - Verifique se o audio do video está integralmente alinhado com a legenda
-7. **Erros lexicos ou gramaticais nas legendas**
-
-### FORMATO DE RESPOSTA OBRIGATÓRIO:
-
-## 🔊 RELATÓRIO DE ÁUDIO
-
-### ✅ ACERTOS DE ÁUDIO
-- [Elementos sonoros bem executados e alinhados com legenadas caso estiverem presentes]
-
-### ❌ PROBLEMAS DE ÁUDIO
-- [Issues técnicos e de qualidade]
-
-
-### 🎧 RECOMENDAÇÕES DE ÁUDIO
-- [Sugestões para melhor qualidade sonora]
-"""
-        },
-        'visual_cinematografia': {
-            'nome': '🎥 Especialista em Visual e Cinematografia',
-            'prompt': f"""
-{contexto_agente}
-{contexto_global}
-{contexto_video_especifico}
-
-## FUNÇÃO: ESPECIALISTA EM VISUAL
-
-**Sua tarefa:** Analisar EXCLUSIVAMENTE aspectos visuais do vídeo.
-
-### CRITÉRIOS DE ANÁLISE:
-1. **Enquadramento** - Composição de cenas
-2. **Iluminação** - Uso da luz e sombras
-3. **Cores e Grading** - Tratamento de cor
-4. **Movimento de Câmera** - Dinâmica visual
-5. **Qualidade de Imagem** - Resolução e nitidez
-
-### FORMATO DE RESPOSTA OBRIGATÓRIO:
-
-## 🎥 RELATÓRIO VISUAL
-
-### ✅ PONTOS FORTES VISUAIS
-- [Elementos visuais bem executados]
-
-### ⚠️ PROBLEMAS VISUAIS
-- [Issues de qualidade visual]
-
-
-### 🌟 SUGESTÕES VISUAIS
-- [Melhorias para cinematografia]
-"""
-        },
-        'branding_consistencia': {
-            'nome': '🏢 Especialista em Branding e Consistência',
-            'prompt': f"""
-{contexto_agente}
-{contexto_global}
-{contexto_video_especifico}
-
-## FUNÇÃO: ESPECIALISTA EM BRANDING E CONSISTÊNCIA
-
-**Sua tarefa:** Analisar EXCLUSIVAMENTE alinhamento com branding.
-
-### CRITÉRIOS DE ANÁLISE:
-1. **Identidade Visual** - Cores, logos, elementos da marca
-2. **Tom de Voz** - Personalidade da comunicação
-3. **Mensagem Central** - Alinhamento com valores
-4. **Consistência** - Uniformidade ao longo do vídeo
-5. **Público-Alvo** - Adequação ao destinatário
-
-### FORMATO DE RESPOSTA OBRIGATÓRIO:
-
-## 🏢 RELATÓRIO DE BRANDING
-
-### ✅ ALINHAMENTOS DE MARCA
-- [Elementos que seguem as diretrizes]
-
-### ❌ DESVIOS DE MARCA
-- [Elementos fora do padrão]
-
-
-### 🎯 RECOMENDAÇÕES DE MARCA
-- [Sugestões para melhor alinhamento]
-"""
+    ## FUNÇÃO: ESPECIALISTA EM NARRATIVA E ESTRUTURA
+    
+    **Sua tarefa:** Analisar EXCLUSIVAMENTE a estrutura narrativa do vídeo.
+    
+    ### CRITÉRIOS DE ANÁLISE:
+    1. **Arco Narrativo** - Desenvolvimento da história
+    2. **Ritmo** - Velocidade e fluidez da narrativa
+    3. **Estrutura** - Organização do conteúdo
+    4. **Transições** - Conexão entre cenas/ideias
+    5. **Clímax e Resolução** - Ponto alto e conclusão
+    
+    ### FORMATO DE RESPOSTA OBRIGATÓRIO:
+    
+    ## 📖 RELATÓRIO DE NARRATIVA
+    
+    ### ✅ PONTOS FORTES DA NARRATIVA
+    - [Elementos narrativos bem executados]
+    
+    ### ⚠️ PROBLEMAS DE ESTRUTURA
+    - [Issues na organização do conteúdo]
+    
+    ### 📊 SCORE NARRATIVA: [X/10]
+    
+    ### 💡 SUGESTÕES NARRATIVAS
+    - [Melhorias para estrutura e ritmo]
+    """
+            },
+            'qualidade_audio': {
+                'nome': '🔊 Especialista em Qualidade de Áudio',
+                'prompt': f"""
+    {contexto_agente}
+    {contexto_global}
+    {contexto_video_especifico}
+    
+    ## FUNÇÃO: ESPECIALISTA EM QUALIDADE DE ÁUDIO
+    
+    **Sua tarefa:** Analisar EXCLUSIVAMENTE aspectos de áudio do vídeo.
+    
+    ### CRITÉRIOS DE ANÁLISE:
+    1. **Clareza Vocal** - Inteligibilidade da fala
+    2. **Qualidade Técnica** - Ruído, distorção, equilíbrio
+    3. **Trilha Sonora** - Música e efeitos sonoros
+    4. **Sincronização** - Relação áudio-vídeo
+    5. **Mixagem** - Balanceamento de elementos sonoros
+    
+    ### FORMATO DE RESPOSTA OBRIGATÓRIO:
+    
+    ## 🔊 RELATÓRIO DE ÁUDIO
+    
+    ### ✅ ACERTOS DE ÁUDIO
+    - [Elementos sonoros bem executados]
+    
+    ### ❌ PROBLEMAS DE ÁUDIO
+    - [Issues técnicos e de qualidade]
+    
+    ### 📊 SCORE ÁUDIO: [X/10]
+    
+    ### 🎧 RECOMENDAÇÕES DE ÁUDIO
+    - [Sugestões para melhor qualidade sonora]
+    """
+            },
+            'visual_cinematografia': {
+                'nome': '🎥 Especialista em Visual e Cinematografia',
+                'prompt': f"""
+    {contexto_agente}
+    {contexto_global}
+    {contexto_video_especifico}
+    
+    ## FUNÇÃO: ESPECIALISTA EM VISUAL E CINEMATOGRAFIA
+    
+    **Sua tarefa:** Analisar EXCLUSIVAMENTE aspectos visuais do vídeo.
+    
+    ### CRITÉRIOS DE ANÁLISE:
+    1. **Enquadramento** - Composição de cenas
+    2. **Iluminação** - Uso da luz e sombras
+    3. **Movimento de Câmera** - Dinâmica visual
+    
+    ### FORMATO DE RESPOSTA OBRIGATÓRIO:
+    
+    ## 🎥 RELATÓRIO VISUAL
+    
+    ### ✅ PONTOS FORTES VISUAIS
+    - [Elementos visuais bem executados]
+    
+    ### ⚠️ PROBLEMAS VISUAIS
+    - [Issues de qualidade visual]
+    
+    ### 📊 SCORE VISUAL: [X/10]
+    
+    ### 🌟 SUGESTÕES VISUAIS
+    - [Melhorias para cinematografia]
+    """
+            },
+            'branding_consistencia': {
+                'nome': '🏢 Especialista em Branding e Consistência',
+                'prompt': f"""
+    {contexto_agente}
+    {contexto_global}
+    {contexto_video_especifico}
+    
+    ## FUNÇÃO: ESPECIALISTA EM BRANDING E CONSISTÊNCIA
+    
+    **Sua tarefa:** Analisar EXCLUSIVAMENTE alinhamento com branding.
+    
+    ### CRITÉRIOS DE ANÁLISE:
+    1. **Identidade Visual** - Cores, logos, elementos da marca
+    2. **Tom de Voz** - Personalidade da comunicação
+    3. **Mensagem Central** - Alinhamento com valores
+    4. **Público-Alvo** - Adequação ao destinatário
+    
+    ### FORMATO DE RESPOSTA OBRIGATÓRIO:
+    
+    ## 🏢 RELATÓRIO DE BRANDING
+    
+    ### ✅ ALINHAMENTOS DE MARCA
+    - [Elementos que seguem as diretrizes]
+    
+    ### ❌ DESVIOS DE MARCA
+    - [Elementos fora do padrão]
+    
+    
+    ### 🎯 RECOMENDAÇÕES DE MARCA
+    - [Sugestões para melhor alinhamento]
+    """
+            },
+            'engajamento_eficacia': {
+                'nome': '📈 Especialista em Engajamento e Eficácia',
+                'prompt': f"""
+    {contexto_agente}
+    {contexto_global}
+    {contexto_video_especifico}
+    
+    ## FUNÇÃO: ESPECIALISTA EM ENGAJAMENTO E EFICÁCIA
+    
+    **Sua tarefa:** Analisar EXCLUSIVAMENTE potencial de engajamento e eficácia comunicativa.
+    
+    ### CRITÉRIOS DE ANÁLISE:
+    1. **Hook Inicial** - Capacidade de prender atenção
+    2. **Retenção** - Manutenção do interesse
+    3. **Chamada para Ação** - Clareza e persuasão
+    4. **Emoção** - Conexão emocional com o público
+    5. **Compartilhamento** - Potencial viral
+    
+    ### FORMATO DE RESPOSTA OBRIGATÓRIO:
+    
+    ## 📈 RELATÓRIO DE ENGAJAMENTO
+    
+    ### ✅ PONTOS FORTES DE ENGAJAMENTO
+    - [Elementos que engajam o público]
+    
+    ### 📉 OPORTUNIDADES DE MELHORIA
+    - [Áreas para aumentar engajamento]
+    
+    
+    ### 🚀 ESTRATÉGIAS DE ENGAJAMENTO
+    - [Técnicas para melhor conexão]
+    """
+            },
+            'sincronizacao_audio_legendas': {
+                'nome': '🎯 Especialista em Sincronização Áudio-Legendas',
+                'prompt': f"""
+    {contexto_agente}
+    {contexto_global}
+    {contexto_video_especifico}
+    
+    ## FUNÇÃO: ESPECIALISTA EM SINCRONIZAÇÃO ÁUDIO-LEGENDAS
+    
+    **Sua tarefa:** Analisar EXCLUSIVAMENTE sincronização entre áudio e legendas.
+    
+    ### CRITÉRIOS DE ANÁLISE:
+    1. **Timing** - Sincronização precisa
+    2. **Legibilidade** - Clareza das legendas
+    3. **Precisão** - Correspondência com áudio
+    4. **Formatação** - Tamanho, cor e posição
+    5. **Consistência** - Uniformidade ao longo do vídeo
+    
+    ### FORMATO DE RESPOSTA OBRIGATÓRIO:
+    
+    ## 🎯 RELATÓRIO DE SINCRONIZAÇÃO
+    
+    ### ✅ ACERTOS DE SINCRONIZAÇÃO
+    - [Elementos bem sincronizados]
+    
+    ### ❌ PROBLEMAS DE SINCRONIZAÇÃO
+    - [Issues de timing e legibilidade]
+    
+    ### 📊 SCORE SINCRONIZAÇÃO: [X/10]
+    
+    ### ⚙️ RECOMENDAÇÕES TÉCNICAS
+    - [Sugestões para melhor sincronização]
+    """
+            }
         }
-        }
-    
-    
-    return analisadores
+        
+        return analisadores
 
 def executar_analise_imagem_especializada(uploaded_image, nome_imagem, analisadores):
     """Executa análise especializada para imagens com múltiplos especialistas"""
