@@ -4036,7 +4036,7 @@ with tab_mapping["✅ Validação Unificada"]:
                                     with st.expander("👀 Preview do Vídeo", expanded=False):
                                         st.video(uploaded_video, format=f"video/{uploaded_video.type.split('/')[-1]}")
                                     
-                                    # Análise detalhada
+                                    # Análise detalhada - APENAS UMA VEZ
                                     with st.expander(f"📋 Análise Completa - {uploaded_video.name}", expanded=True):
                                         try:
                                             # Construir contexto com base de conhecimento do agente
@@ -4065,7 +4065,7 @@ with tab_mapping["✅ Validação Unificada"]:
                                                 ###END CONTEXTO ESPECÍFICO PARA VÍDEOS###
                                                 """
                                             
-                                            # Escolher método de análise
+                                            # Escolher método de análise - APENAS UMA EXECUÇÃO
                                             if st.session_state.analise_especializada_video:
                                                 # ANÁLISE ESPECIALIZADA POR MÚLTIPLOS ESPECIALISTAS DE VÍDEO
                                                 st.info("🎯 **Executando análise especializada por múltiplos especialistas de vídeo...**")
@@ -4077,20 +4077,21 @@ with tab_mapping["✅ Validação Unificada"]:
                                                 analisadores_filtrados = {k: v for k, v in analisadores_config.items() 
                                                                          if k in st.session_state.analisadores_selecionados_video}
                                                 
-                                                # Executar análises especializadas
+                                                # Executar análises especializadas - APENAS UMA VEZ
                                                 resultados_especialistas = executar_analise_video_especializada(
                                                     uploaded_video, 
                                                     uploaded_video.name, 
                                                     analisadores_filtrados
                                                 )
                                                 
-                                                # Gerar relatório consolidado
+                                                # Gerar relatório consolidado - APENAS UMA VEZ
                                                 relatorio_consolidado = gerar_relatorio_video_consolidado(
                                                     resultados_especialistas, 
                                                     uploaded_video.name,
                                                     uploaded_video.type
                                                 )
                                                 
+                                                # EXIBIR APENAS UMA VEZ
                                                 st.markdown(relatorio_consolidado, unsafe_allow_html=True)
                                                 
                                                 # Armazenar resultado
@@ -4103,7 +4104,7 @@ with tab_mapping["✅ Validação Unificada"]:
                                                 })
                                                 
                                             else:
-                                                # Análise geral do vídeo (método antigo)
+                                                # Análise geral do vídeo (método antigo) - APENAS UMA VEZ
                                                 prompt_analise = f"""
                                                 {contexto_completo}
                                                 
@@ -4131,7 +4132,7 @@ with tab_mapping["✅ Validação Unificada"]:
                                                 
                                                 ### 👁️ ANÁLISE VISUAL
                                                 [Análise de elementos visuais, cores, composição, branding visual]
-
+        
                                                 ### 📝 TEXTO EM FRAMES E LEGENDAS
                                                 [Identificação e análise de texto presente nos frames - validação ortográfica e léxica. 
                                                 Caso o texto no vídeo seja uma legenda, verifique se está alinhado com o áudio no vídeo]
@@ -4159,7 +4160,7 @@ with tab_mapping["✅ Validação Unificada"]:
                                                 [Timestamps com problemas de sincronização: MM:SS]
                                                 """
                                                 
-                                                # Processar vídeo usando a API do Gemini
+                                                # Processar vídeo usando a API do Gemini - APENAS UMA VEZ
                                                 video_bytes = uploaded_video.getvalue()
                                                 
                                                 if len(video_bytes) < 200 * 1024 * 1024:
@@ -4174,6 +4175,7 @@ with tab_mapping["✅ Validação Unificada"]:
                                                         {"mime_type": uploaded_video.type, "data": video_bytes}
                                                     ])
                                                 
+                                                # EXIBIR APENAS UMA VEZ
                                                 st.markdown(response.text)
                                                 
                                                 # Armazenar resultado
@@ -4194,7 +4196,9 @@ with tab_mapping["✅ Validação Unificada"]:
                                                 'tipo': uploaded_video.type,
                                                 'tamanho': uploaded_video.size
                                             })
-                                
+                                    
+                                    # REMOVER AS CHAMADAS EXTRAS DE ANÁLISE QUE ESTAVAM CAUSANDO DUPLICAÇÃO
+                                    
                                 # Separador entre vídeos
                                 if idx < len(uploaded_videos) - 1:
                                     st.markdown("---")
@@ -4247,8 +4251,8 @@ with tab_mapping["✅ Validação Unificada"]:
                             mime="text/plain"
                         )
             
-            # Mostrar análises existentes da sessão
-            elif st.session_state.resultados_analise_video:
+            # Mostrar análises existentes da sessão - APENAS SE NÃO ESTIVER PROCESSANDO NOVAMENTE
+            elif st.session_state.get('resultados_analise_video'):
                 st.info("📋 Análises anteriores encontradas. Use o botão 'Limpar Análises' para recomeçar.")
                 
                 for resultado in st.session_state.resultados_analise_video:
@@ -4257,7 +4261,7 @@ with tab_mapping["✅ Validação Unificada"]:
             
             else:
                 st.info("🎬 Carregue um ou mais vídeos para iniciar a validação")
-                
+                        
 # --- ABA: GERAÇÃO DE CONTEÚDO ---
 with tab_mapping["✨ Geração de Conteúdo"]:
     st.header("✨ Geração de Conteúdo com Múltiplos Insumos")
