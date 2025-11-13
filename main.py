@@ -404,8 +404,8 @@ if not gemini_api_key:
     st.stop()
 
 genai.configure(api_key=gemini_api_key)
-modelo_vision = genai.GenerativeModel("gemini-2.5-flash", generation_config={"temperature": 0.1})
-modelo_texto = genai.GenerativeModel("gemini-2.5-flash")
+modelo_vision = genai.GenerativeModel("gemini-2.0-flash", generation_config={"temperature": 0.1})
+modelo_texto = genai.GenerativeModel("gemini-2.0-flash")
 
 # Configuração da API do Perplexity
 perp_api_key = os.getenv("PERP_API_KEY")
@@ -4441,7 +4441,7 @@ with tab_mapping["✨ Geração de Conteúdo"]:
                                 """
                                 
                                 # Usar modelo de visão para gerar legenda
-                                modelo_visao = genai.GenerativeModel('gemini-2.5-flash')
+                                modelo_visao = genai.GenerativeModel('gemini-2.0-flash')
                                 resposta_legenda = modelo_visao.generate_content([
                                     prompt_legenda,
                                     {"mime_type": imagem_upload.type, "data": imagem_upload.getvalue()}
