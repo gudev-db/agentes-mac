@@ -405,7 +405,7 @@ if not gemini_api_key:
 
 genai.configure(api_key=gemini_api_key)
 modelo_vision = genai.GenerativeModel("gemini-2.0-flash", generation_config={"temperature": 0.1})
-modelo_texto = genai.GenerativeModel("gemini-2.0-flash")
+modelo_texto = genai.GenerativeModel("gemini-2.5-flash")
 
 # Configuração da API do Perplexity
 perp_api_key = os.getenv("PERP_API_KEY")
@@ -4882,7 +4882,6 @@ def revisar_texto_ortografia(texto, agente, segmentos_selecionados, revisao_esti
     **IMPORTANTE:**
     - Seja detalhado e preciso nas explicações
     - Mantenha o formato markdown para fácil leitura
-    - Inclua exemplos específicos quando relevante
     - Foque nas correções ortográficas e gramaticais
     """
     
