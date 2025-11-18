@@ -19,8 +19,6 @@ import pandas as pd
 import re
 from pypdf import PdfReader, PdfWriter
 from pypdf.annotations import Text
-import requests
-import time
 
 # Configuração inicial
 st.set_page_config(
@@ -33,129 +31,6 @@ import os
 import PyPDF2
 import pdfplumber
 from pathlib import Path
-
-# --- SISTEMA DE FALLBACK PARA MODELOS GEMINI ---
-
-class GeminiModelManager:
-    def __init__(self, api_key):
-        self.api_key = api_key
-        genai.configure(api_key=api_key)
-        
-        # Lista de modelos com fallback
-        self.model_configs = [
-            {
-                'name': 'gemini-2.0-flash',
-                'model': genai.GenerativeModel("gemini-2.0-flash", generation_config={"temperature": 0.1}),
-                'retry_delay': 2,
-                'max_retries': 3
-            },
-            {
-                'name': 'gemini-2.5-flash',
-                'model': genai.GenerativeModel("gemini-1.5-flash", generation_config={"temperature": 0.1}),
-                'retry_delay': 3,
-                'max_retries': 2
-            }
-        ]
-        
-        self.current_model_index = 0
-        self.model_vision = genai.GenerativeModel("gemini-2.0-flash")
-    
-    def generate_content_with_fallback(self, prompt, is_vision=False, image_data=None):
-        """
-        Gera conteúdo com fallback automático entre modelos em caso de erro
-        """
-        max_total_retries = sum(config['max_retries'] for config in self.model_configs)
-        total_attempts = 0
-        
-        for model_index, config in enumerate(self.model_configs[self.current_model_index:], start=self.current_model_index):
-            model_name = config['name']
-            model = config['model']
-            max_retries = config['max_retries']
-            retry_delay = config['retry_delay']
-            
-            for retry in range(max_retries + 1):  # +1 para a tentativa inicial
-                total_attempts += 1
-                try:
-                    if is_vision and image_data is not None:
-                        # Usar modelo de visão para imagens
-                        response = self.model_vision.generate_content([
-                            prompt,
-                            {"mime_type": "image/jpeg", "data": image_data}
-                        ])
-                    else:
-                        # Usar modelo de texto
-                        response = model.generate_content(prompt)
-                    
-                    # Se chegou aqui, a requisição foi bem-sucedida
-                    if retry > 0 or model_index != self.current_model_index:
-                        st.success(f"✅ Modelo recuperado: {model_name} (tentativa {retry + 1})")
-                    
-                    return response
-                    
-                except Exception as e:
-                    error_msg = str(e).lower()
-                    
-                    # Verificar se é um erro de rate limit ou overload
-                    is_rate_limit = any(term in error_msg for term in [
-                        'rate limit', 'quota', 'overload', 'too many requests',
-                        'resource exhausted', 'backend error', 'unavailable',
-                        '503', '429', '500'
-                    ])
-                    
-                    if retry < max_retries and is_rate_limit:
-                        wait_time = retry_delay * (retry + 1)
-                        if st.session_state.get('show_model_fallback', True):
-                            st.warning(f"⚠️ Modelo {model_name} sobrecarregado. Tentativa {retry + 1}/{max_retries} em {wait_time}s...")
-                        time.sleep(wait_time)
-                        continue
-                    else:
-                        # Se esgotou as tentativas para este modelo ou erro não é de rate limit
-                        if model_index < len(self.model_configs) - 1:
-                            next_model = self.model_configs[model_index + 1]['name']
-                            if st.session_state.get('show_model_fallback', True):
-                                st.warning(f"🔀 Alternando para modelo: {next_model}")
-                            self.current_model_index = model_index + 1
-                            break
-                        else:
-                            # Último modelo também falhou
-                            raise e
-        
-        # Se todos os modelos falharam
-        raise Exception(f"Todos os modelos falharam após {total_attempts} tentativas")
-    
-    def get_current_model_name(self):
-        """Retorna o nome do modelo atualmente em uso"""
-        return self.model_configs[self.current_model_index]['name']
-    
-    def reset_to_primary_model(self):
-        """Reseta para usar o modelo primário novamente"""
-        self.current_model_index = 0
-
-# Inicializar o gerenciador de modelos
-gemini_api_key = os.getenv("GEM_API_KEY")
-if not gemini_api_key:
-    st.error("GEMINI_API_KEY não encontrada nas variáveis de ambiente")
-    st.stop()
-
-model_manager = GeminiModelManager(gemini_api_key)
-
-# Funções wrapper para manter compatibilidade
-def modelo_texto_generate_content(prompt, max_retries=3):
-    """Wrapper para geração de conteúdo de texto com fallback"""
-    return model_manager.generate_content_with_fallback(prompt, is_vision=False)
-
-def modelo_vision_generate_content(prompt, image_data=None, max_retries=3):
-    """Wrapper para geração de conteúdo de visão com fallback"""
-    return model_manager.generate_content_with_fallback(prompt, is_vision=True, image_data=image_data)
-
-# Atribuir as funções wrapper para manter compatibilidade com código existente
-modelo_texto = type('MockModel', (), {'generate_content': modelo_texto_generate_content})()
-modelo_vision = type('MockModel', (), {'generate_content': modelo_vision_generate_content})()
-
-# Configuração da API do Perplexity
-perp_api_key = os.getenv("PERP_API_KEY")
-if not perp_api_key:
-    st.error("PERP_API_KEY não encontrada nas variáveis de ambiente")
 
 # --- FUNÇÕES AUXILIARES MELHORADAS ---
 
@@ -383,7 +258,7 @@ users_db = {
 # Conexão MongoDB
 client = MongoClient("mongodb+srv://gustavoromao3345:RqWFPNOJQfInAW1N@cluster0.5iilj.mongodb.net/auto_doc?retryWrites=true&w=majority&ssl=true&ssl_cert_reqs=CERT_NONE&tlsAllowInvalidCertificates=true")
 db = client['agentes_personalizados']
-collection_agente = db['agentes']
+collection_agentes = db['agentes']
 collection_conversas = db['conversas']
 collection_usuarios = db['usuarios']  # Nova coleção para usuários
 
@@ -523,7 +398,19 @@ if not st.session_state.logged_in:
     st.stop()
 
 # --- CONFIGURAÇÕES APÓS LOGIN ---
-# Já configurado acima com o model_manager
+gemini_api_key = os.getenv("GEM_API_KEY")
+if not gemini_api_key:
+    st.error("GEMINI_API_KEY não encontrada nas variáveis de ambiente")
+    st.stop()
+
+genai.configure(api_key=gemini_api_key)
+modelo_vision = genai.GenerativeModel("gemini-2.5-flash", generation_config={"temperature": 0.1})
+modelo_texto = genai.GenerativeModel("gemini-2.5-flash")
+
+# Configuração da API do Perplexity
+perp_api_key = os.getenv("PERP_API_KEY")
+if not perp_api_key:
+    st.error("PERP_API_KEY não encontrada nas variáveis de ambiente")
 
 # --- Configuração de Autenticação de Administrador ---
 def check_admin_password():
@@ -548,7 +435,7 @@ def criar_agente(nome, system_prompt, base_conhecimento, comments, planejamento,
         "criado_por": get_current_user().get('email', 'unknown'),
         "criado_por_squad": get_current_squad()  # Novo campo
     }
-    result = collection_agente.insert_one(agente)
+    result = collection_agentes.insert_one(agente)
     return result.inserted_id
 
 def listar_agentes():
@@ -557,10 +444,10 @@ def listar_agentes():
     
     # Admin vê todos os agentes
     if current_squad == "admin":
-        return list(collection_agente.find({"ativo": True}).sort("data_criacao", -1))
+        return list(collection_agentes.find({"ativo": True}).sort("data_criacao", -1))
     
     # Usuários normais veem apenas agentes do seu squad ou squad "Todos"
-    return list(collection_agente.find({
+    return list(collection_agentes.find({
         "ativo": True,
         "$or": [
             {"squad_permitido": current_squad},
@@ -589,14 +476,14 @@ def listar_agentes_para_heranca(agente_atual_id=None):
             agente_atual_id = ObjectId(agente_atual_id)
         query["_id"] = {"$ne": agente_atual_id}
     
-    return list(collection_agente.find(query).sort("data_criacao", -1))
+    return list(collection_agentes.find(query).sort("data_criacao", -1))
 
 def obter_agente(agente_id):
     """Obtém um agente específico pelo ID com verificação de permissão por squad"""
     if isinstance(agente_id, str):
         agente_id = ObjectId(agente_id)
     
-    agente = collection_agente.find_one({"_id": agente_id})
+    agente = collection_agentes.find_one({"_id": agente_id})
     
     # Verificar permissão baseada no squad
     if agente and agente.get('ativo', True):
@@ -625,7 +512,7 @@ def atualizar_agente(agente_id, nome, system_prompt, base_conhecimento, comments
     if not agente_existente:
         raise PermissionError("Agente não encontrado ou sem permissão de edição")
     
-    return collection_agente.update_one(
+    return collection_agentes.update_one(
         {"_id": agente_id},
         {
             "$set": {
@@ -653,7 +540,7 @@ def desativar_agente(agente_id):
     if not agente_existente:
         raise PermissionError("Agente não encontrado ou sem permissão para desativar")
     
-    return collection_agente.update_one(
+    return collection_agentes.update_one(
         {"_id": agente_id},
         {"$set": {"ativo": False, "data_desativacao": datetime.datetime.now()}}
     )
@@ -4869,9 +4756,9 @@ Gere o conteúdo em formato {formato} com aproximadamente {palavras} palavras.""
                                 "data_criacao": datetime.datetime.now()
                             }
                             db_briefings['historico_geracao'].insert_one(historico_data)
-                            st.success("✅ Conteúdo salva no histórico!")
+                            st.success("✅ Conteúdo salvo no histórico!")
                         except Exception as e:
-                            st.warning(f"Conteúdo gerado, mas não salva no histórico: {str(e)}")
+                            st.warning(f"Conteúdo gerado, mas não salvo no histórico: {str(e)}")
                     
                 except Exception as e:
                     st.error(f"❌ Erro ao gerar conteúdo: {str(e)}")
