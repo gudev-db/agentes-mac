@@ -4915,7 +4915,6 @@ def revisar_documento_por_slides(doc, agente, segmentos_selecionados, revisao_es
                     contexto_agente += f"BASE DE CONHECIMENTO:\n{agente['base_conhecimento']}\n\n"
                 
                 prompt_slide = f"""
-{contexto_agente}
 
 ## REVISÃO ORTOGRÁFICA - SLIDE {i+1}
 
@@ -4925,7 +4924,7 @@ def revisar_documento_por_slides(doc, agente, segmentos_selecionados, revisao_es
 **INSTRUÇÕES:**
 - Faça uma revisão ortográfica e gramatical detalhada
 - Corrija erros de português, acentuação e pontuação
-- Mantenha o conteúdo original sempre que possível
+- Mantenha o conteúdo original - apenas corrija ortograficamente e aponte onde as correções foram feitas
 - { "Inclua sugestões de melhoria de estilo" if revisao_estilo else "Foque apenas em correções gramaticais" }
 - { "Explique as principais alterações" if explicar_alteracoes else "Apenas apresente o texto corrigido" }
 
@@ -5384,6 +5383,7 @@ with tab_mapping["Monitoramento de Redes"]:
         - Perguntas técnicas: seja preciso e didático
         - Perguntas sociais: seja leve e engajador  
         - Críticas ou problemas: seja construtivo e proativo
+        - Forneça respostas breves - 1 a 3 frases
         
         Sua resposta deve refletir a personalidade do "especialista que fala como gente".
         """
