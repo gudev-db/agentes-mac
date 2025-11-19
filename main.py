@@ -4809,16 +4809,16 @@ def revisar_texto_ortografia(texto, agente, segmentos_selecionados, revisao_esti
     contexto_agente = "CONTEXTO DO AGENTE PARA REVISÃO:\n\n"
     
     if "system_prompt" in segmentos_selecionados and "system_prompt" in agente:
-        contexto_agente += f"DIRETRIZES PRINCIPAIS:\n{agente['system_prompt']}\n\n"
+        contexto_agente += f"DIRETRIZES PRINCIPAIS:\\n\n"
     
     if "base_conhecimento" in segmentos_selecionados and "base_conhecimento" in agente:
-        contexto_agente += f"BASE DE CONHECIMENTO:\n{agente['base_conhecimento']}\n\n"
+        contexto_agente += f"BASE DE CONHECIMENTO:\\n\n"
     
     if "comments" in segmentos_selecionados and "comments" in agente:
-        contexto_agente += f"COMENTÁRIOS E OBSERVAÇÕES:\n{agente['comments']}\n\n"
+        contexto_agente += f"COMENTÁRIOS E OBSERVAÇÕES:\n\n\n"
     
     if "planejamento" in segmentos_selecionados and "planejamento" in agente:
-        contexto_agente += f"PLANEJAMENTO E ESTRATÉGIA:\n{agente['planejamento']}\n\n"
+        contexto_agente += f"PLANEJAMENTO E ESTRATÉGIA:\n\n\n"
     
     # Construir instruções baseadas nas configurações
     instrucoes_revisao = ""
@@ -4864,11 +4864,7 @@ def revisar_texto_ortografia(texto, agente, segmentos_selecionados, revisao_esti
     2. **REVISÃO DE ESTILO E CLAREZA:**
        {instrucoes_revisao}
     
-    3. **CONFORMIDADE COM AS DIRETRIZES:**
-       - Alinhe o texto ao tom e estilo definidos
-       - Mantenha consistência terminológica
-       - Preserve a estrutura original quando possível
-       - Adapte ao público-alvo definido
+
     
     FORMATO DA RESPOSTA:
     
