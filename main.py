@@ -435,7 +435,7 @@ def criar_agente(nome, system_prompt, base_conhecimento, comments, planejamento,
         "criado_por": get_current_user().get('email', 'unknown'),
         "criado_por_squad": get_current_squad()  # Novo campo
     }
-    result = collection_agentes.insert_one(agente)
+    result = collection_agente.insert_one(agente)
     return result.inserted_id
 
 def listar_agentes():
@@ -854,7 +854,7 @@ FORMATOS SUGERIDOS
 - YouTube: Shorts + Vídeo explicativo
 - Portal Mais Agro: Blog post + Webstories
 
-CONTATOS E OBSERVAÇÕES
+CONTATOS E OBSERVAÇões
 - Validar com especialista técnico
 - Checar disponibilidade de imagens/vídeos
 - Incluir CTA para portal Mais Agro
@@ -4756,7 +4756,7 @@ Gere o conteúdo em formato {formato} com aproximadamente {palavras} palavras.""
                                 "data_criacao": datetime.datetime.now()
                             }
                             db_briefings['historico_geracao'].insert_one(historico_data)
-                            st.success("✅ Conteúdo salvo no histórico!")
+                            st.success("✅ Conteúdo salva no histórico!")
                         except Exception as e:
                             st.warning(f"Conteúdo gerado, mas não salvo no histórico: {str(e)}")
                     
@@ -5354,7 +5354,6 @@ with tab_mapping["Monitoramento de Redes"]:
             - Evita exageros e promessas vazias
             - Sempre embasado em fatos e ciência
             - Frases curtas e diretas, mais simpáticas
-            - Responda em algumas (2-3) frases curtas. Não fale demais
             - Toque de leveza e ironia pontual quando o contexto permite
 
             DIRETRIZES:
