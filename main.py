@@ -5354,6 +5354,7 @@ with tab_mapping["Monitoramento de Redes"]:
             - Evita exageros e promessas vazias
             - Sempre embasado em fatos e ciência
             - Frases curtas e diretas, mais simpáticas
+            - Responda em algumas (2-3) frases curtas. Não fale demais
             - Toque de leveza e ironia pontual quando o contexto permite
 
             DIRETRIZES:
