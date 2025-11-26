@@ -97,6 +97,42 @@ def criar_prompt_validacao_preciso(texto, nome_arquivo, contexto_agente):
 """
     return prompt
 
+
+# --- FUNÇÃO PARA ESCOLHER ENTRE GEMINI E CLAUDE ---
+def gerar_resposta_modelo(prompt: str, modelo_escolhido: str = "Gemini", contexto_agente: str = None) -> str:
+    """
+    Gera resposta usando Gemini ou Claude baseado na escolha do usuário
+    """
+    try:
+        if modelo_escolhido == "Gemini" and modelo_texto:
+            if contexto_agente:
+                prompt_completo = f"{contexto_agente}\n\n{prompt}"
+            else:
+                prompt_completo = prompt
+            
+            resposta = modelo_texto.generate_content(prompt_completo)
+            return resposta.text
+            
+        elif modelo_escolhido == "Claude" and anthropic_client:
+            if contexto_agente:
+                system_prompt = contexto_agente
+            else:
+                system_prompt = "Você é um assistente útil."
+            
+            message = anthropic_client.messages.create(
+                max_tokens=4000,
+                messages=[{"role": "user", "content": prompt}],
+                model="claude-3-5-sonnet-20241022",
+                system=system_prompt
+            )
+            return message.content[0].text
+            
+        else:
+            return f"❌ Modelo {modelo_escolhido} não disponível. Verifique as configurações da API."
+            
+    except Exception as e:
+        return f"❌ Erro ao gerar resposta com {modelo_escolhido}: {str(e)}"
+
 def analisar_documento_por_slides(doc, contexto_agente):
     """Analisa documento slide por slide com alta precisão"""
     
