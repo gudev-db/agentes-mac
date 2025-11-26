@@ -122,7 +122,7 @@ def gerar_resposta_modelo(prompt: str, modelo_escolhido: str = "Gemini", context
             message = anthropic_client.messages.create(
                 max_tokens=4000,
                 messages=[{"role": "user", "content": prompt}],
-                model="claude-3-5-sonnet-20241022",
+                model="claude-haiku-4-5-20251001",
                 system=system_prompt
             )
             return message.content[0].text
