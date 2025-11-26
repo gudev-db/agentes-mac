@@ -4886,27 +4886,25 @@ Gere o conteúdo em formato {formato} com aproximadamente {palavras} palavras.""
 
 
 # --- FUNÇÕES DE REVISÃO ORTOGRÁFICA ---
-
-def revisar_texto_ortografia(texto, agente, segmentos_selecionados, revisao_estilo=True, manter_estrutura=True, explicar_alteracoes=True):
+def revisar_texto_ortografia(texto, agente, segmentos_selecionados, revisao_estilo=True, manter_estrutura=True, explicar_alteracoes=True, modelo_escolhido="Gemini"):
     """
     Realiza revisão ortográfica e gramatical do texto considerando as diretrizes do agente
-    usando a API do Gemini
     """
     
     # Construir o contexto do agente
     contexto_agente = "CONTEXTO DO AGENTE PARA REVISÃO:\n\n"
     
-    if "system_prompt" in segmentos_selecionados and "system_prompt" in agente:
-        contexto_agente += f"DIRETRIZES PRINCIPAIS:\\n\n"
+    if "system_prompt" in segmentos_selecionados and agente.get('system_prompt'):
+        contexto_agente += f"DIRETRIZES PRINCIPAIS:\n{agente['system_prompt']}\n\n"
     
-    if "base_conhecimento" in segmentos_selecionados and "base_conhecimento" in agente:
-        contexto_agente += f"BASE DE CONHECIMENTO:\\n\n"
+    if "base_conhecimento" in segmentos_selecionados and agente.get('base_conhecimento'):
+        contexto_agente += f"BASE DE CONHECIMENTO:\n{agente['base_conhecimento']}\n\n"
     
-    if "comments" in segmentos_selecionados and "comments" in agente:
-        contexto_agente += f"COMENTÁRIOS E OBSERVAÇÕES:\n\n\n"
+    if "comments" in segmentos_selecionados and agente.get('comments'):
+        contexto_agente += f"COMENTÁRIOS E OBSERVAÇÕES:\n{agente['comments']}\n\n"
     
-    if "planejamento" in segmentos_selecionados and "planejamento" in agente:
-        contexto_agente += f"PLANEJAMENTO E ESTRATÉGIA:\n\n\n"
+    if "planejamento" in segmentos_selecionados and agente.get('planejamento'):
+        contexto_agente += f"PLANEJAMENTO E ESTRATÉGIA:\n{agente['planejamento']}\n\n"
     
     # Construir instruções baseadas nas configurações
     instrucoes_revisao = ""
@@ -4952,8 +4950,6 @@ def revisar_texto_ortografia(texto, agente, segmentos_selecionados, revisao_esti
     2. **REVISÃO DE ESTILO E CLAREZA:**
        {instrucoes_revisao}
     
-
-    
     FORMATO DA RESPOSTA:
     
     ## 📋 TEXTO REVISADO
@@ -4962,6 +4958,8 @@ def revisar_texto_ortografia(texto, agente, segmentos_selecionados, revisao_esti
     ## 🔍 PRINCIPAIS ALTERAÇÕES REALIZADAS
     [Lista das principais correções realizadas com justificativa]
     
+    ## 📊 RESUMO DA REVISÃO
+    [Resumo dos problemas encontrados e melhorias aplicadas]
     
     **IMPORTANTE:**
     - Seja detalhado e preciso nas explicações
@@ -4970,18 +4968,13 @@ def revisar_texto_ortografia(texto, agente, segmentos_selecionados, revisao_esti
     """
     
     try:
-        # Chamar a API do Gemini
-        response = modelo_texto.generate_content(prompt_revisao)
-        
-        if response and response.text:
-            return response.text
-        else:
-            return "❌ Erro: Não foi possível gerar a revisão. Tente novamente."
+        resposta = gerar_resposta_modelo(prompt_revisao, modelo_escolhido)
+        return resposta
         
     except Exception as e:
         return f"❌ Erro durante a revisão: {str(e)}"
 
-def revisar_documento_por_slides(doc, agente, segmentos_selecionados, revisao_estilo=True, explicar_alteracoes=True):
+def revisar_documento_por_slides(doc, agente, segmentos_selecionados, revisao_estilo=True, explicar_alteracoes=True, modelo_escolhido="Gemini"):
     """Revisa documento slide por slide com análise detalhada"""
     
     resultados = []
@@ -4992,13 +4985,14 @@ def revisar_documento_por_slides(doc, agente, segmentos_selecionados, revisao_es
                 # Construir contexto do agente para este slide
                 contexto_agente = "CONTEXTO DO AGENTE PARA REVISÃO:\n\n"
                 
-                if "system_prompt" in segmentos_selecionados and "system_prompt" in agente:
+                if "system_prompt" in segmentos_selecionados and agente.get('system_prompt'):
                     contexto_agente += f"DIRETRIZES PRINCIPAIS:\n{agente['system_prompt']}\n\n"
                 
-                if "base_conhecimento" in segmentos_selecionados and "base_conhecimento" in agente:
+                if "base_conhecimento" in segmentos_selecionados and agente.get('base_conhecimento'):
                     contexto_agente += f"BASE DE CONHECIMENTO:\n{agente['base_conhecimento']}\n\n"
                 
                 prompt_slide = f"""
+{contexto_agente}
 
 ## REVISÃO ORTOGRÁFICA - SLIDE {i+1}
 
@@ -5024,11 +5018,11 @@ def revisar_documento_por_slides(doc, agente, segmentos_selecionados, revisao_es
 [✔️ Sem erros / ⚠️ Pequenos ajustes / ❌ Correções necessárias]
 """
                 
-                resposta = modelo_texto.generate_content(prompt_slide)
+                resposta = gerar_resposta_modelo(prompt_slide, modelo_escolhido)
                 resultados.append({
                     'slide_num': i+1,
-                    'analise': resposta.text,
-                    'tem_alteracoes': '❌' in resposta.text or '⚠️' in resposta.text or 'Correções' in resposta.text
+                    'analise': resposta,
+                    'tem_alteracoes': '❌' in resposta or '⚠️' in resposta or 'Correções' in resposta
                 })
                 
             except Exception as e:
@@ -5041,7 +5035,8 @@ def revisar_documento_por_slides(doc, agente, segmentos_selecionados, revisao_es
     # Construir relatório consolidado
     relatorio = f"# 📊 RELATÓRIO DE REVISÃO ORTOGRÁFICA - {doc['nome']}\n\n"
     relatorio += f"**Total de Slides:** {len(doc['slides'])}\n"
-    relatorio += f"**Slides com Correções:** {sum(1 for r in resultados if r['tem_alteracoes'])}\n\n"
+    relatorio += f"**Slides com Correções:** {sum(1 for r in resultados if r['tem_alteracoes'])}\n"
+    relatorio += f"**Modelo Utilizado:** {modelo_escolhido}\n\n"
     
     # Slides que precisam de atenção
     slides_com_correcoes = [r for r in resultados if r['tem_alteracoes']]
@@ -5080,6 +5075,14 @@ def revisar_documento_por_slides(doc, agente, segmentos_selecionados, revisao_es
 with tab_mapping["📝 Revisão Ortográfica"]:
     st.header("📝 Revisão Ortográfica e Gramatical")
     
+    # Seletor de modelo para revisão
+    st.sidebar.subheader("🤖 Modelo para Revisão")
+    modelo_revisao = st.sidebar.selectbox(
+        "Escolha o modelo:",
+        ["Gemini", "Claude"],
+        key="modelo_revisao_selector"
+    )
+    
     if not st.session_state.agente_selecionado:
         st.info("Selecione um agente primeiro na aba de Chat")
     else:
@@ -5093,7 +5096,7 @@ with tab_mapping["📝 Revisão Ortográfica"]:
         segmentos_revisao = st.sidebar.multiselect(
             "Bases para revisão:",
             options=["system_prompt", "base_conhecimento", "comments", "planejamento"],
-            default=st.session_state.segmentos_selecionados,
+            default=st.session_state.get('segmentos_selecionados', []),
             key="revisao_segmentos"
         )
         
@@ -5167,7 +5170,8 @@ with tab_mapping["📝 Revisão Ortográfica"]:
                                     segmentos_selecionados=segmentos_revisao,
                                     revisao_estilo=revisao_estilo,
                                     manter_estrutura=manter_estrutura,
-                                    explicar_alteracoes=explicar_alteracoes
+                                    explicar_alteracoes=explicar_alteracoes,
+                                    modelo_escolhido=modelo_revisao
                                 )
                                 
                                 st.markdown(resultado)
@@ -5298,7 +5302,8 @@ with tab_mapping["📝 Revisão Ortográfica"]:
                                             agente,
                                             segmentos_revisao,
                                             revisao_estilo_arquivos,
-                                            explicar_alteracoes_arquivos
+                                            explicar_alteracoes_arquivos,
+                                            modelo_revisao
                                         )
                                     else:
                                         # Revisão geral do documento
@@ -5308,7 +5313,8 @@ with tab_mapping["📝 Revisão Ortográfica"]:
                                             segmentos_selecionados=segmentos_revisao,
                                             revisao_estilo=revisao_estilo_arquivos,
                                             manter_estrutura=True,
-                                            explicar_alteracoes=explicar_alteracoes_arquivos
+                                            explicar_alteracoes=explicar_alteracoes_arquivos,
+                                            modelo_escolhido=modelo_revisao
                                         )
                                     
                                     resultados_completos.append({
@@ -5343,6 +5349,7 @@ with tab_mapping["📝 Revisão Ortográfica"]:
                         relatorio_consolidado = f"# RELATÓRIO DE REVISÃO ORTOGRÁFICA\n\n"
                         relatorio_consolidado += f"**Data:** {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}\n"
                         relatorio_consolidado += f"**Agente:** {agente['nome']}\n"
+                        relatorio_consolidado += f"**Modelo Utilizado:** {modelo_revisao}\n"
                         relatorio_consolidado += f"**Total de Arquivos:** {len(resultados_completos)}\n\n"
                         
                         for resultado in resultados_completos:
@@ -5406,6 +5413,18 @@ with tab_mapping["📝 Revisão Ortográfica"]:
             - Clareza na comunicação
             - Eliminação de vícios de linguagem
             
+            ### 🤖 Modelos Disponíveis
+            
+            **Gemini:**
+            - Análise rápida e eficiente
+            - Boa compreensão de contexto
+            - Ideal para textos técnicos
+            
+            **Claude:**
+            - Análise mais detalhada e contextual
+            - Melhor compreensão de nuances
+            - Excelente para textos criativos
+            
             ### 💡 Dicas para Melhor Revisão
             
             1. **Texto Completo**: Cole o texto integral para análise detalhada
@@ -5420,7 +5439,6 @@ with tab_mapping["📝 Revisão Ortográfica"]:
             - **Otimização de Conteúdo**: Melhora a clareza e impacto da comunicação
             - **Eficiência**: Reduz tempo de revisão manual
             """)
-
 with tab_mapping["Monitoramento de Redes"]:
     st.header("🤖 Agente de Monitoramento")
     st.markdown("**Especialista que fala como gente**")
