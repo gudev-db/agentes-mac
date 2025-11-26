@@ -994,9 +994,29 @@ with tab_mapping["💬 Chat"]:
         st.session_state.segmentos_selecionados = []
     if 'show_historico' not in st.session_state:
         st.session_state.show_historico = False
+    if 'modelo_chat' not in st.session_state:
+        st.session_state.modelo_chat = "Gemini"
     
     agente = st.session_state.agente_selecionado
     st.subheader(f"Conversando com: {agente['nome']}")
+    
+    # Seletor de modelo na sidebar do chat
+    st.sidebar.subheader("🤖 Configurações do Modelo")
+    modelo_chat = st.sidebar.selectbox(
+        "Escolha o modelo:",
+        ["Gemini", "Claude"],
+        key="modelo_chat_selector",
+        index=0 if st.session_state.modelo_chat == "Gemini" else 1
+    )
+    st.session_state.modelo_chat = modelo_chat
+    
+    # Status dos modelos
+    if modelo_chat == "Gemini" and not gemini_api_key:
+        st.sidebar.error("❌ Gemini não disponível")
+    elif modelo_chat == "Claude" and not anthropic_api_key:
+        st.sidebar.error("❌ Claude não disponível")
+    else:
+        st.sidebar.success(f"✅ {modelo_chat} ativo")
     
     # Controles de navegação no topo
     col1, col2, col3 = st.columns([1, 1, 1])
@@ -1132,11 +1152,15 @@ with tab_mapping["💬 Chat"]:
         with st.chat_message("assistant"):
             with st.spinner('Pensando...'):
                 try:
-                    resposta = modelo_texto.generate_content(contexto)
-                    st.markdown(resposta.text)
+                    resposta = gerar_resposta_modelo(
+                        contexto, 
+                        st.session_state.modelo_chat,
+                        contexto
+                    )
+                    st.markdown(resposta)
                     
                     # Adicionar ao histórico
-                    st.session_state.messages.append({"role": "assistant", "content": resposta.text})
+                    st.session_state.messages.append({"role": "assistant", "content": resposta})
                     
                     # Salvar conversa com segmentos utilizados
                     salvar_conversa(
