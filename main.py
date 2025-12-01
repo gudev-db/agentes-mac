@@ -1858,7 +1858,6 @@ def criar_analisadores_especialistas(contexto_agente, contexto_global):
         'ortografia': {
             'nome': '🔤 Especialista em Ortografia e Gramática',
             'prompt': f"""
-{contexto_agente}
 {contexto_global}
 
 ## FUNÇÃO: ESPECIALISTA EM ORTOGRAFIA E GRAMÁTICA PORTUGUÊS BR
@@ -2802,7 +2801,6 @@ def criar_analisadores_texto(contexto_agente, contexto_global):
         'ortografia': {
             'nome': '🔤 Especialista em Ortografia e Gramática',
             'prompt': f"""
-{contexto_agente}
 {contexto_global}
 
 ## FUNÇÃO: ESPECIALISTA EM ORTOGRAFIA E GRAMÁTICA PORTUGUÊS BR
@@ -4895,16 +4893,16 @@ def revisar_texto_ortografia(texto, agente, segmentos_selecionados, revisao_esti
     contexto_agente = "CONTEXTO DO AGENTE PARA REVISÃO:\n\n"
     
     if "system_prompt" in segmentos_selecionados and agente.get('system_prompt'):
-        contexto_agente += f"DIRETRIZES PRINCIPAIS:\n{agente['system_prompt']}\n\n"
+        contexto_agente += f"DIRETRIZES PRINCIPAIS:\n\n"
     
     if "base_conhecimento" in segmentos_selecionados and agente.get('base_conhecimento'):
-        contexto_agente += f"BASE DE CONHECIMENTO:\n{agente['base_conhecimento']}\n\n"
+        contexto_agente += f"BASE DE CONHECIMENTO:\n\n\n"
     
     if "comments" in segmentos_selecionados and agente.get('comments'):
-        contexto_agente += f"COMENTÁRIOS E OBSERVAÇÕES:\n{agente['comments']}\n\n"
+        contexto_agente += f"COMENTÁRIOS E OBSERVAÇÕES:\n\n\n"
     
     if "planejamento" in segmentos_selecionados and agente.get('planejamento'):
-        contexto_agente += f"PLANEJAMENTO E ESTRATÉGIA:\n{agente['planejamento']}\n\n"
+        contexto_agente += f"PLANEJAMENTO E ESTRATÉGIA:\n\n\n"
     
     # Construir instruções baseadas nas configurações
     instrucoes_revisao = ""
@@ -4933,7 +4931,6 @@ def revisar_texto_ortografia(texto, agente, segmentos_selecionados, revisao_esti
     
     # Construir o prompt para revisão
     prompt_revisao = f"""
-    {contexto_agente}
     
     TEXTO PARA REVISÃO:
     {texto}
@@ -4962,7 +4959,7 @@ def revisar_texto_ortografia(texto, agente, segmentos_selecionados, revisao_esti
     [Resumo dos problemas encontrados e melhorias aplicadas]
     
     **IMPORTANTE:**
-    - Seja detalhado e preciso nas explicações
+    - Seja preciso nas explicações
     - Mantenha o formato markdown para fácil leitura
     - Foque nas correções ortográficas e gramaticais
     """
