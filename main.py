@@ -499,7 +499,7 @@ def criar_agente(nome, system_prompt, base_conhecimento, comments, planejamento,
         "criado_por": get_current_user().get('email', 'unknown'),
         "criado_por_squad": get_current_squad()  # Novo campo
     }
-    result = collection_agente.insert_one(agente)
+    result = collection_agentes.insert_one(agente)
     return result.inserted_id
 
 def listar_agentes():
