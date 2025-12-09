@@ -3332,6 +3332,7 @@ def adicionar_comentarios_pdf(arquivo_pdf_original, comentarios, nome_documento)
         st.error(f"❌ Erro ao adicionar comentários ao PDF: {str(e)}")
         return None
 
+
 def criar_relatorio_comentarios(comentarios, nome_documento, contexto_analise):
     """Cria um relatório de comentários em formato de texto"""
     relatorio = f"""
@@ -3364,7 +3365,70 @@ def criar_relatorio_comentarios(comentarios, nome_documento, contexto_analise):
 """
     
     return relatorio
+def gerar_relatorio_texto_imagem_consolidado(resultados):
+    """Gera relatório consolidado no formato específico para texto em imagem"""
+    
+    relatorio = f"""
+# 📝 RELATÓRIO DE VALIDAÇÃO DE TEXTO EM IMAGEM
 
+**Data da Análise:** {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}
+**Total de Imagens Analisadas:** {len(resultados)}
+
+## 📋 ANÁLISE INDIVIDUAL POR ARTE
+"""
+    
+    for resultado in resultados:
+        relatorio += f"\n{resultado['analise']}\n"
+    
+    # Resumo final em formato de tabela
+    relatorio += "\n\n## 📌 RESUMO FINAL\n"
+    relatorio += "Arte\tErros encontrados?\tObservações\n"
+    relatorio += "---\t---\t---\n"
+    
+    for resultado in resultados:
+        status_text = {
+            "Correto": "❌ Não",
+            "Ajustes sugeridos": "⚠️ Sugestões apenas",
+            "Com erros": "✅ Sim",
+            "Erro": "❌ Erro na análise"
+        }.get(resultado['status'], "❓ Desconhecido")
+        
+        relatorio += f"Arte {resultado['indice']}\t{status_text}\t{resultado['status']}\n"
+    
+    relatorio += f"""
+    
+**🔍 LEGENDA:**
+✅ = Correto
+⚠️ = Ajustes sugeridos (não são erros, apenas melhorias)
+❌ = Sem erros
+❌ = Erro na análise (problema técnico)
+
+---
+Relatório gerado automaticamente pelo Sistema de Validação de Texto em Imagem
+"""
+    
+    return relatorio
+
+def criar_relatorio_texto_imagem_resumido(resultados):
+    """Cria relatório resumido apenas com informações essenciais"""
+    
+    relatorio = f"""
+RESUMO DE VALIDAÇÃO DE TEXTO EM IMAGEM
+Data: {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}
+Total: {len(resultados)} imagem(ns)
+
+RESULTADOS:
+"""
+    
+    for resultado in resultados:
+        relatorio += f"\nArte {resultado['indice']}: {resultado['status']}"
+        if resultado['status'] == "Com erros":
+            relatorio += " - REVISÃO NECESSÁRIA"
+        elif resultado['status'] == "Ajustes sugeridos":
+            relatorio += " - MELHORIAS SUGERIDAS"
+    
+    return relatorio
+    
 with tab_mapping["✅ Validação Unificada"]:
     st.header("✅ Validação Unificada de Conteúdo")
     
