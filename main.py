@@ -3440,15 +3440,7 @@ with tab_mapping["✅ Validação Unificada"]:
         # --- SUBTAB: VALIDAÇÃO DE TEXTO EM IMAGEM ---
         with subtab_texto_imagem:
             st.subheader("📝 Validação de Texto em Imagem")
-            st.markdown("""
-            **🔍 Funcionalidade:** Analisa exclusivamente o **texto presente em imagens** e valida ortografia, gramática, clareza e adequação ao contexto.
             
-            **🎯 Ideal para:**
-            - Artes para redes sociais
-            - Posts de Instagram/Facebook
-            - Banners e materiais gráficos
-            - Cards informativos
-            """)
             
             # Upload de múltiplas imagens
             st.markdown("### 📤 Upload de Imagens com Texto")
@@ -3501,11 +3493,9 @@ with tab_mapping["✅ Validação Unificada"]:
                                 ## ANÁLISE DE TEXTO EM IMAGEM
                                 
                                 **INSTRUÇÕES:**
-                                1. Extraia TODO o texto visível na imagem
-                                2. Analise EXCLUSIVAMENTE o texto extraído
-                                3. Foque em: ortografia, gramática, clareza e adequação
-                                4. Seja objetivo e específico nas correções
-                                5. Use emojis para indicar o status
+                                1. Transcreva e analise TODO o texto visível na imagem
+                                2. Foque em: ortografia, gramática, clareza e adequação
+                                3. Use emojis para indicar o status
                                 
                                 **FORMATO DE RESPOSTA OBRIGATÓRIO:**
                                 
