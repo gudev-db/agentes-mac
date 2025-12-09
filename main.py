@@ -48,7 +48,7 @@ else:
 gemini_api_key = os.getenv("GEM_API_KEY")
 if gemini_api_key:
     genai.configure(api_key=gemini_api_key)
-    modelo_vision = genai.GenerativeModel("gemini-2.5-flash", generation_config={"temperature": 0.1})
+    modelo_vision = genai.GenerativeModel("gemini-2.5-pro", generation_config={"temperature": 0.0})
     modelo_texto = genai.GenerativeModel("gemini-2.5-flash")
 else:
     st.error("GEM_API_KEY não encontrada nas variáveis de ambiente")
