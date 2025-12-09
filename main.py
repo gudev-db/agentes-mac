@@ -3365,7 +3365,6 @@ def criar_relatorio_comentarios(comentarios, nome_documento, contexto_analise):
     
     return relatorio
 
-# --- MODIFICAÇÃO DA ABA: VALIDAÇÃO UNIFICADA ---
 with tab_mapping["✅ Validação Unificada"]:
     st.header("✅ Validação Unificada de Conteúdo")
     
@@ -3386,8 +3385,269 @@ with tab_mapping["✅ Validação Unificada"]:
             placeholder="Forneça contexto adicional que será aplicado a TODAS as análises (texto, documentos, imagens e vídeos)..."
         )
         
-        # Subabas para diferentes tipos de validação
-        subtab_imagem, subtab_texto, subtab_video = st.tabs(["🖼️ Validação de Imagem", "📄 Validação de Documentos", "🎬 Validação de Vídeo"])
+        # Subabas para diferentes tipos de validação - AGORA COM VALIDAÇÃO DE TEXTO EM IMAGEM
+        subtab_imagem, subtab_texto, subtab_video, subtab_texto_imagem = st.tabs(
+            ["🖼️ Validação de Imagem", "📄 Validação de Documentos", "🎬 Validação de Vídeo", "📝 Validação de Texto em Imagem"]
+        )
+        
+        with subtab_texto_imagem:
+            st.subheader("📝 Validação de Texto em Imagem")
+            st.markdown("""
+            **🔍 Funcionalidade:** Analisa exclusivamente o **texto presente em imagens** e valida ortografia, gramática, clareza e adequação ao contexto.
+            
+            **🎯 Ideal para:**
+            - Artes para redes sociais
+            - Posts de Instagram/Facebook
+            - Banners e materiais gráficos
+            - Cards informativos
+            """)
+            
+            # Configurações específicas para validação de texto em imagem
+            with st.expander("⚙️ Configurações da Validação de Texto", expanded=True):
+                col_config1, col_config2 = st.columns(2)
+                
+                with col_config1:
+                    analisar_ortografia = st.checkbox(
+                        "Validar ortografia e gramática",
+                        value=True,
+                        help="Verifica erros de português, acentuação e concordância"
+                    )
+                    
+                    verificar_clareza = st.checkbox(
+                        "Analisar clareza do texto",
+                        value=True,
+                        help="Verifica se o texto é compreensível e direto"
+                    )
+                    
+                with col_config2:
+                    sugerir_melhorias = st.checkbox(
+                        "Sugerir melhorias de estilo",
+                        value=True,
+                        help="Oferece sugestões para melhorar a fluidez e impacto"
+                    )
+                    
+                    formato_saida = st.selectbox(
+                        "Formato do relatório:",
+                        ["Detalhado (com explicações)", "Resumido (apenas correções)"],
+                        help="Escolha o nível de detalhamento do relatório"
+                    )
+            
+            # Upload de múltiplas imagens
+            st.markdown("### 📤 Upload de Imagens com Texto")
+            
+            uploaded_images_texto = st.file_uploader(
+                "Carregue uma ou mais imagens para análise de texto",
+                type=["jpg", "jpeg", "png", "webp", "gif", "bmp"],
+                accept_multiple_files=True,
+                key="image_text_upload",
+                help="Arquivos de imagem contendo texto para validação"
+            )
+            
+            # Botão para limpar análises anteriores
+            if st.button("🗑️ Limpar Análises Anteriores", key="limpar_texto_imagem"):
+                if 'resultados_texto_imagem' in st.session_state:
+                    del st.session_state.resultados_texto_imagem
+                st.rerun()
+            
+            if uploaded_images_texto:
+                st.success(f"✅ {len(uploaded_images_texto)} imagem(ns) carregada(s) para análise de texto")
+                
+                # Exibir miniaturas das imagens
+                st.markdown("### 🖼️ Imagens Carregadas")
+                cols = st.columns(min(4, len(uploaded_images_texto)))
+                
+                for idx, img in enumerate(uploaded_images_texto):
+                    with cols[idx % 4]:
+                        # Abrir imagem para mostrar miniatura
+                        image = Image.open(img)
+                        st.image(image, use_container_width=True, caption=f"Arte {idx+1}")
+                        st.caption(f"📏 {image.width}x{image.height}px")
+                
+                # Botão para iniciar análise
+                if st.button("🔍 Validar Texto em Todas as Imagens", type="primary", key="validar_texto_imagens"):
+                    
+                    resultados = []
+                    progress_bar = st.progress(0)
+                    status_text = st.empty()
+                    
+                    for idx, uploaded_image in enumerate(uploaded_images_texto):
+                        status_text.text(f"📊 Analisando texto na imagem {idx+1} de {len(uploaded_images_texto)}...")
+                        progress_bar.progress((idx + 1) / len(uploaded_images_texto))
+                        
+                        with st.spinner(f'Processando "Arte {idx+1}"...'):
+                            try:
+                                # Criar prompt específico para análise de texto em imagem
+                                prompt_texto_imagem = f"""
+                                {contexto_global if contexto_global else ''}
+                                
+                                ## ANÁLISE DE TEXTO EM IMAGEM
+                                
+                                **INSTRUÇÕES:**
+                                1. Extraia TODO o texto visível na imagem
+                                2. Analise EXCLUSIVAMENTE o texto extraído
+                                3. Foque em: ortografia, gramática, clareza e adequação
+                                4. Seja objetivo e específico nas correções
+                                5. Use emojis para indicar o status
+                                
+                                **FORMATO DE RESPOSTA OBRIGATÓRIO:**
+                                
+                                ## Arte {idx+1} – [Título do texto extraído ou descrição da imagem]
+                                
+                                **Texto:**
+                                “[Texto extraído da imagem]”
+                                
+                                **Correções:**
+                                [✅/⚠️/❌] [Descrição da análise]
+                                
+                                🔍 [Observação opcional: sugestões de estilo ou melhoria]
+                                
+                                ---
+                                """
+                                
+                                # Usar modelo de visão para análise
+                                response = modelo_vision.generate_content([
+                                    prompt_texto_imagem,
+                                    {"mime_type": uploaded_image.type, "data": uploaded_image.getvalue()}
+                                ])
+                                
+                                # Processar resposta
+                                analise = response.text
+                                
+                                # Determinar status baseado na resposta
+                                if "❌" in analise:
+                                    status = "Com erros"
+                                elif "⚠️" in analise:
+                                    status = "Ajustes sugeridos"
+                                else:
+                                    status = "Correto"
+                                
+                                resultados.append({
+                                    'indice': idx + 1,
+                                    'nome': uploaded_image.name,
+                                    'analise': analise,
+                                    'status': status,
+                                    'imagem': uploaded_image
+                                })
+                                
+                            except Exception as e:
+                                st.error(f"❌ Erro ao processar imagem {uploaded_image.name}: {str(e)}")
+                                resultados.append({
+                                    'indice': idx + 1,
+                                    'nome': uploaded_image.name,
+                                    'analise': f"❌ Erro na análise: {str(e)}",
+                                    'status': "Erro",
+                                    'imagem': uploaded_image
+                                })
+                    
+                    progress_bar.empty()
+                    status_text.empty()
+                    
+                    # Armazenar resultados na sessão
+                    st.session_state.resultados_texto_imagem = resultados
+                    
+                    # Gerar relatório consolidado
+                    relatorio_consolidado = gerar_relatorio_texto_imagem_consolidado(resultados)
+                    
+                    # Exibir resultados
+                    st.markdown("---")
+                    st.subheader("📋 Relatório de Validação de Texto em Imagens")
+                    
+                    # Exibir análises individuais
+                    for resultado in resultados:
+                        with st.expander(f"🖼️ Arte {resultado['indice']} - {resultado['status']}", expanded=True):
+                            col_img, col_text = st.columns([1, 2])
+                            
+                            with col_img:
+                                image = Image.open(resultado['imagem'])
+                                st.image(image, use_container_width=True, caption=f"Arte {resultado['indice']}")
+                            
+                            with col_text:
+                                st.markdown(resultado['analise'])
+                    
+                    # Exibir resumo final
+                    st.markdown("---")
+                    st.subheader("📌 Resumo Final")
+                    
+                    # Criar tabela de resumo
+                    resumo_data = []
+                    for resultado in resultados:
+                        emoji = {
+                            "Correto": "✅",
+                            "Ajustes sugeridos": "⚠️", 
+                            "Com erros": "❌",
+                            "Erro": "❌"
+                        }.get(resultado['status'], "❓")
+                        
+                        resumo_data.append({
+                            "Arte": resultado['indice'],
+                            "Status": emoji,
+                            "Erros encontrados?": "❌ Não" if resultado['status'] == "Correto" else "✅ Sim" if resultado['status'] == "Com erros" else "⚠️ Sugestões",
+                            "Observações": resultado['status']
+                        })
+                    
+                    # Mostrar tabela
+                    import pandas as pd
+                    df_resumo = pd.DataFrame(resumo_data)
+                    st.table(df_resumo)
+                    
+                    # Botões de download
+                    col_dl1, col_dl2 = st.columns(2)
+                    
+                    with col_dl1:
+                        st.download_button(
+                            "📥 Baixar Relatório Detalhado (TXT)",
+                            data=relatorio_consolidado,
+                            file_name=f"relatorio_texto_imagens_{datetime.datetime.now().strftime('%Y%m%d_%H%M')}.txt",
+                            mime="text/plain",
+                            key="download_relatorio_texto_imagem"
+                        )
+                    
+                    with col_dl2:
+                        # Criar relatório resumido
+                        relatorio_resumido = criar_relatorio_texto_imagem_resumido(resultados)
+                        st.download_button(
+                            "📄 Baixar Relatório Resumido (TXT)",
+                            data=relatorio_resumido,
+                            file_name=f"resumo_texto_imagens_{datetime.datetime.now().strftime('%Y%m%d_%H%M')}.txt",
+                            mime="text/plain",
+                            key="download_resumo_texto_imagem"
+                        )
+            
+            # Mostrar análises anteriores se existirem
+            elif 'resultados_texto_imagem' in st.session_state and st.session_state.resultados_texto_imagem:
+                st.info("📋 Análises anteriores encontradas. Carregue novas imagens para nova análise ou use o botão 'Limpar Análises'.")
+                
+                resultados = st.session_state.resultados_texto_imagem
+                
+                for resultado in resultados:
+                    with st.expander(f"🖼️ Arte {resultado['indice']} - {resultado['status']} (Análise Anterior)", expanded=False):
+                        st.markdown(resultado['analise'])
+            
+            else:
+                # Instruções de uso
+                st.info("""
+                **📋 Como usar a Validação de Texto em Imagem:**
+                
+                1. **Carregue imagens** contendo texto para análise
+                2. **Configure** os parâmetros de validação
+                3. **Clique em "Validar Texto em Todas as Imagens"**
+                4. **Revise** o relatório detalhado
+                5. **Baixe** os resultados para referência
+                
+                **🎯 O que é analisado:**
+                - ✅ Ortografia e acentuação
+                - ✅ Concordância verbal e nominal
+                - ✅ Clareza e compreensão do texto
+                - ✅ Adequação ao contexto (se fornecido)
+                - ✅ Sugestões de melhoria de estilo
+                
+                **📊 Formato do relatório:**
+                - Análise individual por imagem
+                - Texto extraído entre aspas
+                - Correções específicas com emojis
+                - Observações opcionais de estilo
+                - Resumo final em tabela
+                """)
         
         with subtab_texto:
             st.subheader("📄 Validação de Documentos e Texto")
@@ -3956,16 +4216,16 @@ with tab_mapping["✅ Validação Unificada"]:
                                                 [Avaliação geral de conformidade visual e textual]
                                                 
                                                 ### ✅ ELEMENTOS ALINHADOS 
-                                                - [Itens visuais e textuais que seguem as diretrizes]
+                                                [Itens visuais e textuais que seguem as diretrizes]
                                                 
                                                 ### ⚠️ ELEMENTOS FORA DO PADRÃO
-                                                - [Itens visuais e textuais que não seguem as diretrizes]
+                                                [Itens visuais e textuais que não seguem as diretrizes]
                                                 
                                                 ### 💡 RECOMENDAÇÕES
-                                                - [Sugestões para melhorar o alinhamento visual e textual]
+                                                [Sugestões para melhorar o alinhamento visual e textual]
                                                 
                                                 ### 🎨 ASPECTOS TÉCNICOS
-                                                - [Composição, cores, tipografia, etc.]
+                                                [Composição, cores, tipografia, etc.]
                                                 """
                                                 
                                                 # Processar imagem
@@ -4116,7 +4376,7 @@ with tab_mapping["✅ Validação Unificada"]:
                 if contexto_global and contexto_global.strip():
                     st.info(f"**🎯 Contexto Global Aplicado:** {contexto_global}")
                 if contexto_video_especifico and contexto_video_especifico.strip():
-                    st.info(f"**🎯 Contexto Específico para Vídeos:** {contexto_video_especifico}")
+                    st.info(f"**🎯 Contexto Específico Aplicado:** {contexto_video_especifico}")
                 
                 # Exibir informações dos vídeos
                 st.markdown("### 📊 Informações dos Vídeos")
