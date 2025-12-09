@@ -3365,6 +3365,8 @@ def criar_relatorio_comentarios(comentarios, nome_documento, contexto_analise):
 """
     
     return relatorio
+# --- FUNÇÕES PARA VALIDAÇÃO DE TEXTO EM IMAGEM ---
+
 def gerar_relatorio_texto_imagem_consolidado(resultados):
     """Gera relatório consolidado no formato específico para texto em imagem"""
     
@@ -3409,26 +3411,7 @@ Relatório gerado automaticamente pelo Sistema de Validação de Texto em Imagem
     
     return relatorio
 
-def criar_relatorio_texto_imagem_resumido(resultados):
-    """Cria relatório resumido apenas com informações essenciais"""
-    
-    relatorio = f"""
-RESUMO DE VALIDAÇÃO DE TEXTO EM IMAGEM
-Data: {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}
-Total: {len(resultados)} imagem(ns)
-
-RESULTADOS:
-"""
-    
-    for resultado in resultados:
-        relatorio += f"\nArte {resultado['indice']}: {resultado['status']}"
-        if resultado['status'] == "Com erros":
-            relatorio += " - REVISÃO NECESSÁRIA"
-        elif resultado['status'] == "Ajustes sugeridos":
-            relatorio += " - MELHORIAS SUGERIDAS"
-    
-    return relatorio
-    
+# --- ABA: VALIDAÇÃO UNIFICADA (COMPLETA) ---
 with tab_mapping["✅ Validação Unificada"]:
     st.header("✅ Validação Unificada de Conteúdo")
     
@@ -3454,6 +3437,7 @@ with tab_mapping["✅ Validação Unificada"]:
             ["🖼️ Validação de Imagem", "📄 Validação de Documentos", "🎬 Validação de Vídeo", "📝 Validação de Texto em Imagem"]
         )
         
+        # --- SUBTAB: VALIDAÇÃO DE TEXTO EM IMAGEM ---
         with subtab_texto_imagem:
             st.subheader("📝 Validação de Texto em Imagem")
             st.markdown("""
@@ -3465,36 +3449,6 @@ with tab_mapping["✅ Validação Unificada"]:
             - Banners e materiais gráficos
             - Cards informativos
             """)
-            
-            # Configurações específicas para validação de texto em imagem
-            with st.expander("⚙️ Configurações da Validação de Texto", expanded=True):
-                col_config1, col_config2 = st.columns(2)
-                
-                with col_config1:
-                    analisar_ortografia = st.checkbox(
-                        "Validar ortografia e gramática",
-                        value=True,
-                        help="Verifica erros de português, acentuação e concordância"
-                    )
-                    
-                    verificar_clareza = st.checkbox(
-                        "Analisar clareza do texto",
-                        value=True,
-                        help="Verifica se o texto é compreensível e direto"
-                    )
-                    
-                with col_config2:
-                    sugerir_melhorias = st.checkbox(
-                        "Sugerir melhorias de estilo",
-                        value=True,
-                        help="Oferece sugestões para melhorar a fluidez e impacto"
-                    )
-                    
-                    formato_saida = st.selectbox(
-                        "Formato do relatório:",
-                        ["Detalhado (com explicações)", "Resumido (apenas correções)"],
-                        help="Escolha o nível de detalhamento do relatório"
-                    )
             
             # Upload de múltiplas imagens
             st.markdown("### 📤 Upload de Imagens com Texto")
@@ -3558,7 +3512,7 @@ with tab_mapping["✅ Validação Unificada"]:
                                 ## Arte {idx+1} – [Título do texto extraído ou descrição da imagem]
                                 
                                 **Texto:**
-                                “[Texto extraído da imagem]”
+                                "[Texto extraído da imagem]"
                                 
                                 **Correções:**
                                 [✅/⚠️/❌] [Descrição da análise]
@@ -3654,28 +3608,14 @@ with tab_mapping["✅ Validação Unificada"]:
                     df_resumo = pd.DataFrame(resumo_data)
                     st.table(df_resumo)
                     
-                    # Botões de download
-                    col_dl1, col_dl2 = st.columns(2)
-                    
-                    with col_dl1:
-                        st.download_button(
-                            "📥 Baixar Relatório Detalhado (TXT)",
-                            data=relatorio_consolidado,
-                            file_name=f"relatorio_texto_imagens_{datetime.datetime.now().strftime('%Y%m%d_%H%M')}.txt",
-                            mime="text/plain",
-                            key="download_relatorio_texto_imagem"
-                        )
-                    
-                    with col_dl2:
-                        # Criar relatório resumido
-                        relatorio_resumido = criar_relatorio_texto_imagem_resumido(resultados)
-                        st.download_button(
-                            "📄 Baixar Relatório Resumido (TXT)",
-                            data=relatorio_resumido,
-                            file_name=f"resumo_texto_imagens_{datetime.datetime.now().strftime('%Y%m%d_%H%M')}.txt",
-                            mime="text/plain",
-                            key="download_resumo_texto_imagem"
-                        )
+                    # Botão de download
+                    st.download_button(
+                        "📥 Baixar Relatório Completo (TXT)",
+                        data=relatorio_consolidado,
+                        file_name=f"relatorio_texto_imagens_{datetime.datetime.now().strftime('%Y%m%d_%H%M')}.txt",
+                        mime="text/plain",
+                        key="download_relatorio_texto_imagem"
+                    )
             
             # Mostrar análises anteriores se existirem
             elif 'resultados_texto_imagem' in st.session_state and st.session_state.resultados_texto_imagem:
@@ -3693,10 +3633,9 @@ with tab_mapping["✅ Validação Unificada"]:
                 **📋 Como usar a Validação de Texto em Imagem:**
                 
                 1. **Carregue imagens** contendo texto para análise
-                2. **Configure** os parâmetros de validação
-                3. **Clique em "Validar Texto em Todas as Imagens"**
-                4. **Revise** o relatório detalhado
-                5. **Baixe** os resultados para referência
+                2. **Clique em "Validar Texto em Todas as Imagens"**
+                3. **Revise** o relatório detalhado
+                4. **Baixe** os resultados para referência
                 
                 **🎯 O que é analisado:**
                 - ✅ Ortografia e acentuação
@@ -3713,10 +3652,11 @@ with tab_mapping["✅ Validação Unificada"]:
                 - Resumo final em tabela
                 """)
         
+        # --- SUBTAB: VALIDAÇÃO DE DOCUMENTOS E TEXTO ---
         with subtab_texto:
             st.subheader("📄 Validação de Documentos e Texto")
             
-            # NOVO: Configurações de exportação PDF
+            # Configurações de exportação PDF
             with st.expander("📤 Configurações de Exportação PDF", expanded=True):
                 col_export1, col_export2 = st.columns(2)
                 
@@ -4044,7 +3984,7 @@ with tab_mapping["✅ Validação Unificada"]:
                         st.session_state.todos_textos = todos_textos
                         st.session_state.resultados_pdf = resultados_pdf
                         
-                        # NOVA SEÇÃO: DOWNLOADS CONSOLIDADOS
+                        # DOWNLOADS CONSOLIDADOS
                         if resultados_pdf or gerar_relatorio_completo:
                             st.markdown("---")
                             st.subheader("📦 Downloads Consolidados")
@@ -4132,7 +4072,8 @@ with tab_mapping["✅ Validação Unificada"]:
                 
                 else:
                     st.info("Digite texto ou carregue arquivos para validar")
-
+        
+        # --- SUBTAB: VALIDAÇÃO DE IMAGEM ---
         with subtab_imagem:
             st.subheader("🖼️ Validação de Imagem")
             
@@ -4373,7 +4314,8 @@ with tab_mapping["✅ Validação Unificada"]:
             
             else:
                 st.info("📁 Carregue uma ou mais imagens para iniciar a validação de branding")
-
+        
+        # --- SUBTAB: VALIDAÇÃO DE VÍDEO ---
         with subtab_video:
             st.subheader("🎬 Validação de Vídeo")
             
